@@ -6,6 +6,19 @@ import "encoding/json"
 // It provides local socks5/http inbounds and basic CN split routing.
 var DefaultTemplate = []byte(`{
   "log": {"level": "info"},
+  "dns": {
+    "servers": [
+      {"type": "https", "tag": "proxy-dns", "server": "1.1.1.1"},
+      {"type": "hosts", "path": [], "predefined": {}, "tag": "block"},
+      {"type": "local", "tag": "local"}
+    ],
+    "rules": [
+      {"rule_set": "geosite-cn", "server": "local"}
+    ],
+    "final": "local",
+    "strategy": "ipv4_only",
+    "independent_cache": true
+  },
   "inbounds": [
     {
       "type": "tun",
@@ -28,10 +41,33 @@ var DefaultTemplate = []byte(`{
   "outbounds": [],
   "route": {
     "rules": [
-      {"type": "logical", "mode": "or", "rules": [{"geoip": "cn"}, {"geosite": "cn"}], "outbound": "direct"}
+      {"action": "sniff"},
+      {"protocol": "dns", "action": "hijack-dns"},
+      {"clash_mode": "Direct", "outbound": "direct"},
+      {"clash_mode": "Proxy", "outbound": "proxy"},
+      {"rule_set": ["geosite-cn"], "outbound": "direct"},
+      {"ip_is_private": true, "outbound": "direct"},
+      {"rule_set": ["category-ads-all"], "action": "reject"}
+    ],
+    "rule_set": [
+      {
+        "tag": "geosite-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs",
+        "download_detour": "direct"
+      },
+      {
+        "tag": "category-ads-all",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-category-ads-all.srs",
+        "download_detour": "direct"
+      }
     ],
     "final": "proxy",
-    "auto_detect_interface": true
+    "auto_detect_interface": true,
+    "default_domain_resolver": "local"
   }
 }`)
 
