@@ -179,7 +179,7 @@ Wave FINAL (所有任务后 — 4 路并行审查):
 - [x] 1. CRD 类型定义（ProxyNode / ProxyUser / ProxyRoute）
 
   **What to do**:
-  - `kubebuilder init --domain proxy.io --repo github.com/your-org/singbox-operator`
+  - `kubebuilder init --domain proxy.io --repo github.com/shlande/singbox-operator`
   - `kubebuilder create api --group proxy --version v1alpha1 --kind ProxyNode`
   - `kubebuilder create api --group proxy --version v1alpha1 --kind ProxyUser`
   - `kubebuilder create api --group proxy --version v1alpha1 --kind ProxyRoute`

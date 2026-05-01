@@ -4,7 +4,7 @@
 - Kubernetes Operator for sing-box proxy configuration orchestration
 - Three-layer CRD: ProxyNode / ProxyUser / ProxyRoute
 - ConfigEngine computes complete sing-box config.json per node
-- Module: github.com/your-org/singbox-operator
+- Module: github.com/shlande/singbox-operator
 - Domain: proxy.io
 - K8s 1.28+, namespace-scoped
 
@@ -29,7 +29,7 @@
 
 ## [Task 1 Complete] CRD Types
 - kubebuilder version used: v4.14.0
-- go module: github.com/your-org/singbox-operator
+- go module: github.com/shlande/singbox-operator
 - CRD files location: config/crd/bases/
 - DeepCopy generated at: api/v1alpha1/zz_generated.deepcopy.go
 - All 3 CRDs registered in SchemeBuilder

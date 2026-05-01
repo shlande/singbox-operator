@@ -8,8 +8,8 @@ keywords:
   - proxy
   - sing-box
   - operator
-home: https://github.com/your-org/singbox-operator
+home: https://github.com/shlande/singbox-operator
 sources:
-  - https://github.com/your-org/singbox-operator
+  - https://github.com/shlande/singbox-operator
 maintainers:
   - name: singbox-operator maintainers

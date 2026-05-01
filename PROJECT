@@ -7,7 +7,7 @@ domain: proxy.io
 layout:
 - go.kubebuilder.io/v4
 projectName: sing-box-operator-2
-repo: github.com/your-org/singbox-operator
+repo: github.com/shlande/singbox-operator
 resources:
 - api:
     crdVersion: v1
@@ -16,7 +16,7 @@ resources:
   domain: proxy.io
   group: proxy
   kind: ProxyNode
-  path: github.com/your-org/singbox-operator/api/v1alpha1
+  path: github.com/shlande/singbox-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -25,7 +25,7 @@ resources:
   domain: proxy.io
   group: proxy
   kind: ProxyUser
-  path: github.com/your-org/singbox-operator/api/v1alpha1
+  path: github.com/shlande/singbox-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -34,6 +34,6 @@ resources:
   domain: proxy.io
   group: proxy
   kind: ProxyRoute
-  path: github.com/your-org/singbox-operator/api/v1alpha1
+  path: github.com/shlande/singbox-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

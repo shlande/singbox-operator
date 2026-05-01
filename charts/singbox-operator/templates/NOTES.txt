@@ -4,7 +4,7 @@ The sing-box operator is now running in namespace {{ .Release.Namespace }}.
 
 To get started, create your first ProxyNode:
 
-  kubectl apply -f https://raw.githubusercontent.com/your-org/singbox-operator/main/charts/singbox-operator/examples/proxynode-inbound.yaml
+  kubectl apply -f https://raw.githubusercontent.com/shlande/singbox-operator/main/charts/singbox-operator/examples/proxynode-inbound.yaml
 
 For more examples, see the examples/ directory in the chart.
 

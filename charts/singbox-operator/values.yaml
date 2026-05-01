@@ -2,8 +2,8 @@
 
 operator:
   image:
-    repository: ghcr.io/your-org/singbox-operator
-    tag: "latest"
+    repository: ghcr.io/shlande/singbox-operator
+    tag: "v0.0.1-beta.1"
     pullPolicy: IfNotPresent
   replicas: 1
   resources:
