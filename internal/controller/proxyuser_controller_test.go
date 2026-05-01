@@ -18,67 +18,179 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
 )
 
-var _ = Describe("ProxyUser Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+var _ = Describe("ProxyUser Reconciler", func() {
+	const (
+		ns       = "default"
+		timeout  = 10 * time.Second
+		interval = 100 * time.Millisecond
+	)
 
-		ctx := context.Background()
+	var (
+		testCtx    context.Context
+		reconciler *ProxyUserReconciler
+	)
 
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+	BeforeEach(func() {
+		testCtx = context.Background()
+		reconciler = &ProxyUserReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
 		}
-		proxyuser := &proxyv1alpha1.ProxyUser{}
+	})
 
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind ProxyUser")
-			err := k8sClient.Get(ctx, typeNamespacedName, proxyuser)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &proxyv1alpha1.ProxyUser{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
+	It("should update status with matching inbound nodes", func() {
+		nodeName := "pu-test-inbound-1"
+		node := &proxyv1alpha1.ProxyNode{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyNodeSpec{
+				NodeRef: "k8s-node-pu-1",
+				Address: "10.0.0.1",
+				Region:  "pu-test-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 10443},
+				},
+				RelayPort:     10808,
+				RelayProtocol: "socks5",
+			},
+		}
+		Expect(k8sClient.Create(testCtx, node)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(testCtx, node) })
+
+		authSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "pu-test-secret-1", Namespace: ns},
+			Data:       map[string][]byte{"uuid": []byte("test-uuid-1")},
+		}
+		Expect(k8sClient.Create(testCtx, authSecret)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(testCtx, authSecret) })
+
+		userName := "pu-test-user-1"
+		user := &proxyv1alpha1.ProxyUser{
+			ObjectMeta: metav1.ObjectMeta{Name: userName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyUserSpec{
+				Protocol: "vless",
+				AuthSecret: corev1.SecretReference{
+					Name:      "pu-test-secret-1",
+					Namespace: ns,
+				},
+			},
+		}
+		Expect(k8sClient.Create(testCtx, user)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(testCtx, user) })
+
+		_, err := reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: userName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedUser := &proxyv1alpha1.ProxyUser{}
+		Eventually(func() int32 {
+			k8sClient.Get(testCtx, types.NamespacedName{Name: userName, Namespace: ns}, updatedUser)
+			return updatedUser.Status.ActiveNodeCount
+		}, timeout, interval).Should(Equal(int32(1)))
+		Expect(updatedUser.Status.ActiveNodes).To(ContainElement(nodeName))
+	})
+
+	It("should count multiple matching inbound nodes", func() {
+		for i := 1; i <= 2; i++ {
+			nodeName := fmt.Sprintf("pu-multi-node-%d", i)
+			node := &proxyv1alpha1.ProxyNode{
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName, Namespace: ns},
+				Spec: proxyv1alpha1.ProxyNodeSpec{
+					NodeRef: fmt.Sprintf("k8s-node-pu-multi-%d", i),
+					Address: fmt.Sprintf("10.1.0.%d", i),
+					Region:  "pu-multi-region",
+					Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+					SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+						{Protocol: "vless", Port: 10443},
 					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+					RelayPort:     10808,
+					RelayProtocol: "socks5",
+				},
 			}
-		})
+			Expect(k8sClient.Create(testCtx, node)).To(Succeed())
+			DeferCleanup(func() { k8sClient.Delete(testCtx, node) })
+		}
 
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &proxyv1alpha1.ProxyUser{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
+		authSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "pu-multi-secret", Namespace: ns},
+			Data:       map[string][]byte{"uuid": []byte("test-uuid-multi")},
+		}
+		Expect(k8sClient.Create(testCtx, authSecret)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(testCtx, authSecret) })
 
-			By("Cleanup the specific resource instance ProxyUser")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &ProxyUserReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
+		userName := "pu-multi-user"
+		user := &proxyv1alpha1.ProxyUser{
+			ObjectMeta: metav1.ObjectMeta{Name: userName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyUserSpec{
+				Protocol:   "vless",
+				AuthSecret: corev1.SecretReference{Name: "pu-multi-secret", Namespace: ns},
+			},
+		}
+		Expect(k8sClient.Create(testCtx, user)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(testCtx, user) })
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+		_, err := reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: userName, Namespace: ns},
 		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedUser := &proxyv1alpha1.ProxyUser{}
+		Eventually(func() int32 {
+			k8sClient.Get(testCtx, types.NamespacedName{Name: userName, Namespace: ns}, updatedUser)
+			return updatedUser.Status.ActiveNodeCount
+		}, timeout, interval).Should(BeNumerically(">=", int32(2)))
+	})
+
+	It("should set ActiveNodeCount=0 when no nodes support the protocol", func() {
+		authSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "pu-nomatch-secret", Namespace: ns},
+			Data:       map[string][]byte{"password": []byte("test-password")},
+		}
+		Expect(k8sClient.Create(testCtx, authSecret)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(testCtx, authSecret) })
+
+		userName := "pu-nomatch-user"
+		user := &proxyv1alpha1.ProxyUser{
+			ObjectMeta: metav1.ObjectMeta{Name: userName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyUserSpec{
+				Protocol:   "trojan",
+				AuthSecret: corev1.SecretReference{Name: "pu-nomatch-secret", Namespace: ns},
+			},
+		}
+		Expect(k8sClient.Create(testCtx, user)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(testCtx, user) })
+
+		_, err := reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: userName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedUser := &proxyv1alpha1.ProxyUser{}
+		Eventually(func() bool {
+			k8sClient.Get(testCtx, types.NamespacedName{Name: userName, Namespace: ns}, updatedUser)
+			return updatedUser.Status.ObservedGeneration > 0
+		}, timeout, interval).Should(BeTrue())
+		Expect(updatedUser.Status.ActiveNodeCount).To(Equal(int32(0)))
+	})
+
+	It("should handle reconcile of deleted ProxyUser gracefully", func() {
+		_, err := reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "nonexistent-user", Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
