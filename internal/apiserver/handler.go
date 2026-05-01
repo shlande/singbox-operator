@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -145,12 +146,7 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func hasRole(node *proxyv1alpha1.ProxyNode, role proxyv1alpha1.ProxyRole) bool {
-	for _, r := range node.Spec.Roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(node.Spec.Roles, role)
 }
 
 func writeInternalError(w http.ResponseWriter) {
