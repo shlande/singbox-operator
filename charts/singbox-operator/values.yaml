@@ -26,8 +26,12 @@ webhook:
 # cert-manager integration for webhook TLS
 certManager:
   enabled: true
-  # Issuer name (must exist in the namespace)
-  issuerName: "selfsigned-issuer"
+  # If true, a SelfSigned Issuer is created automatically in the release namespace.
+  # Set to false if you already have an Issuer/ClusterIssuer you want to reuse.
+  createIssuer: true
+  # Issuer name. When createIssuer=true this is auto-set to "<fullname>-selfsigned-issuer".
+  # When createIssuer=false, provide the name of your existing Issuer/ClusterIssuer.
+  issuerName: ""
   issuerKind: "Issuer"
 
 # Default values injected by MutatingWebhook

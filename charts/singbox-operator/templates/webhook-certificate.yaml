@@ -1,4 +1,5 @@
 {{- if and .Values.webhook.enabled .Values.certManager.enabled }}
+{{- $issuerName := ternary (printf "%s-selfsigned-issuer" (include "singbox-operator.fullname" .)) .Values.certManager.issuerName .Values.certManager.createIssuer }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -12,6 +13,6 @@ spec:
   - {{ include "singbox-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
   issuerRef:
     kind: {{ .Values.certManager.issuerKind }}
-    name: {{ .Values.certManager.issuerName }}
+    name: {{ $issuerName }}
   secretName: {{ include "singbox-operator.fullname" . }}-webhook-server-cert
 {{- end }}
