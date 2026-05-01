@@ -1,99 +1,74 @@
 {
-  "active_plan": "/Users/shlande/workspace/sing-box-operator-2/.sisyphus/plans/singbox-operator.md",
-  "started_at": "2026-05-01T14:38:04.327Z",
+  "active_plan": "/Users/shlande/workspace/sing-box-operator-2/.sisyphus/plans/client-config-api.md",
+  "started_at": "2026-05-01T19:29:50.416Z",
   "session_ids": [
-    "ses_21c06522effeEIrN1LdnN23AGF",
-    "ses_21bc8377cffeHeSJanILRzWHx2",
-    "ses_21bc7ddb0ffeUUMb7xV35NblTF"
+    "ses_21b103126ffeqKbBk9oemEz1cL",
+    "ses_21ae6e800ffexdCutWZ8PbT4mX",
+    "ses_21ae6a29dffeTdPc4iFVMTo6rO",
+    "ses_21ae64bc3ffe37N5mlrFxvfUVo"
   ],
   "session_origins": {
-    "ses_21c06522effeEIrN1LdnN23AGF": "direct",
-    "ses_21bc8377cffeHeSJanILRzWHx2": "appended",
-    "ses_21bc7ddb0ffeUUMb7xV35NblTF": "appended"
+    "ses_21b103126ffeqKbBk9oemEz1cL": "direct",
+    "ses_21ae6e800ffexdCutWZ8PbT4mX": "appended",
+    "ses_21ae6a29dffeTdPc4iFVMTo6rO": "appended",
+    "ses_21ae64bc3ffe37N5mlrFxvfUVo": "appended"
   },
-  "plan_name": "singbox-operator",
+  "plan_name": "client-config-api",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "CRD 类型定义（ProxyNode / ProxyUser / ProxyRoute）",
-      "session_id": "ses_21c049213ffeuD0BuYMCcKHarb",
+      "task_title": "导出 `DerivePassword` 函数",
+      "session_id": "ses_21afa9b8dffe4yV0l8isQ0vnp5",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-05-01T14:43:49.072Z"
+      "category": "quick",
+      "updated_at": "2026-05-01T19:31:29.618Z"
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "ConfigEngine 核心包（TDD）",
-      "session_id": "ses_21bff944affePuF2ubGArek1qJ",
+      "task_title": "客户端配置生成逻辑",
+      "session_id": "ses_21af81f7cffeQXDtHLSnQ1Y2aO",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-01T14:49:38.277Z"
+      "updated_at": "2026-05-01T19:34:32.614Z"
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "CredManager 凭证管理包 + 测试基础设施",
-      "session_id": "ses_21bfa2e0effef6lk0CHAc9i97j",
+      "task_title": "HTTP server + handler",
+      "session_id": "ses_21af51cb7ffeb8Z1wYpPBI0Z6M",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-01T14:56:43.248Z"
+      "updated_at": "2026-05-01T19:38:13.030Z"
     },
     "todo:4": {
       "task_key": "todo:4",
       "task_label": "4",
-      "task_title": "ProxyNode Reconciler（TDD）",
-      "session_id": "ses_21bf272dcffeC80aaG1vwil6J3",
+      "task_title": "main.go 集成 + flags",
+      "session_id": "ses_21af228dbffecfA1ecuHG1Km70",
       "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-01T15:05:53.912Z"
+      "category": "quick",
+      "updated_at": "2026-05-01T19:41:03.336Z"
     },
     "todo:5": {
       "task_key": "todo:5",
       "task_label": "5",
-      "task_title": "ProxyUser Reconciler（TDD）",
-      "session_id": "ses_21bea8250ffenOEhOPjQD8Byug",
+      "task_title": "单元测试",
+      "session_id": "ses_21aef35aeffeGLrmKHJ3KijTRk",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-01T15:11:06.712Z"
+      "updated_at": "2026-05-01T19:49:59.705Z"
     },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "ProxyRoute Reconciler（TDD）",
-      "session_id": "ses_21be66fd3ffeufvpwwGIJfSEN7",
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_21ae64bc3ffe37N5mlrFxvfUVo",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-05-01T15:21:20.035Z"
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "ValidatingWebhook + MutatingWebhook（TDD）",
-      "session_id": "ses_21bdcc8bdffeEZg1VaFbw2oepD",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-01T15:28:24.645Z"
-    },
-    "todo:8": {
-      "task_key": "todo:8",
-      "task_label": "8",
-      "task_title": "Prometheus Metrics 集成",
-      "session_id": "ses_21bd7160cffeat1U83ELc3RPkL",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-01T15:36:46.184Z"
-    },
-    "todo:9": {
-      "task_key": "todo:9",
-      "task_label": "9",
-      "task_title": "Helm Chart 完整打包",
-      "session_id": "ses_21bce4179ffe447MuUzhf70gAH",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-05-01T15:43:28.540Z"
+      "updated_at": "2026-05-01T19:53:44.318Z"
     }
   }
 }

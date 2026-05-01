@@ -243,11 +243,11 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 			tags[tag] = true
 		}
 	}
-	if !tags["node-a-outbound-x"] {
-		t.Error("expected node-a-outbound-x in result")
+	if !tags["outbound-x#node-a"] {
+		t.Error("expected outbound-x#node-a in result")
 	}
-	if !tags["node-a-outbound-y"] {
-		t.Error("expected node-a-outbound-y in result (same region as inbound)")
+	if !tags["outbound-y#node-a"] {
+		t.Error("expected outbound-y#node-a in result (same region as inbound)")
 	}
 }
 

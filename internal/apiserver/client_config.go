@@ -40,7 +40,7 @@ func BuildClientConfig(input ClientConfigInput) ([]interface{}, error) {
 		outboundNodes := resolveOutboundNodes(input, inboundNode.Name)
 
 		for _, outboundNode := range outboundNodes {
-			tag := fmt.Sprintf("%s-%s", inboundNode.Name, outboundNode.Name)
+			tag := fmt.Sprintf("%s#%s", outboundNode.Name, inboundNode.Name)
 			ob := buildProxyOutbound(tag, address, port, protocol, outboundNode.Name, input.UserCred)
 			proxyOutbounds = append(proxyOutbounds, ob)
 			proxyTags = append(proxyTags, tag)
