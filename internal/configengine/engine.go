@@ -78,7 +78,7 @@ func Compute(input Input) (Output, error) {
 	var rules []routeRule
 
 	if isInbound {
-		if len(myRoutes) > 0 {
+		if len(input.OutboundNodes) > 0 || len(myRoutes) > 0 {
 			ibs, rls := buildRouteInbounds(input, myRoutes)
 			inbounds = append(inbounds, ibs...)
 			rules = rls
@@ -99,13 +99,20 @@ func Compute(input Input) (Output, error) {
 		inbounds = []interface{}{}
 	}
 
+	var finalOutbound string
+	if len(rules) > 0 {
+		finalOutbound = "direct"
+	} else {
+		finalOutbound = routeFinal(outbounds)
+	}
+
 	cfg := singboxConfig{
 		Log:       logConfig{Level: "info"},
 		Inbounds:  inbounds,
 		Outbounds: outbounds,
 		Route: routeConfig{
 			Rules: rules,
-			Final: routeFinal(outbounds),
+			Final: finalOutbound,
 		},
 	}
 
@@ -211,40 +218,55 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface
 	var inbounds []interface{}
 	var rules []routeRule
 
+	seen := make(map[string]bool)
+	var outboundNames []string
+	for _, n := range input.OutboundNodes {
+		if !seen[n.Name] {
+			seen[n.Name] = true
+			outboundNames = append(outboundNames, n.Name)
+		}
+	}
+	for _, r := range routes {
+		if !seen[r.Spec.OutboundNode] {
+			seen[r.Spec.OutboundNode] = true
+			outboundNames = append(outboundNames, r.Spec.OutboundNode)
+		}
+	}
+
 	for _, proto := range input.Node.Spec.SupportedProtocols {
 		tag := fmt.Sprintf("inbound-%s", proto.Protocol)
 		port := proto.Port
 
 		var users []map[string]interface{}
-		for _, route := range routes {
+		for _, nodeName := range outboundNames {
 			for _, user := range input.Users {
 				if user.Spec.Protocol != proto.Protocol {
 					continue
 				}
 				cred := input.UserCreds[user.Name]
-				vName := virtualUserName(user.Name, route.Spec.OutboundNode)
+				vName := virtualUserName(user.Name, nodeName)
 				switch proto.Protocol {
 				case "vless":
 					users = append(users, map[string]interface{}{
 						"name": vName,
-						"uuid": DeriveUUID(cred.UUID, route.Spec.OutboundNode),
+						"uuid": DeriveUUID(cred.UUID, nodeName),
 					})
 				case "trojan":
 					users = append(users, map[string]interface{}{
 						"name":     vName,
-						"password": derivePassword(cred.Password, route.Spec.OutboundNode),
+						"password": derivePassword(cred.Password, nodeName),
 					})
 				case "socks5":
 					users = append(users, map[string]interface{}{
 						"name":     vName,
 						"username": cred.Username,
-						"password": derivePassword(cred.Password, route.Spec.OutboundNode),
+						"password": derivePassword(cred.Password, nodeName),
 					})
 				case "http":
 					users = append(users, map[string]interface{}{
 						"name":     vName,
 						"username": cred.UUID,
-						"password": derivePassword(cred.Password, route.Spec.OutboundNode),
+						"password": derivePassword(cred.Password, nodeName),
 					})
 				}
 			}
@@ -257,13 +279,13 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface
 		inbounds = append(inbounds, buildInboundEntry(proto.Protocol, tag, port, users))
 	}
 
-	for _, route := range routes {
-		outboundTag := fmt.Sprintf("outbound-%s", route.Spec.OutboundNode)
+	for _, nodeName := range outboundNames {
+		outboundTag := fmt.Sprintf("outbound-%s", nodeName)
 		var authUsers []string
 		for _, user := range input.Users {
 			for _, proto := range input.Node.Spec.SupportedProtocols {
 				if user.Spec.Protocol == proto.Protocol {
-					authUsers = append(authUsers, virtualUserName(user.Name, route.Spec.OutboundNode))
+					authUsers = append(authUsers, virtualUserName(user.Name, nodeName))
 					break
 				}
 			}

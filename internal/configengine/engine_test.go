@@ -172,7 +172,18 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 		if m["tag"] == "inbound-vless" {
 			users := m["users"].([]interface{})
 			if len(users) != 2 {
-				t.Errorf("expected 2 users in inbound, got %d", len(users))
+				t.Errorf("expected 2 virtual users in inbound, got %d", len(users))
+			}
+			names := make(map[string]bool)
+			for _, u := range users {
+				um := u.(map[string]interface{})
+				names[um["name"].(string)] = true
+			}
+			if !names["user-alice#node-b"] {
+				t.Errorf("missing virtual user user-alice#node-b, got %v", names)
+			}
+			if !names["user-bob#node-b"] {
+				t.Errorf("missing virtual user user-bob#node-b, got %v", names)
 			}
 		}
 	}
@@ -184,8 +195,21 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 		t.Errorf("missing direct outbound, got %v", obs)
 	}
 
-	if routeFinal(cfg) != "outbound-node-b" {
-		t.Errorf("expected route.final=outbound-node-b, got %q", routeFinal(cfg))
+	if routeFinal(cfg) != "direct" {
+		t.Errorf("expected route.final=direct, got %q", routeFinal(cfg))
+	}
+
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 1 {
+		t.Fatalf("expected 1 routing rule, got %d", len(rules))
+	}
+	rule := rules[0].(map[string]interface{})
+	if rule["outbound"] != "outbound-node-b" {
+		t.Errorf("expected rule outbound=outbound-node-b, got %v", rule["outbound"])
+	}
+	authUsers, _ := rule["auth_user"].([]interface{})
+	if len(authUsers) != 2 {
+		t.Errorf("expected 2 auth_users in rule, got %d", len(authUsers))
 	}
 
 	for _, ob := range outboundsOf(t, cfg) {
@@ -759,6 +783,95 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 		t.Errorf("missing routing rule for outbound-node-b")
 	}
 	if !ruleOutbounds["outbound-node-c"] {
+		t.Errorf("missing routing rule for outbound-node-c")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test 13: Region-auto outbound nodes trigger virtual user mode without ProxyRoute
+// ---------------------------------------------------------------------------
+func TestConfigEngine_RegionAutoVirtualUsers(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10808,
+	)
+	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
+	)
+	user := makeUser("user-alice", "vless")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.ProxyUser{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "aaaa-1111"},
+		},
+		OutboundNodes: []*v1alpha1.ProxyNode{nodeB, nodeC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+			"node-c": {Username: "uc", Password: "pc"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+
+	if len(ibs) != 1 || ibs[0] != "inbound-vless" {
+		t.Errorf("expected exactly [inbound-vless], got %v", ibs)
+	}
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]interface{})
+		if m["tag"] != "inbound-vless" {
+			continue
+		}
+		users := m["users"].([]interface{})
+		if len(users) != 2 {
+			t.Fatalf("expected 2 virtual users, got %d", len(users))
+		}
+		names := make(map[string]bool)
+		for _, u := range users {
+			um := u.(map[string]interface{})
+			names[um["name"].(string)] = true
+		}
+		if !names["user-alice#node-b"] {
+			t.Errorf("missing virtual user user-alice#node-b, got %v", names)
+		}
+		if !names["user-alice#node-c"] {
+			t.Errorf("missing virtual user user-alice#node-c, got %v", names)
+		}
+	}
+
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 2 {
+		t.Fatalf("expected 2 routing rules, got %d", len(rules))
+	}
+	ruleTargets := make(map[string]bool)
+	for _, rule := range rules {
+		rm := rule.(map[string]interface{})
+		ruleTargets[rm["outbound"].(string)] = true
+		authUsers, _ := rm["auth_user"].([]interface{})
+		if len(authUsers) == 0 {
+			t.Errorf("rule for %v has no auth_user", rm["outbound"])
+		}
+	}
+	if !ruleTargets["outbound-node-b"] {
+		t.Errorf("missing routing rule for outbound-node-b")
+	}
+	if !ruleTargets["outbound-node-c"] {
 		t.Errorf("missing routing rule for outbound-node-c")
 	}
 }
