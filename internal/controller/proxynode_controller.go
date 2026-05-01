@@ -356,19 +356,21 @@ func (r *ProxyNodeReconciler) reconcileServices(ctx context.Context, node *proxy
 		},
 	}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, relaySvc, func() error {
+		relayPort := corev1.ServicePort{
+			Name:     "relay",
+			Port:     node.Spec.RelayPort,
+			Protocol: corev1.ProtocolTCP,
+		}
+		if node.Spec.RelayPort >= 30000 && node.Spec.RelayPort <= 32767 {
+			relayPort.NodePort = node.Spec.RelayPort
+		}
 		relaySvc.Spec = corev1.ServiceSpec{
 			Type: corev1.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app":       "singbox",
 				"proxynode": node.Name,
 			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:     "relay",
-					Port:     node.Spec.RelayPort,
-					Protocol: corev1.ProtocolTCP,
-				},
-			},
+			Ports: []corev1.ServicePort{relayPort},
 		}
 		return controllerutil.SetControllerReference(node, relaySvc, r.Scheme)
 	})
@@ -388,19 +390,21 @@ func (r *ProxyNodeReconciler) reconcileServices(ctx context.Context, node *proxy
 				},
 			}
 			_, err := controllerutil.CreateOrUpdate(ctx, r.Client, entrySvc, func() error {
+				svcPort := corev1.ServicePort{
+					Name:     protoName,
+					Port:     protoPort,
+					Protocol: corev1.ProtocolTCP,
+				}
+				if protoPort >= 30000 && protoPort <= 32767 {
+					svcPort.NodePort = protoPort
+				}
 				entrySvc.Spec = corev1.ServiceSpec{
 					Type: corev1.ServiceTypeNodePort,
 					Selector: map[string]string{
 						"app":       "singbox",
 						"proxynode": node.Name,
 					},
-					Ports: []corev1.ServicePort{
-						{
-							Name:     protoName,
-							Port:     protoPort,
-							Protocol: corev1.ProtocolTCP,
-						},
-					},
+					Ports: []corev1.ServicePort{svcPort},
 				}
 				return controllerutil.SetControllerReference(node, entrySvc, r.Scheme)
 			})
