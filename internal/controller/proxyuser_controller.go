@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -30,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
+	"github.com/your-org/singbox-operator/internal/metrics"
 )
 
 // ProxyUserReconciler reconciles a ProxyUser object
@@ -44,18 +46,31 @@ type ProxyUserReconciler struct {
 
 func (r *ProxyUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	start := time.Now()
+
+	var reconcileErr error
+	defer func() {
+		result := "success"
+		if reconcileErr != nil {
+			result = "error"
+			metrics.ReconcileErrorsTotal.WithLabelValues("proxyuser", "reconcile_error").Inc()
+		}
+		metrics.ReconcileDurationSeconds.WithLabelValues("proxyuser", result).Observe(time.Since(start).Seconds())
+	}()
 
 	user := &proxyv1alpha1.ProxyUser{}
 	if err := r.Get(ctx, req.NamespacedName, user); err != nil {
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
+		reconcileErr = err
 		return ctrl.Result{}, err
 	}
 
 	matchingNodes, err := r.findMatchingInboundNodes(ctx, user)
 	if err != nil {
 		logger.Error(err, "Failed to find matching inbound nodes")
+		reconcileErr = err
 		return ctrl.Result{}, err
 	}
 
@@ -122,6 +137,9 @@ func (r *ProxyUserReconciler) updateStatus(ctx context.Context, user *proxyv1alp
 	if err := r.Status().Update(ctx, latest); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	metrics.ProxyUsersTotal.WithLabelValues(latest.Spec.Protocol).Set(1)
+
 	return ctrl.Result{}, nil
 }
 

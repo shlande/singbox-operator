@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -39,6 +40,7 @@ import (
 	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
 	"github.com/your-org/singbox-operator/internal/configengine"
 	"github.com/your-org/singbox-operator/internal/credmanager"
+	"github.com/your-org/singbox-operator/internal/metrics"
 )
 
 const (
@@ -70,12 +72,24 @@ type ProxyNodeReconciler struct {
 
 func (r *ProxyNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	start := time.Now()
+
+	var reconcileErr error
+	defer func() {
+		result := "success"
+		if reconcileErr != nil {
+			result = "error"
+			metrics.ReconcileErrorsTotal.WithLabelValues("proxynode", "reconcile_error").Inc()
+		}
+		metrics.ReconcileDurationSeconds.WithLabelValues("proxynode", result).Observe(time.Since(start).Seconds())
+	}()
 
 	node := &proxyv1alpha1.ProxyNode{}
 	if err := r.Get(ctx, req.NamespacedName, node); err != nil {
 		if errors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
+		reconcileErr = err
 		return ctrl.Result{}, err
 	}
 
@@ -86,6 +100,7 @@ func (r *ProxyNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if !controllerutil.ContainsFinalizer(node, proxyNodeFinalizer) {
 		controllerutil.AddFinalizer(node, proxyNodeFinalizer)
 		if err := r.Update(ctx, node); err != nil {
+			reconcileErr = err
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, nil
@@ -93,33 +108,39 @@ func (r *ProxyNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if err := r.ensureCredential(ctx, node); err != nil {
 		logger.Error(err, "Failed to ensure node credential")
+		reconcileErr = err
 		return ctrl.Result{}, err
 	}
 
 	input, err := r.collectInput(ctx, node)
 	if err != nil {
 		logger.Error(err, "Failed to collect input")
+		reconcileErr = err
 		return ctrl.Result{}, err
 	}
 
 	output, err := configengine.Compute(input)
 	if err != nil {
 		logger.Error(err, "Failed to compute config")
+		reconcileErr = err
 		return r.setDegraded(ctx, node, "ConfigComputeFailed", err.Error())
 	}
 
 	if err := r.reconcileConfigMap(ctx, node, output); err != nil {
 		logger.Error(err, "Failed to reconcile ConfigMap")
+		reconcileErr = err
 		return ctrl.Result{}, err
 	}
 
 	if err := r.reconcileDeployment(ctx, node, output.Hash); err != nil {
 		logger.Error(err, "Failed to reconcile Deployment")
+		reconcileErr = err
 		return ctrl.Result{}, err
 	}
 
 	if err := r.reconcileServices(ctx, node); err != nil {
 		logger.Error(err, "Failed to reconcile Services")
+		reconcileErr = err
 		return ctrl.Result{}, err
 	}
 
@@ -237,7 +258,12 @@ func (r *ProxyNodeReconciler) reconcileConfigMap(ctx context.Context, node *prox
 			Namespace: node.Namespace,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+	var op controllerutil.OperationResult
+	var err error
+	if node.Annotations != nil && node.Annotations[configHashAnnotation] != output.Hash {
+		metrics.ConfigUpdatesTotal.WithLabelValues(node.Spec.Region, "config_change").Inc()
+	}
+	op, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
 		if cm.Annotations == nil {
 			cm.Annotations = make(map[string]string)
 		}
@@ -247,7 +273,13 @@ func (r *ProxyNodeReconciler) reconcileConfigMap(ctx context.Context, node *prox
 		}
 		return controllerutil.SetControllerReference(node, cm, r.Scheme)
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if op == controllerutil.OperationResultUpdated {
+		metrics.ConfigUpdatesTotal.WithLabelValues(node.Spec.Region, "config_update").Inc()
+	}
+	return nil
 }
 
 func (r *ProxyNodeReconciler) reconcileDeployment(ctx context.Context, node *proxyv1alpha1.ProxyNode, configHash string) error {
@@ -405,6 +437,11 @@ func (r *ProxyNodeReconciler) updateStatus(ctx context.Context, node *proxyv1alp
 	if err := r.Status().Update(ctx, latest); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	for _, role := range latest.Spec.Roles {
+		metrics.ProxyNodesTotal.WithLabelValues(latest.Spec.Region, string(role), "Running").Set(1)
+	}
+
 	return ctrl.Result{}, nil
 }
 
