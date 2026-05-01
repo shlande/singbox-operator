@@ -1,0 +1,11 @@
+40:		writeInternalError(w)
+74:		writeInternalError(w)
+93:		writeInternalError(w)
+114:		writeInternalError(w)
+138:		writeInternalError(w)
+156:func writeInternalError(w http.ResponseWriter) {
+func writeInternalError(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": "internal server error"})
+}

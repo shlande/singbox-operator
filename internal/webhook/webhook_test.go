@@ -15,101 +15,6 @@ func TestProxyNodeWebhook_Default(t *testing.T) {
 	w := &webhook.ProxyNodeWebhook{}
 	ctx := context.Background()
 
-	t.Run("injects default relayPort", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 0,
-			},
-		}
-		if err := w.Default(ctx, node); err != nil {
-			t.Fatalf("Default() error: %v", err)
-		}
-		if node.Spec.RelayPort != 10808 {
-			t.Errorf("Expected relayPort=10808, got %d", node.Spec.RelayPort)
-		}
-	})
-
-	t.Run("injects default relayProtocol", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:       "node-1",
-				Address:       "1.2.3.4",
-				Region:        "us-west",
-				Roles:         []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayProtocol: "",
-			},
-		}
-		if err := w.Default(ctx, node); err != nil {
-			t.Fatalf("Default() error: %v", err)
-		}
-		if node.Spec.RelayProtocol != "socks5" {
-			t.Errorf("Expected relayProtocol=socks5, got %s", node.Spec.RelayProtocol)
-		}
-	})
-
-	t.Run("injects default port for vless protocol", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef: "node-1",
-				Address: "1.2.3.4",
-				Region:  "us-west",
-				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 0},
-				},
-			},
-		}
-		if err := w.Default(ctx, node); err != nil {
-			t.Fatalf("Default() error: %v", err)
-		}
-		if node.Spec.SupportedProtocols[0].Port != 10443 {
-			t.Errorf("Expected vless port=10443, got %d", node.Spec.SupportedProtocols[0].Port)
-		}
-	})
-
-	t.Run("injects default port for trojan protocol", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef: "node-1",
-				Address: "1.2.3.4",
-				Region:  "us-west",
-				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "trojan", Port: 0},
-				},
-			},
-		}
-		if err := w.Default(ctx, node); err != nil {
-			t.Fatalf("Default() error: %v", err)
-		}
-		if node.Spec.SupportedProtocols[0].Port != 10444 {
-			t.Errorf("Expected trojan port=10444, got %d", node.Spec.SupportedProtocols[0].Port)
-		}
-	})
-
-	t.Run("does not override explicitly set relayPort", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:       "node-1",
-				Address:       "1.2.3.4",
-				Region:        "us-west",
-				Roles:         []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort:     9999,
-				RelayProtocol: "socks5",
-			},
-		}
-		if err := w.Default(ctx, node); err != nil {
-			t.Fatalf("Default() error: %v", err)
-		}
-		if node.Spec.RelayPort != 9999 {
-			t.Errorf("Expected relayPort=9999 (unchanged), got %d", node.Spec.RelayPort)
-		}
-	})
-
 	t.Run("does not override explicitly set protocol port", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
@@ -138,11 +43,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("rejects empty address", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -157,11 +61,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("rejects invalid address with spaces", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "invalid host",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "invalid host",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -170,52 +73,67 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects relayPort below 1024", func(t *testing.T) {
+	t.Run("rejects relayNodePort outside NodePort range", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 80,
+				NodeRef:       "node-1",
+				Address:       "1.2.3.4",
+				Region:        "us-west",
+				Roles:         []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+				RelayNodePort: 1234,
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
 		if err == nil {
-			t.Error("Expected error for relayPort=80, got nil")
+			t.Error("Expected error for relayNodePort=1234, got nil")
 		}
-		if err != nil && !strings.Contains(err.Error(), "relayPort") {
-			t.Errorf("Expected error to mention 'relayPort', got: %v", err)
+		if err != nil && !strings.Contains(err.Error(), "relayNodePort") {
+			t.Errorf("Expected error to mention 'relayNodePort', got: %v", err)
 		}
 	})
 
-	t.Run("rejects relayPort above 65535", func(t *testing.T) {
+	t.Run("accepts zero relayNodePort (random assignment)", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 70000,
+				NodeRef:       "node-1",
+				Address:       "1.2.3.4",
+				Region:        "us-west",
+				Roles:         []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+				RelayNodePort: 0,
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
-		if err == nil {
-			t.Error("Expected error for relayPort=70000, got nil")
+		if err != nil {
+			t.Errorf("Expected no error for relayNodePort=0 (unset), got: %v", err)
+		}
+	})
+
+	t.Run("accepts valid relayNodePort in range", func(t *testing.T) {
+		node := &v1alpha1.ProxyNode{
+			Spec: v1alpha1.ProxyNodeSpec{
+				NodeRef:       "node-1",
+				Address:       "1.2.3.4",
+				Region:        "us-west",
+				Roles:         []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+				RelayNodePort: 31962,
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected no error for relayNodePort=31962, got: %v", err)
 		}
 	})
 
 	t.Run("rejects duplicate protocols", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 10443},
-					{Protocol: "vless", Port: 10444},
+					{Protocol: "vless", Port: 30443},
+					{Protocol: "vless", Port: 30444},
 				},
 			},
 		}
@@ -225,16 +143,16 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects port conflict between relayPort and supportedProtocols", func(t *testing.T) {
+	t.Run("rejects port conflict between two supportedProtocols", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10443,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 10443},
+					{Protocol: "vless", Port: 30443},
+					{Protocol: "trojan", Port: 30443},
 				},
 			},
 		}
@@ -250,11 +168,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("rejects port conflict between two supportedProtocols", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
 					{Protocol: "vless", Port: 10443},
 					{Protocol: "trojan", Port: 10443},
@@ -270,11 +187,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("rejects empty roles", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -289,11 +205,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("rejects invalid role", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{"relay"},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{"relay"},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -305,11 +220,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("rejects supportedProtocols port below NodePort range", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
 					{Protocol: "vless", Port: 29999},
 				},
@@ -327,11 +241,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("rejects supportedProtocols port above NodePort range", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
 					{Protocol: "vless", Port: 32768},
 				},
@@ -346,11 +259,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("accepts valid ProxyNode with IP", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
 					{Protocol: "vless", Port: 30443},
 				},
@@ -365,11 +277,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("accepts valid ProxyNode with hostname", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "example.com",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "example.com",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -381,11 +292,10 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("accepts both inbound and outbound roles", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -402,20 +312,18 @@ func TestProxyNodeWebhook_ValidateUpdate(t *testing.T) {
 	t.Run("validates new object on update", func(t *testing.T) {
 		old := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "1.2.3.4",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 			},
 		}
 		newNode := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
-				NodeRef:   "node-1",
-				Address:   "",
-				Region:    "us-west",
-				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				RelayPort: 10808,
+				NodeRef: "node-1",
+				Address: "",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 			},
 		}
 		_, err := w.ValidateUpdate(ctx, old, newNode)

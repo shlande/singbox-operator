@@ -61,10 +61,8 @@ var _ = Describe("ProxyNode Reconciler", func() {
 				Region:  "us-west",
 				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 10443},
+					{Protocol: "vless", Port: 30443},
 				},
-				RelayPort:     10808,
-				RelayProtocol: "socks5",
 			},
 		}
 		Expect(k8sClient.Create(testCtx, node)).To(Succeed())
@@ -103,7 +101,7 @@ var _ = Describe("ProxyNode Reconciler", func() {
 		Eventually(func() error {
 			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-vless-entry-svc", Namespace: "default"}, entrySvc)
 		}, testTimeout, testInterval).Should(Succeed())
-		Expect(entrySvc.Spec.Ports[0].Port).To(Equal(int32(10443)))
+		Expect(entrySvc.Spec.Ports[0].Port).To(Equal(int32(30443)))
 	})
 
 	It("should create ConfigMap with socks5 relay inbound for outbound node", func() {
@@ -111,12 +109,10 @@ var _ = Describe("ProxyNode Reconciler", func() {
 		node := &proxyv1alpha1.ProxyNode{
 			ObjectMeta: metav1.ObjectMeta{Name: nodeName, Namespace: "default"},
 			Spec: proxyv1alpha1.ProxyNodeSpec{
-				NodeRef:       "k8s-node-2",
-				Address:       "2.3.4.5",
-				Region:        "us-west",
-				Roles:         []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
-				RelayPort:     10808,
-				RelayProtocol: "socks5",
+				NodeRef: "k8s-node-2",
+				Address: "2.3.4.5",
+				Region:  "us-west",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
 			},
 		}
 		Expect(k8sClient.Create(testCtx, node)).To(Succeed())
@@ -163,8 +159,7 @@ var _ = Describe("ProxyNode Reconciler", func() {
 				Address:       "3.4.5.6",
 				Region:        "eu-west",
 				Roles:         []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
-				RelayPort:     10808,
-				RelayProtocol: "socks5",
+				RelayNodePort: 31963,
 			},
 		}
 		Expect(k8sClient.Create(testCtx, outboundNode)).To(Succeed())
@@ -189,10 +184,8 @@ var _ = Describe("ProxyNode Reconciler", func() {
 				Region:  "eu-west",
 				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 10443},
+					{Protocol: "vless", Port: 30445},
 				},
-				RelayPort:     10808,
-				RelayProtocol: "socks5",
 			},
 		}
 		Expect(k8sClient.Create(testCtx, inboundNode)).To(Succeed())
@@ -227,8 +220,7 @@ var _ = Describe("ProxyNode Reconciler", func() {
 				Address:       "5.6.7.8",
 				Region:        "ap-east",
 				Roles:         []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
-				RelayPort:     10808,
-				RelayProtocol: "socks5",
+				RelayNodePort: 31964,
 			},
 		}
 		Expect(k8sClient.Create(testCtx, outboundNode)).To(Succeed())
@@ -253,10 +245,8 @@ var _ = Describe("ProxyNode Reconciler", func() {
 				Region:  "ap-east",
 				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 10443},
+					{Protocol: "vless", Port: 30446},
 				},
-				RelayPort:     10808,
-				RelayProtocol: "socks5",
 			},
 		}
 		Expect(k8sClient.Create(testCtx, inboundNode)).To(Succeed())
@@ -301,10 +291,8 @@ var _ = Describe("ProxyNode Reconciler", func() {
 				Region:  "sa-east",
 				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 10443},
+					{Protocol: "vless", Port: 30447},
 				},
-				RelayPort:     10808,
-				RelayProtocol: "socks5",
 			},
 		}
 		Expect(k8sClient.Create(testCtx, node)).To(Succeed())

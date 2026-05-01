@@ -11,6 +11,8 @@ import (
 	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
+const relayContainerPort = int32(10808)
+
 // UserCredential holds authentication credentials for a ProxyUser.
 type UserCredential struct {
 	UUID     string
@@ -139,8 +141,8 @@ func ExtractNodePorts(node *v1alpha1.ProxyNode) []int32 {
 	for _, p := range node.Spec.SupportedProtocols {
 		ports = append(ports, p.Port)
 	}
-	if hasRole(node, v1alpha1.ProxyRoleOutbound) && node.Spec.RelayPort > 0 {
-		ports = append(ports, node.Spec.RelayPort)
+	if hasRole(node, v1alpha1.ProxyRoleOutbound) {
+		ports = append(ports, relayContainerPort)
 	}
 	return ports
 }
@@ -388,7 +390,7 @@ func buildRelayInbound(input Input) interface{} {
 		"type":        "socks",
 		"tag":         "relay-socks5",
 		"listen":      "::",
-		"listen_port": input.Node.Spec.RelayPort,
+		"listen_port": relayContainerPort,
 		"users":       []map[string]interface{}{{"username": cred.Username, "password": cred.Password}},
 	}
 }
@@ -404,12 +406,15 @@ func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.ProxyRoute) []
 		if routedNodes[outNode.Name] {
 			continue
 		}
+		if outNode.Spec.RelayNodePort == 0 {
+			continue
+		}
 		cred := input.NodeCreds[outNode.Name]
 		result = append(result, map[string]interface{}{
 			"type":        "socks",
 			"tag":         fmt.Sprintf("outbound-%s", outNode.Name),
 			"server":      outNode.Spec.Address,
-			"server_port": outNode.Spec.RelayPort,
+			"server_port": outNode.Spec.RelayNodePort,
 			"username":    cred.Username,
 			"password":    cred.Password,
 		})
@@ -424,12 +429,15 @@ func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.ProxyRoute) []interfa
 		if !ok {
 			continue
 		}
+		if outNode.Spec.RelayNodePort == 0 {
+			continue
+		}
 		cred := input.NodeCreds[outNode.Name]
 		result = append(result, map[string]interface{}{
 			"type":        "socks",
 			"tag":         fmt.Sprintf("outbound-%s", outNode.Name),
 			"server":      outNode.Spec.Address,
-			"server_port": outNode.Spec.RelayPort,
+			"server_port": outNode.Spec.RelayNodePort,
 			"username":    cred.Username,
 			"password":    cred.Password,
 		})

@@ -55,8 +55,7 @@ spec:
             description: ProxyNodeSpec defines the desired state of ProxyNode
             properties:
               address:
-                description: Address is the public IP of the host machine (manually
-                  set)
+                description: Address is the public IP or hostname of the host machine.
                 minLength: 1
                 type: string
               nodeRef:
@@ -68,16 +67,15 @@ spec:
                 description: Region is the geographic region label (e.g. "us-west")
                 minLength: 1
                 type: string
-              relayPort:
-                default: 10808
-                description: 'RelayPort is the inter-node relay port (default: 10808)'
+              relayNodePort:
+                description: |-
+                  RelayNodePort is the Kubernetes NodePort for inter-node relay connections (30000-32767).
+                  Required for outbound nodes that receive relay traffic from inbound nodes.
+                  When unset, outbound nodes are excluded from generated configs.
                 format: int32
+                maximum: 32767
+                minimum: 30000
                 type: integer
-              relayProtocol:
-                default: socks5
-                description: 'RelayProtocol is the inter-node relay protocol (default:
-                  "socks5")'
-                type: string
               roles:
                 description: 'Roles defines the proxy roles: inbound and/or outbound
                   (no relay)'
@@ -99,8 +97,8 @@ spec:
                     port:
                       description: Port is the external NodePort for client connections
                       format: int32
-                      maximum: 65535
-                      minimum: 1024
+                      maximum: 32767
+                      minimum: 30000
                       type: integer
                     protocol:
                       description: 'Protocol is the proxy protocol: vless, trojan,

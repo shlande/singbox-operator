@@ -430,7 +430,6 @@ func makeInboundNode(name, region, address string, protocols []proxyv1alpha1.Pro
 			Region:             region,
 			Roles:              []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
 			SupportedProtocols: protocols,
-			RelayPort:          10808,
 		},
 	}
 }
@@ -446,7 +445,6 @@ func makeOutboundNode(name, region string) *proxyv1alpha1.ProxyNode {
 			Address:   "10.0.0.1",
 			Region:    region,
 			Roles:     []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
-			RelayPort: 10808,
 		},
 	}
 }

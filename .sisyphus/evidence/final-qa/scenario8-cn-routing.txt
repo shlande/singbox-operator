@@ -1,0 +1,1 @@
+16:      {"type": "logical", "mode": "or", "rules": [{"geoip": "cn"}, {"geosite": "cn"}], "outbound": "direct"}

@@ -30,10 +30,9 @@ func TestProxyNodeDeepCopy(t *testing.T) {
 			Region:  "us-west",
 			Roles:   []ProxyRole{ProxyRoleInbound},
 			SupportedProtocols: []ProtocolConfig{
-				{Protocol: "vless", Port: 10443},
+				{Protocol: "vless", Port: 30443},
 			},
-			RelayPort:     10808,
-			RelayProtocol: "socks5",
+			RelayNodePort: 31962,
 		},
 		Status: ProxyNodeStatus{
 			Phase:      "Running",

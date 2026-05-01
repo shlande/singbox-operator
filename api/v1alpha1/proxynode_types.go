@@ -45,7 +45,7 @@ type ProxyNodeSpec struct {
 	// NodeRef is the name of the Kubernetes Node this proxy runs on
 	// +kubebuilder:validation:MinLength=1
 	NodeRef string `json:"nodeRef"`
-	// Address is the public IP of the host machine (manually set)
+	// Address is the public IP or hostname of the host machine.
 	// +kubebuilder:validation:MinLength=1
 	Address string `json:"address"`
 	// Region is the geographic region label (e.g. "us-west")
@@ -57,14 +57,13 @@ type ProxyNodeSpec struct {
 	// SupportedProtocols declares inbound protocols (only meaningful for inbound role)
 	// +optional
 	SupportedProtocols []ProtocolConfig `json:"supportedProtocols,omitempty"`
-	// RelayPort is the inter-node relay port (default: 10808)
+	// RelayNodePort is the Kubernetes NodePort for inter-node relay connections (30000-32767).
+	// Required for outbound nodes that receive relay traffic from inbound nodes.
+	// When unset, outbound nodes are excluded from generated configs.
 	// +optional
-	// +kubebuilder:default=10808
-	RelayPort int32 `json:"relayPort,omitempty"`
-	// RelayProtocol is the inter-node relay protocol (default: "socks5")
-	// +optional
-	// +kubebuilder:default=socks5
-	RelayProtocol string `json:"relayProtocol,omitempty"`
+	// +kubebuilder:validation:Minimum=30000
+	// +kubebuilder:validation:Maximum=32767
+	RelayNodePort int32 `json:"relayNodePort,omitempty"`
 }
 
 // ProxyNodeStatus defines the observed state of ProxyNode

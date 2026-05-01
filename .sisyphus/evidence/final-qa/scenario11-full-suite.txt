@@ -1,0 +1,10 @@
+ok  	github.com/shlande/singbox-operator/api/v1alpha1	(cached)
+?   	github.com/shlande/singbox-operator/cmd	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/apiserver	0.695s
+ok  	github.com/shlande/singbox-operator/internal/configengine	(cached)
+ok  	github.com/shlande/singbox-operator/internal/controller	8.449s
+ok  	github.com/shlande/singbox-operator/internal/credmanager	(cached)
+?   	github.com/shlande/singbox-operator/internal/metrics	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/webhook	(cached)
+?   	github.com/shlande/singbox-operator/test/helpers	[no test files]
+?   	github.com/shlande/singbox-operator/test/utils	[no test files]

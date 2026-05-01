@@ -42,8 +42,6 @@ func CreateProxyNode(ctx context.Context, c client.Client, name, namespace, regi
 			Region:             region,
 			Roles:              roles,
 			SupportedProtocols: protocols,
-			RelayPort:          10808,
-			RelayProtocol:      "socks5",
 		},
 	}
 	if err := c.Create(ctx, node); err != nil {

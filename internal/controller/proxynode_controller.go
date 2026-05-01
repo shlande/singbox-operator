@@ -51,6 +51,7 @@ const (
 	entrySvcSuffix       = "-%s-entry-svc" // formatted with protocol name
 	configHashAnnotation = "proxy.io/config-hash"
 	singboxImage         = "ghcr.io/sagernet/sing-box:latest"
+	relayContainerPort   = int32(10808)
 )
 
 // ProxyNodeReconciler reconciles a ProxyNode object
@@ -349,14 +350,14 @@ func (r *ProxyNodeReconciler) reconcileDeployment(ctx context.Context, node *pro
 }
 
 func (r *ProxyNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.ProxyNode) error {
-	if err := r.reconcileNodePortService(ctx, node, node.Name+relaySvcSuffix, "relay", node.Spec.RelayPort); err != nil {
+	if err := r.reconcileNodePortService(ctx, node, node.Name+relaySvcSuffix, "relay", relayContainerPort, node.Spec.RelayNodePort); err != nil {
 		return fmt.Errorf("reconciling relay service: %w", err)
 	}
 
 	if hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
 		for _, proto := range node.Spec.SupportedProtocols {
 			svcName := fmt.Sprintf(node.Name+entrySvcSuffix, proto.Protocol)
-			if err := r.reconcileNodePortService(ctx, node, svcName, proto.Protocol, proto.Port); err != nil {
+			if err := r.reconcileNodePortService(ctx, node, svcName, proto.Protocol, proto.Port, proto.Port); err != nil {
 				return fmt.Errorf("reconciling entry service for %s: %w", proto.Protocol, err)
 			}
 		}
@@ -364,18 +365,18 @@ func (r *ProxyNodeReconciler) reconcileServices(ctx context.Context, node *proxy
 	return nil
 }
 
-// reconcileNodePortService ensures a NodePort Service exists with the desired port pinned as NodePort.
-// If the existing Service has a different NodePort, it is deleted and recreated, since Kubernetes
-// does not allow in-place NodePort changes.
+// reconcileNodePortService ensures a NodePort Service exists with clusterPort as the Service port
+// and nodePort pinned as the NodePort. If the existing Service has a different NodePort, it is
+// deleted and recreated, since Kubernetes does not allow in-place NodePort changes.
 func (r *ProxyNodeReconciler) reconcileNodePortService(
 	ctx context.Context,
 	node *proxyv1alpha1.ProxyNode,
 	svcName, portName string,
-	desiredPort int32,
+	clusterPort, nodePort int32,
 ) error {
 	desiredNodePort := int32(0)
-	if desiredPort >= 30000 && desiredPort <= 32767 {
-		desiredNodePort = desiredPort
+	if nodePort >= 30000 && nodePort <= 32767 {
+		desiredNodePort = nodePort
 	}
 
 	existing := &corev1.Service{}
@@ -397,7 +398,7 @@ func (r *ProxyNodeReconciler) reconcileNodePortService(
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		svcPort := corev1.ServicePort{
 			Name:     portName,
-			Port:     desiredPort,
+			Port:     clusterPort,
 			Protocol: corev1.ProtocolTCP,
 		}
 		if desiredNodePort != 0 {

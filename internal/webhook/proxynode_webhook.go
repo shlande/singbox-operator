@@ -33,31 +33,6 @@ type ProxyNodeWebhook struct{}
 
 // Default implements admission.Defaulter[*v1alpha1.ProxyNode].
 func (w *ProxyNodeWebhook) Default(ctx context.Context, node *v1alpha1.ProxyNode) error {
-	// Inject default relayPort
-	if node.Spec.RelayPort == 0 {
-		node.Spec.RelayPort = 10808
-	}
-
-	// Inject default relayProtocol
-	if node.Spec.RelayProtocol == "" {
-		node.Spec.RelayProtocol = "socks5"
-	}
-
-	// Inject default ports for supportedProtocols
-	defaultPorts := map[string]int32{
-		"vless":  10443,
-		"trojan": 10444,
-		"socks5": 10808,
-		"http":   10080,
-	}
-	for i := range node.Spec.SupportedProtocols {
-		if node.Spec.SupportedProtocols[i].Port == 0 {
-			if defaultPort, ok := defaultPorts[node.Spec.SupportedProtocols[i].Protocol]; ok {
-				node.Spec.SupportedProtocols[i].Port = defaultPort
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -88,9 +63,9 @@ func validateProxyNode(node *v1alpha1.ProxyNode) error {
 		}
 	}
 
-	// Validate relayPort range (0 means not set / will use default)
-	if node.Spec.RelayPort != 0 && (node.Spec.RelayPort < 1024 || node.Spec.RelayPort > 65535) {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "relayPort"), node.Spec.RelayPort, "relayPort must be between 1024 and 65535"))
+	// Validate relayNodePort range (0 means not set / NodePort will be randomly assigned)
+	if node.Spec.RelayNodePort != 0 && (node.Spec.RelayNodePort < 30000 || node.Spec.RelayNodePort > 32767) {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "relayNodePort"), node.Spec.RelayNodePort, "relayNodePort must be in the Kubernetes NodePort range (30000-32767)"))
 	}
 
 	// Validate supportedProtocols ports are in Kubernetes NodePort range (30000-32767)
@@ -113,11 +88,8 @@ func validateProxyNode(node *v1alpha1.ProxyNode) error {
 		seenProtocols[proto.Protocol] = true
 	}
 
-	// Validate no port conflicts between supportedProtocols and relayPort
+	// Validate no port conflicts within supportedProtocols
 	usedPorts := make(map[int32]string)
-	if node.Spec.RelayPort != 0 {
-		usedPorts[node.Spec.RelayPort] = "relayPort"
-	}
 	for i, proto := range node.Spec.SupportedProtocols {
 		if proto.Port != 0 {
 			if existing, conflict := usedPorts[proto.Port]; conflict {

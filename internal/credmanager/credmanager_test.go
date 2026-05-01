@@ -96,7 +96,6 @@ func TestEnsureNodeCredential_Idempotent(t *testing.T) {
 			Address:   "1.2.3.4",
 			Region:    "us-west",
 			Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-			RelayPort: 10808,
 		},
 	}
 	if err := c.Create(ctx, node); err != nil {
@@ -135,7 +134,6 @@ func TestGetNodeCredential(t *testing.T) {
 			Address:   "2.3.4.5",
 			Region:    "us-east",
 			Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-			RelayPort: 10808,
 		},
 	}
 	if err := c.Create(ctx, node); err != nil {

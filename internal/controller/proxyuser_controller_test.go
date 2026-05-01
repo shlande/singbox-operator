@@ -61,10 +61,8 @@ var _ = Describe("ProxyUser Reconciler", func() {
 				Region:  "pu-test-region",
 				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 10443},
+					{Protocol: "vless", Port: 30450},
 				},
-				RelayPort:     10808,
-				RelayProtocol: "socks5",
 			},
 		}
 		Expect(k8sClient.Create(testCtx, node)).To(Succeed())
@@ -115,10 +113,8 @@ var _ = Describe("ProxyUser Reconciler", func() {
 					Region:  "pu-multi-region",
 					Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
 					SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
-						{Protocol: "vless", Port: 10443},
+						{Protocol: "vless", Port: 30451},
 					},
-					RelayPort:     10808,
-					RelayProtocol: "socks5",
 				},
 			}
 			Expect(k8sClient.Create(testCtx, node)).To(Succeed())

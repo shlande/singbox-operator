@@ -11,7 +11,7 @@ import (
 )
 
 // helper: build a minimal ProxyNode
-func makeNode(name, address, region string, roles []v1alpha1.ProxyRole, protocols []v1alpha1.ProtocolConfig, relayPort int32) *v1alpha1.ProxyNode {
+func makeNode(name, address, region string, roles []v1alpha1.ProxyRole, protocols []v1alpha1.ProtocolConfig, relayNodePort int32) *v1alpha1.ProxyNode {
 	return &v1alpha1.ProxyNode{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: v1alpha1.ProxyNodeSpec{
@@ -19,8 +19,7 @@ func makeNode(name, address, region string, roles []v1alpha1.ProxyRole, protocol
 			Region:             region,
 			Roles:              roles,
 			SupportedProtocols: protocols,
-			RelayPort:          relayPort,
-			RelayProtocol:      "socks5",
+			RelayNodePort:      relayNodePort,
 		},
 	}
 }
@@ -132,7 +131,7 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 	)
 	outNode := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-		nil, 10808,
+		nil, 31962,
 	)
 	user1 := makeUser("user-alice", "vless")
 	user2 := makeUser("user-bob", "vless")
@@ -218,8 +217,8 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 			if m["server"] != "5.6.7.8" {
 				t.Errorf("expected server=5.6.7.8, got %v", m["server"])
 			}
-			if m["server_port"].(float64) != 10808 {
-				t.Errorf("expected server_port=10808, got %v", m["server_port"])
+			if m["server_port"].(float64) != 31962 {
+				t.Errorf("expected server_port=31962, got %v", m["server_port"])
 			}
 		}
 	}
@@ -231,7 +230,7 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 func TestConfigEngine_OutboundNode(t *testing.T) {
 	node := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-		nil, 10808,
+		nil, 0,
 	)
 	input := configengine.Input{
 		Node: node,
@@ -329,7 +328,7 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 	)
 	nodeB := makeNode("node-b", "5.6.7.8", "us-east",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-		nil, 10808,
+		nil, 31962,
 	)
 	user := makeUser("user-dave", "vless")
 	route := makeRoute("route-a-to-b", "node-a", "node-b")
@@ -451,7 +450,7 @@ func TestConfigEngine_MultipleOutboundNodes(t *testing.T) {
 		10808,
 	)
 	outNode1 := makeNode("node-b1", "5.5.5.5", "us-west",
-		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10808,
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
 	outNode2 := makeNode("node-b2", "6.6.6.6", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
@@ -568,7 +567,7 @@ func TestExtractNodePorts_InboundNode(t *testing.T) {
 func TestExtractNodePorts_OutboundNode(t *testing.T) {
 	node := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-		nil, 10808,
+		nil, 0,
 	)
 	ports := configengine.ExtractNodePorts(node)
 	if len(ports) != 1 || ports[0] != 10808 {
@@ -639,7 +638,7 @@ func TestConfigEngine_DedupRegionAutoAndExplicitRoute(t *testing.T) {
 	)
 	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-		nil, 10808,
+		nil, 31962,
 	)
 	user := makeUser("user-eve", "vless")
 	route := makeRoute("route-a-to-b", "node-a", "node-b")
@@ -684,10 +683,10 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 		10808,
 	)
 	nodeB := makeNode("node-b", "5.5.5.5", "us-east",
-		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10808,
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
 	nodeC := makeNode("node-c", "6.6.6.6", "us-east",
-		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10808,
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
 	user := makeUser("user-frank", "vless")
 	routeToB := makeRoute("route-a-to-b", "node-a", "node-b")
@@ -797,7 +796,7 @@ func TestConfigEngine_RegionAutoVirtualUsers(t *testing.T) {
 		10808,
 	)
 	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
-		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10808,
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
 	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
