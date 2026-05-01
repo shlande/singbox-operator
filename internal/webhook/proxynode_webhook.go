@@ -25,7 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/your-org/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
 // ProxyNodeWebhook handles defaulting and validation for ProxyNode.

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/your-org/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
 // UserCredential holds authentication credentials for a ProxyUser.

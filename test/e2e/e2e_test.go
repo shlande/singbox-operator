@@ -30,7 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/your-org/singbox-operator/test/utils"
+	"github.com/shlande/singbox-operator/test/utils"
 )
 
 // namespace where the project is deployed in

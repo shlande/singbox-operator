@@ -30,8 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
-	"github.com/your-org/singbox-operator/internal/metrics"
+	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/internal/metrics"
 )
 
 // ProxyRouteReconciler reconciles a ProxyRoute object

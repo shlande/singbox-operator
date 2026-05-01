@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/your-org/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
 // NodeCredential holds SOCKS5 credentials for inter-node relay.

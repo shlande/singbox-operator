@@ -33,7 +33,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
+	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 

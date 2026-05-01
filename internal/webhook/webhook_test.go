@@ -7,8 +7,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/your-org/singbox-operator/api/v1alpha1"
-	"github.com/your-org/singbox-operator/internal/webhook"
+	"github.com/shlande/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/internal/webhook"
 )
 
 func TestProxyNodeWebhook_Default(t *testing.T) {

@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/your-org/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
 func CreateProxyNode(ctx context.Context, c client.Client, name, namespace, region, address string, roles []v1alpha1.ProxyRole, protocols []v1alpha1.ProtocolConfig) (*v1alpha1.ProxyNode, error) {

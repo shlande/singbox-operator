@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
+	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
 var _ = Describe("ProxyRoute Reconciler", func() {

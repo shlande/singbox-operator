@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	"github.com/your-org/singbox-operator/api/v1alpha1"
-	"github.com/your-org/singbox-operator/internal/credmanager"
+	"github.com/shlande/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/internal/credmanager"
 )
 
 func setupEnvtest(t *testing.T) (client.Client, func()) {

@@ -37,10 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
-	"github.com/your-org/singbox-operator/internal/configengine"
-	"github.com/your-org/singbox-operator/internal/credmanager"
-	"github.com/your-org/singbox-operator/internal/metrics"
+	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/internal/configengine"
+	"github.com/shlande/singbox-operator/internal/credmanager"
+	"github.com/shlande/singbox-operator/internal/metrics"
 )
 
 const (

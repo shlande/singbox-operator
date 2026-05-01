@@ -35,9 +35,9 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
-	"github.com/your-org/singbox-operator/internal/controller"
-	proxywebhook "github.com/your-org/singbox-operator/internal/webhook"
+	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/internal/controller"
+	proxywebhook "github.com/shlande/singbox-operator/internal/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
