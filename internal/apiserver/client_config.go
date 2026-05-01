@@ -89,18 +89,9 @@ func findEntryEndpoint(endpoints []string, protocol string) (address string, por
 	return "", 0, false
 }
 
+// resolveOutboundNodes mirrors the server-side logic in configengine.buildRouteInbounds:
+// the result is the union of same-region outbound nodes AND explicitly routed outbound nodes.
 func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alpha1.ProxyNode {
-	routes, hasRoutes := input.RoutesByInbound[inboundName]
-	if hasRoutes && len(routes) > 0 {
-		var nodes []*v1alpha1.ProxyNode
-		for _, r := range routes {
-			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok {
-				nodes = append(nodes, n)
-			}
-		}
-		return nodes
-	}
-
 	var inboundNode *v1alpha1.ProxyNode
 	for _, n := range input.InboundNodes {
 		if n.Name == inboundName {
@@ -108,16 +99,26 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 			break
 		}
 	}
-	if inboundNode == nil {
-		return nil
+
+	seen := make(map[string]bool)
+	var nodes []*v1alpha1.ProxyNode
+
+	if inboundNode != nil {
+		for _, n := range input.OutboundsByName {
+			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] {
+				seen[n.Name] = true
+				nodes = append(nodes, n)
+			}
+		}
 	}
 
-	var nodes []*v1alpha1.ProxyNode
-	for _, n := range input.OutboundsByName {
-		if n.Spec.Region == inboundNode.Spec.Region {
+	for _, r := range input.RoutesByInbound[inboundName] {
+		if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] {
+			seen[n.Name] = true
 			nodes = append(nodes, n)
 		}
 	}
+
 	return nodes
 }
 

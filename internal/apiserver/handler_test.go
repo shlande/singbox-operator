@@ -196,6 +196,10 @@ func TestBuildClientConfig_EmptyEntryEndpoints(t *testing.T) {
 }
 
 func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
+	// outbound-x and outbound-y are both in region "us" (same as inbound node-a).
+	// A ProxyRoute exists for outbound-x only.
+	// Expected: BOTH nodes appear because the union of same-region + explicit routes is used,
+	// mirroring server-side configengine.buildRouteInbounds behaviour.
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
@@ -225,19 +229,25 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 3 {
-		t.Errorf("expected 3 outbounds (1 proxy+selector+direct) with explicit route, got %d", len(result))
+	if len(result) != 4 {
+		t.Errorf("expected 4 outbounds (2 proxy+selector+direct), got %d", len(result))
 	}
 
+	tags := make(map[string]bool)
 	for _, ob := range result {
 		m, ok := ob.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		tag, _ := m["tag"].(string)
-		if tag == "node-a-outbound-y" {
-			t.Errorf("outbound-y must not appear when explicit route only targets outbound-x")
+		if tag, _ := m["tag"].(string); tag != "" {
+			tags[tag] = true
 		}
+	}
+	if !tags["node-a-outbound-x"] {
+		t.Error("expected node-a-outbound-x in result")
+	}
+	if !tags["node-a-outbound-y"] {
+		t.Error("expected node-a-outbound-y in result (same region as inbound)")
 	}
 }
 
