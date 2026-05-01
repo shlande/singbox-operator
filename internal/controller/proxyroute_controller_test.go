@@ -18,67 +18,193 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
 )
 
-var _ = Describe("ProxyRoute Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+var _ = Describe("ProxyRoute Reconciler", func() {
+	ctx := context.Background()
+	timeout := 10 * time.Second
+	interval := 100 * time.Millisecond
 
-		ctx := context.Background()
+	var (
+		reconciler *ProxyRouteReconciler
+		ns         string
+	)
 
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+	BeforeEach(func() {
+		reconciler = &ProxyRouteReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
 		}
-		proxyroute := &proxyv1alpha1.ProxyRoute{}
+		ns = fmt.Sprintf("pr-test-%d", GinkgoParallelProcess())
+		_ = k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})
+	})
 
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind ProxyRoute")
-			err := k8sClient.Get(ctx, typeNamespacedName, proxyroute)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &proxyv1alpha1.ProxyRoute{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
+	It("should resolve inbound and outbound nodes and update status", func() {
+		inboundName := "pr-inbound-1"
+		outboundName := "pr-outbound-1"
+
+		inboundNode := &proxyv1alpha1.ProxyNode{
+			ObjectMeta: metav1.ObjectMeta{Name: inboundName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyNodeSpec{
+				NodeRef: "k8s-node-pr-1",
+				Address: "20.0.0.1",
+				Region:  "pr-test-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 10443},
+				},
+				RelayPort:     10808,
+				RelayProtocol: "socks5",
+			},
+		}
+		Expect(k8sClient.Create(ctx, inboundNode)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, inboundNode) })
+
+		outboundNode := &proxyv1alpha1.ProxyNode{
+			ObjectMeta: metav1.ObjectMeta{Name: outboundName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyNodeSpec{
+				NodeRef:       "k8s-node-pr-2",
+				Address:       "20.0.0.2",
+				Region:        "pr-other-region",
+				Roles:         []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
+				RelayPort:     10808,
+				RelayProtocol: "socks5",
+			},
+		}
+		Expect(k8sClient.Create(ctx, outboundNode)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, outboundNode) })
+
+		routeName := "pr-route-1"
+		route := &proxyv1alpha1.ProxyRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: routeName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyRouteSpec{
+				InboundNode:  inboundName,
+				OutboundNode: outboundName,
+			},
+		}
+		Expect(k8sClient.Create(ctx, route)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, route) })
+
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: routeName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedRoute := &proxyv1alpha1.ProxyRoute{}
+		Eventually(func() string {
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			return updatedRoute.Status.ResolvedInboundNode
+		}, timeout, interval).Should(Equal(inboundName))
+		Expect(updatedRoute.Status.ResolvedOutboundNode).To(Equal(outboundName))
+	})
+
+	It("should set Degraded when inboundNode does not exist", func() {
+		routeName := "pr-degraded-inbound"
+		route := &proxyv1alpha1.ProxyRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: routeName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyRouteSpec{
+				InboundNode:  "nonexistent-inbound",
+				OutboundNode: "nonexistent-outbound",
+			},
+		}
+		Expect(k8sClient.Create(ctx, route)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, route) })
+
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: routeName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedRoute := &proxyv1alpha1.ProxyRoute{}
+		Eventually(func() bool {
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			for _, c := range updatedRoute.Status.Conditions {
+				if c.Type == "Degraded" && c.Status == metav1.ConditionTrue {
+					return true
 				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
-		})
+			return false
+		}, timeout, interval).Should(BeTrue())
 
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &proxyv1alpha1.ProxyRoute{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance ProxyRoute")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &ProxyRouteReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+		var degradedMsg string
+		for _, c := range updatedRoute.Status.Conditions {
+			if c.Type == "Degraded" {
+				degradedMsg = c.Message
 			}
+		}
+		Expect(degradedMsg).To(ContainSubstring("inboundNode"))
+	})
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+	It("should set Degraded when outboundNode does not exist", func() {
+		inboundName := "pr-inbound-only"
+		inboundNode := &proxyv1alpha1.ProxyNode{
+			ObjectMeta: metav1.ObjectMeta{Name: inboundName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyNodeSpec{
+				NodeRef: "k8s-node-pr-3",
+				Address: "20.0.0.3",
+				Region:  "pr-degraded-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 10443},
+				},
+				RelayPort:     10808,
+				RelayProtocol: "socks5",
+			},
+		}
+		Expect(k8sClient.Create(ctx, inboundNode)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, inboundNode) })
+
+		routeName := "pr-degraded-outbound"
+		route := &proxyv1alpha1.ProxyRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: routeName, Namespace: ns},
+			Spec: proxyv1alpha1.ProxyRouteSpec{
+				InboundNode:  inboundName,
+				OutboundNode: "nonexistent-outbound",
+			},
+		}
+		Expect(k8sClient.Create(ctx, route)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, route) })
+
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: routeName, Namespace: ns},
 		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedRoute := &proxyv1alpha1.ProxyRoute{}
+		Eventually(func() bool {
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			for _, c := range updatedRoute.Status.Conditions {
+				if c.Type == "Degraded" && c.Status == metav1.ConditionTrue {
+					return true
+				}
+			}
+			return false
+		}, timeout, interval).Should(BeTrue())
+
+		var degradedMsg string
+		for _, c := range updatedRoute.Status.Conditions {
+			if c.Type == "Degraded" {
+				degradedMsg = c.Message
+			}
+		}
+		Expect(degradedMsg).To(ContainSubstring("outboundNode"))
+	})
+
+	It("should handle reconcile of deleted ProxyRoute gracefully", func() {
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: "nonexistent-route", Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
