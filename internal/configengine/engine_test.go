@@ -121,7 +121,8 @@ func routeRulesOf(t *testing.T, cfg map[string]interface{}) []interface{} {
 }
 
 // ---------------------------------------------------------------------------
-// Test 1: Inbound node with 2 vless users + 1 outbound node
+// Test 1: Inbound node with 2 vless users + 1 outbound node (no Routes)
+// Fallback path: single inbound per protocol containing all users.
 // ---------------------------------------------------------------------------
 func TestConfigEngine_InboundNode(t *testing.T) {
 	node := makeNode("node-a", "1.2.3.4", "us-west",
@@ -159,15 +160,23 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 	ibs := inboundTags(t, cfg)
 	obs := outboundTags(t, cfg)
 
-	// 2 vless inbounds
-	if !containsTag(ibs, "inbound-vless-user-alice") {
-		t.Errorf("missing inbound tag for user-alice, got %v", ibs)
+	if !containsTag(ibs, "inbound-vless") {
+		t.Errorf("missing inbound-vless tag, got %v", ibs)
 	}
-	if !containsTag(ibs, "inbound-vless-user-bob") {
-		t.Errorf("missing inbound tag for user-bob, got %v", ibs)
+	if len(ibs) != 1 {
+		t.Errorf("expected exactly 1 inbound, got %d: %v", len(ibs), ibs)
 	}
 
-	// 1 socks5 outbound to node-b + 1 direct
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]interface{})
+		if m["tag"] == "inbound-vless" {
+			users := m["users"].([]interface{})
+			if len(users) != 2 {
+				t.Errorf("expected 2 users in inbound, got %d", len(users))
+			}
+		}
+	}
+
 	if !containsTag(obs, "outbound-node-b") {
 		t.Errorf("missing socks5 outbound to node-b, got %v", obs)
 	}
@@ -175,13 +184,10 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 		t.Errorf("missing direct outbound, got %v", obs)
 	}
 
-	// route.final points to first outbound (node-b)
-	final := routeFinal(cfg)
-	if final != "outbound-node-b" {
-		t.Errorf("expected route.final=outbound-node-b, got %q", final)
+	if routeFinal(cfg) != "outbound-node-b" {
+		t.Errorf("expected route.final=outbound-node-b, got %q", routeFinal(cfg))
 	}
 
-	// verify outbound socks server/port
 	for _, ob := range outboundsOf(t, cfg) {
 		m := ob.(map[string]interface{})
 		if m["tag"] == "outbound-node-b" {
@@ -276,22 +282,20 @@ func TestConfigEngine_MultiRoleNode(t *testing.T) {
 	ibs := inboundTags(t, cfg)
 	obs := outboundTags(t, cfg)
 
-	// must have both user inbound AND relay inbound
-	if !containsTag(ibs, "inbound-trojan-user-carol") {
+	if !containsTag(ibs, "inbound-trojan") {
 		t.Errorf("missing trojan inbound, got %v", ibs)
 	}
 	if !containsTag(ibs, "relay-socks5") {
 		t.Errorf("missing relay-socks5 inbound, got %v", ibs)
 	}
-
-	// must have direct outbound
 	if !containsTag(obs, "direct") {
 		t.Errorf("missing direct outbound, got %v", obs)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test 4: Manual route (inbound node + ProxyRoute pointing to outbound node B)
+// Test 4: Manual route — single inbound per protocol with all users,
+// auth_user routing rule binds users to outbound.
 // ---------------------------------------------------------------------------
 func TestConfigEngine_ManualRoute(t *testing.T) {
 	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
@@ -328,21 +332,33 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 	ibs := inboundTags(t, cfg)
 	obs := outboundTags(t, cfg)
 
-	expectedInboundTag := "inbound-vless-user-dave-node-b"
+	expectedInboundTag := "inbound-vless-node-b"
 	if !containsTag(ibs, expectedInboundTag) {
-		t.Errorf("missing per-route inbound tag %q, got %v", expectedInboundTag, ibs)
+		t.Errorf("missing inbound tag %q, got %v", expectedInboundTag, ibs)
+	}
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]interface{})
+		if m["tag"] == expectedInboundTag {
+			users := m["users"].([]interface{})
+			if len(users) != 1 {
+				t.Errorf("expected 1 user in inbound, got %d", len(users))
+			}
+			u := users[0].(map[string]interface{})
+			if u["name"] != "user-dave" {
+				t.Errorf("expected user name=user-dave, got %v", u["name"])
+			}
+		}
 	}
 
 	if !containsTag(obs, "outbound-node-b") {
-		t.Errorf("missing outbound tag outbound-node-b, got %v", obs)
+		t.Errorf("missing outbound-node-b, got %v", obs)
 	}
 
 	for _, ob := range outboundsOf(t, cfg) {
 		m := ob.(map[string]interface{})
-		if m["tag"] == "outbound-node-b" {
-			if m["server"] != "5.6.7.8" {
-				t.Errorf("expected server=5.6.7.8, got %v", m["server"])
-			}
+		if m["tag"] == "outbound-node-b" && m["server"] != "5.6.7.8" {
+			t.Errorf("expected server=5.6.7.8, got %v", m["server"])
 		}
 	}
 
@@ -353,17 +369,18 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 	found := false
 	for _, rule := range rules {
 		m := rule.(map[string]interface{})
-		if m["outbound"] == "outbound-node-b" {
-			inboundList, _ := m["inbound"].([]interface{})
-			for _, ib := range inboundList {
-				if ib.(string) == expectedInboundTag {
-					found = true
-				}
+		if m["outbound"] != "outbound-node-b" {
+			continue
+		}
+		authUsers, _ := m["auth_user"].([]interface{})
+		for _, u := range authUsers {
+			if u.(string) == "user-dave" {
+				found = true
 			}
 		}
 	}
 	if !found {
-		t.Errorf("no routing rule found binding %q to outbound-node-b", expectedInboundTag)
+		t.Errorf("no routing rule with auth_user=user-dave → outbound-node-b")
 	}
 }
 
@@ -536,7 +553,7 @@ func TestExtractNodePorts_OutboundNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 9: socks5 and http user inbounds
+// Test 9: socks5 and http user inbounds (fallback, no Routes)
 // ---------------------------------------------------------------------------
 func TestConfigEngine_Socks5AndHTTPUsers(t *testing.T) {
 	node := makeNode("node-a", "1.2.3.4", "us-west",
@@ -568,24 +585,20 @@ func TestConfigEngine_Socks5AndHTTPUsers(t *testing.T) {
 	cfg := parseConfig(t, out)
 	ibs := inboundTags(t, cfg)
 
-	if !containsTag(ibs, "inbound-socks5-user-socks") {
+	if !containsTag(ibs, "inbound-socks5") {
 		t.Errorf("missing socks5 inbound, got %v", ibs)
 	}
-	if !containsTag(ibs, "inbound-http-user-http") {
+	if !containsTag(ibs, "inbound-http") {
 		t.Errorf("missing http inbound, got %v", ibs)
 	}
 
 	for _, ib := range inboundsOf(t, cfg) {
 		m := ib.(map[string]interface{})
-		if m["tag"] == "inbound-socks5-user-socks" {
-			if m["type"] != "socks" {
-				t.Errorf("expected type=socks, got %v", m["type"])
-			}
+		if m["tag"] == "inbound-socks5" && m["type"] != "socks" {
+			t.Errorf("expected type=socks, got %v", m["type"])
 		}
-		if m["tag"] == "inbound-http-user-http" {
-			if m["type"] != "http" {
-				t.Errorf("expected type=http, got %v", m["type"])
-			}
+		if m["tag"] == "inbound-http" && m["type"] != "http" {
+			t.Errorf("expected type=http, got %v", m["type"])
 		}
 	}
 }
@@ -637,8 +650,8 @@ func TestConfigEngine_DedupRegionAutoAndExplicitRoute(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 11: Multi-route inbounds — 1 user, 2 routes → 2 inbounds on distinct
-// ports with routing rules binding each to its outbound.
+// Test 11: Multi-route — 1 user, 2 routes → 2 inbounds on distinct ports,
+// each containing all users, with auth_user routing rules per outbound.
 // ---------------------------------------------------------------------------
 func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
@@ -682,16 +695,12 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 	ibs := inboundTags(t, cfg)
 	obs := outboundTags(t, cfg)
 
-	ibTagB := "inbound-vless-user-frank-node-b"
-	ibTagC := "inbound-vless-user-frank-node-c"
-
-	if !containsTag(ibs, ibTagB) {
-		t.Errorf("missing inbound tag %q, got %v", ibTagB, ibs)
+	if !containsTag(ibs, "inbound-vless-node-b") {
+		t.Errorf("missing inbound-vless-node-b, got %v", ibs)
 	}
-	if !containsTag(ibs, ibTagC) {
-		t.Errorf("missing inbound tag %q, got %v", ibTagC, ibs)
+	if !containsTag(ibs, "inbound-vless-node-c") {
+		t.Errorf("missing inbound-vless-node-c, got %v", ibs)
 	}
-
 	if !containsTag(obs, "outbound-node-b") {
 		t.Errorf("missing outbound-node-b, got %v", obs)
 	}
@@ -708,11 +717,8 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 		}
 		return -1
 	}
-
-	portB := portOf(ibTagB)
-	portC := portOf(ibTagC)
-	if portB == portC {
-		t.Errorf("expected distinct ports for different routes, both got %v", portB)
+	if portOf("inbound-vless-node-b") == portOf("inbound-vless-node-c") {
+		t.Errorf("expected distinct ports for different routes, both got %v", portOf("inbound-vless-node-b"))
 	}
 
 	rules := routeRulesOf(t, cfg)
@@ -724,6 +730,10 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 	for _, rule := range rules {
 		m := rule.(map[string]interface{})
 		ruleOutbounds[m["outbound"].(string)] = true
+		authUsers, _ := m["auth_user"].([]interface{})
+		if len(authUsers) == 0 {
+			t.Errorf("rule for %v has no auth_user", m["outbound"])
+		}
 	}
 	if !ruleOutbounds["outbound-node-b"] {
 		t.Errorf("missing routing rule for outbound-node-b")
