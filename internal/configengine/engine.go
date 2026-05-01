@@ -1,7 +1,9 @@
 package configengine
 
 import (
+	"crypto/sha1"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -171,45 +173,104 @@ func routesForNode(input Input) []*v1alpha1.ProxyRoute {
 	return result
 }
 
-// buildRouteInbounds generates one inbound listener per protocol per route.
-// Each inbound contains ALL users that use that protocol, so users share the
-// same port per route. Port = basePort + routeIdx*numProtocols + protoIdx.
-//
-// Routing rules use auth_user (matched by user name) + inbound_tag to bind
-// each (user, route) combination to the correct outbound.
-//
-// Example: protocols=[vless:30080, trojan:30081], routes=[to-acck, to-xtom]:
-//
-//	inbound-vless-to-acck  port=30080  users=[alice,bob]  → outbound-acck-jp
-//	inbound-trojan-to-acck port=30081  users=[carol]      → outbound-acck-jp
-//	inbound-vless-to-xtom  port=30082  users=[alice,bob]  → outbound-xtom-jp
-//	inbound-trojan-to-xtom port=30083  users=[carol]      → outbound-xtom-jp
-func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface{}, []routeRule) {
-	numProtocols := len(input.Node.Spec.SupportedProtocols)
-	if numProtocols == 0 {
-		numProtocols = 1
+// DeriveUUID generates a deterministic UUID v5 from a base UUID and a suffix string.
+// It implements the UUID v5 spec using SHA-1 with the base UUID as the namespace.
+func DeriveUUID(baseUUID, suffix string) string {
+	stripped := ""
+	for _, c := range baseUUID {
+		if c != '-' {
+			stripped += string(c)
+		}
+	}
+	namespaceBytes, err := hex.DecodeString(stripped)
+	if err != nil || len(namespaceBytes) != 16 {
+		namespaceBytes = make([]byte, 16)
 	}
 
+	h := sha1.Sum(append(namespaceBytes, []byte(suffix)...))
+
+	// UUID v5 version bits (RFC 4122 §4.3)
+	h[6] = (h[6] & 0x0f) | 0x50
+	// RFC 4122 variant bits
+	h[8] = (h[8] & 0x3f) | 0x80
+
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		h[0:4], h[4:6], h[6:8], h[8:10], h[10:16])
+}
+
+func virtualUserName(userName, outboundNodeName string) string {
+	return fmt.Sprintf("%s#%s", userName, outboundNodeName)
+}
+
+func derivePassword(basePassword, suffix string) string {
+	h := sha256.Sum256([]byte(basePassword + "#" + suffix))
+	return fmt.Sprintf("%x", h)[:32]
+}
+
+func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface{}, []routeRule) {
 	var inbounds []interface{}
 	var rules []routeRule
 
-	for routeIdx, route := range routes {
-		outboundTag := fmt.Sprintf("outbound-%s", route.Spec.OutboundNode)
+	for _, proto := range input.Node.Spec.SupportedProtocols {
+		tag := fmt.Sprintf("inbound-%s", proto.Protocol)
+		port := proto.Port
 
-		for protoIdx, proto := range input.Node.Spec.SupportedProtocols {
-			port := proto.Port + int32(routeIdx*numProtocols+protoIdx)
-			tag := fmt.Sprintf("inbound-%s-%s", proto.Protocol, route.Spec.OutboundNode)
-
-			users := buildUsersBlock(input, proto.Protocol)
-			if len(users) == 0 {
-				continue
+		var users []map[string]interface{}
+		for _, route := range routes {
+			for _, user := range input.Users {
+				if user.Spec.Protocol != proto.Protocol {
+					continue
+				}
+				cred := input.UserCreds[user.Name]
+				vName := virtualUserName(user.Name, route.Spec.OutboundNode)
+				switch proto.Protocol {
+				case "vless":
+					users = append(users, map[string]interface{}{
+						"name": vName,
+						"uuid": DeriveUUID(cred.UUID, route.Spec.OutboundNode),
+					})
+				case "trojan":
+					users = append(users, map[string]interface{}{
+						"name":     vName,
+						"password": derivePassword(cred.Password, route.Spec.OutboundNode),
+					})
+				case "socks5":
+					users = append(users, map[string]interface{}{
+						"name":     vName,
+						"username": cred.Username,
+						"password": derivePassword(cred.Password, route.Spec.OutboundNode),
+					})
+				case "http":
+					users = append(users, map[string]interface{}{
+						"name":     vName,
+						"username": cred.UUID,
+						"password": derivePassword(cred.Password, route.Spec.OutboundNode),
+					})
+				}
 			}
+		}
 
-			inbounds = append(inbounds, buildInboundEntry(proto.Protocol, tag, port, users))
+		if len(users) == 0 {
+			continue
+		}
 
+		inbounds = append(inbounds, buildInboundEntry(proto.Protocol, tag, port, users))
+	}
+
+	for _, route := range routes {
+		outboundTag := fmt.Sprintf("outbound-%s", route.Spec.OutboundNode)
+		var authUsers []string
+		for _, user := range input.Users {
+			for _, proto := range input.Node.Spec.SupportedProtocols {
+				if user.Spec.Protocol == proto.Protocol {
+					authUsers = append(authUsers, virtualUserName(user.Name, route.Spec.OutboundNode))
+					break
+				}
+			}
+		}
+		if len(authUsers) > 0 {
 			rules = append(rules, routeRule{
-				Inbound:  []string{tag},
-				AuthUser: collectUserNames(input, proto.Protocol),
+				AuthUser: authUsers,
 				Outbound: outboundTag,
 			})
 		}

@@ -332,7 +332,7 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 	ibs := inboundTags(t, cfg)
 	obs := outboundTags(t, cfg)
 
-	expectedInboundTag := "inbound-vless-node-b"
+	expectedInboundTag := "inbound-vless"
 	if !containsTag(ibs, expectedInboundTag) {
 		t.Errorf("missing inbound tag %q, got %v", expectedInboundTag, ibs)
 	}
@@ -345,8 +345,8 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 				t.Errorf("expected 1 user in inbound, got %d", len(users))
 			}
 			u := users[0].(map[string]interface{})
-			if u["name"] != "user-dave" {
-				t.Errorf("expected user name=user-dave, got %v", u["name"])
+			if u["name"] != "user-dave#node-b" {
+				t.Errorf("expected user name=user-dave#node-b, got %v", u["name"])
 			}
 		}
 	}
@@ -374,13 +374,13 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 		}
 		authUsers, _ := m["auth_user"].([]interface{})
 		for _, u := range authUsers {
-			if u.(string) == "user-dave" {
+			if u.(string) == "user-dave#node-b" {
 				found = true
 			}
 		}
 	}
 	if !found {
-		t.Errorf("no routing rule with auth_user=user-dave → outbound-node-b")
+		t.Errorf("no routing rule with auth_user=user-dave#node-b → outbound-node-b")
 	}
 }
 
@@ -695,12 +695,10 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 	ibs := inboundTags(t, cfg)
 	obs := outboundTags(t, cfg)
 
-	if !containsTag(ibs, "inbound-vless-node-b") {
-		t.Errorf("missing inbound-vless-node-b, got %v", ibs)
+	if len(ibs) != 1 || ibs[0] != "inbound-vless" {
+		t.Errorf("expected exactly 1 inbound [inbound-vless], got %v", ibs)
 	}
-	if !containsTag(ibs, "inbound-vless-node-c") {
-		t.Errorf("missing inbound-vless-node-c, got %v", ibs)
-	}
+
 	if !containsTag(obs, "outbound-node-b") {
 		t.Errorf("missing outbound-node-b, got %v", obs)
 	}
@@ -708,17 +706,36 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 		t.Errorf("missing outbound-node-c, got %v", obs)
 	}
 
-	portOf := func(tag string) float64 {
-		for _, ib := range inboundsOf(t, cfg) {
-			m := ib.(map[string]interface{})
-			if m["tag"] == tag {
-				return m["listen_port"].(float64)
+	var uuidB, uuidC string
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]interface{})
+		if m["tag"] != "inbound-vless" {
+			continue
+		}
+		users := m["users"].([]interface{})
+		if len(users) != 2 {
+			t.Fatalf("expected 2 virtual users in inbound-vless, got %d", len(users))
+		}
+		for _, u := range users {
+			um := u.(map[string]interface{})
+			switch um["name"].(string) {
+			case "user-frank#node-b":
+				uuidB = um["uuid"].(string)
+			case "user-frank#node-c":
+				uuidC = um["uuid"].(string)
+			default:
+				t.Errorf("unexpected virtual user name: %v", um["name"])
 			}
 		}
-		return -1
 	}
-	if portOf("inbound-vless-node-b") == portOf("inbound-vless-node-c") {
-		t.Errorf("expected distinct ports for different routes, both got %v", portOf("inbound-vless-node-b"))
+	if uuidB == "" {
+		t.Error("missing virtual user user-frank#node-b")
+	}
+	if uuidC == "" {
+		t.Error("missing virtual user user-frank#node-c")
+	}
+	if uuidB != "" && uuidC != "" && uuidB == uuidC {
+		t.Errorf("expected distinct UUIDs for different routes, both got %q", uuidB)
 	}
 
 	rules := routeRulesOf(t, cfg)
@@ -734,11 +751,34 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 		if len(authUsers) == 0 {
 			t.Errorf("rule for %v has no auth_user", m["outbound"])
 		}
+		if _, hasInbound := m["inbound"]; hasInbound {
+			t.Errorf("routing rule for %v must not have inbound field", m["outbound"])
+		}
 	}
 	if !ruleOutbounds["outbound-node-b"] {
 		t.Errorf("missing routing rule for outbound-node-b")
 	}
 	if !ruleOutbounds["outbound-node-c"] {
 		t.Errorf("missing routing rule for outbound-node-c")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test 12: DeriveUUID — determinism and uniqueness
+// ---------------------------------------------------------------------------
+func TestDeriveUUID(t *testing.T) {
+	uuid1 := configengine.DeriveUUID("f0a5a0d6-951a-4936-a7e7-93a8f86f2fb8", "acck-jp")
+	uuid2 := configengine.DeriveUUID("f0a5a0d6-951a-4936-a7e7-93a8f86f2fb8", "acck-jp")
+	if uuid1 != uuid2 {
+		t.Errorf("DeriveUUID not deterministic: %q vs %q", uuid1, uuid2)
+	}
+
+	uuid3 := configengine.DeriveUUID("f0a5a0d6-951a-4936-a7e7-93a8f86f2fb8", "xtom-jp")
+	if uuid1 == uuid3 {
+		t.Errorf("DeriveUUID not unique for different suffixes")
+	}
+
+	if len(uuid1) != 36 {
+		t.Errorf("expected 36-char UUID, got %d: %q", len(uuid1), uuid1)
 	}
 }
