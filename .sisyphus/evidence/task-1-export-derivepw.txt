@@ -1,0 +1,32 @@
+BUILD: PASS
+=== RUN   TestConfigEngine_InboundNode
+--- PASS: TestConfigEngine_InboundNode (0.00s)
+=== RUN   TestConfigEngine_OutboundNode
+--- PASS: TestConfigEngine_OutboundNode (0.00s)
+=== RUN   TestConfigEngine_MultiRoleNode
+--- PASS: TestConfigEngine_MultiRoleNode (0.00s)
+=== RUN   TestConfigEngine_ManualRoute
+--- PASS: TestConfigEngine_ManualRoute (0.00s)
+=== RUN   TestConfigEngine_NoUsersOnEntry
+--- PASS: TestConfigEngine_NoUsersOnEntry (0.00s)
+=== RUN   TestConfigEngine_MultipleOutboundNodes
+--- PASS: TestConfigEngine_MultipleOutboundNodes (0.00s)
+=== RUN   TestConfigEngine_HashConsistency
+--- PASS: TestConfigEngine_HashConsistency (0.00s)
+=== RUN   TestExtractNodePorts_InboundNode
+--- PASS: TestExtractNodePorts_InboundNode (0.00s)
+=== RUN   TestExtractNodePorts_OutboundNode
+--- PASS: TestExtractNodePorts_OutboundNode (0.00s)
+=== RUN   TestConfigEngine_Socks5AndHTTPUsers
+--- PASS: TestConfigEngine_Socks5AndHTTPUsers (0.00s)
+=== RUN   TestConfigEngine_DedupRegionAutoAndExplicitRoute
+--- PASS: TestConfigEngine_DedupRegionAutoAndExplicitRoute (0.00s)
+=== RUN   TestConfigEngine_MultiRouteInbounds
+--- PASS: TestConfigEngine_MultiRouteInbounds (0.00s)
+=== RUN   TestConfigEngine_RegionAutoVirtualUsers
+--- PASS: TestConfigEngine_RegionAutoVirtualUsers (0.00s)
+=== RUN   TestDeriveUUID
+--- PASS: TestDeriveUUID (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/configengine	(cached)
+All tests PASS

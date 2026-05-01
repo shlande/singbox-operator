@@ -209,7 +209,7 @@ func virtualUserName(userName, outboundNodeName string) string {
 	return fmt.Sprintf("%s#%s", userName, outboundNodeName)
 }
 
-func derivePassword(basePassword, suffix string) string {
+func DerivePassword(basePassword, suffix string) string {
 	h := sha256.Sum256([]byte(basePassword + "#" + suffix))
 	return fmt.Sprintf("%x", h)[:32]
 }
@@ -254,19 +254,19 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface
 				case "trojan":
 					users = append(users, map[string]interface{}{
 						"name":     vName,
-						"password": derivePassword(cred.Password, nodeName),
+						"password": DerivePassword(cred.Password, nodeName),
 					})
 				case "socks5":
 					users = append(users, map[string]interface{}{
 						"name":     vName,
 						"username": cred.Username,
-						"password": derivePassword(cred.Password, nodeName),
+						"password": DerivePassword(cred.Password, nodeName),
 					})
 				case "http":
 					users = append(users, map[string]interface{}{
 						"name":     vName,
 						"username": cred.UUID,
-						"password": derivePassword(cred.Password, nodeName),
+						"password": DerivePassword(cred.Password, nodeName),
 					})
 				}
 			}
