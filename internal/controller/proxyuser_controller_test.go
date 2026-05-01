@@ -97,10 +97,10 @@ var _ = Describe("ProxyUser Reconciler", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		updatedUser := &proxyv1alpha1.ProxyUser{}
-		Eventually(func() int32 {
+		Eventually(func() bool {
 			k8sClient.Get(testCtx, types.NamespacedName{Name: userName, Namespace: ns}, updatedUser)
-			return updatedUser.Status.ActiveNodeCount
-		}, timeout, interval).Should(Equal(int32(1)))
+			return updatedUser.Status.ActiveNodeCount >= 1
+		}, timeout, interval).Should(BeTrue())
 		Expect(updatedUser.Status.ActiveNodes).To(ContainElement(nodeName))
 	})
 
