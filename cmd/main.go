@@ -37,6 +37,7 @@ import (
 
 	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
 	"github.com/your-org/singbox-operator/internal/controller"
+	proxywebhook "github.com/your-org/singbox-operator/internal/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -197,6 +198,18 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "proxyroute")
+		os.Exit(1)
+	}
+	if err := proxywebhook.SetupProxyNodeWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "ProxyNode")
+		os.Exit(1)
+	}
+	if err := proxywebhook.SetupProxyUserWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "ProxyUser")
+		os.Exit(1)
+	}
+	if err := proxywebhook.SetupProxyRouteWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "ProxyRoute")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
