@@ -1,0 +1,38 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - proxy.proxy.io
+  resources:
+  - proxynodes
+  - proxyroutes
+  - proxyusers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - proxy.proxy.io
+  resources:
+  - proxynodes/finalizers
+  - proxyroutes/finalizers
+  - proxyusers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - proxy.proxy.io
+  resources:
+  - proxynodes/status
+  - proxyroutes/status
+  - proxyusers/status
+  verbs:
+  - get
+  - patch
+  - update

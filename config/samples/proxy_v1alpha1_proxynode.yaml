@@ -1,0 +1,9 @@
+apiVersion: proxy.proxy.io/v1alpha1
+kind: ProxyNode
+metadata:
+  labels:
+    app.kubernetes.io/name: sing-box-operator-2
+    app.kubernetes.io/managed-by: kustomize
+  name: proxynode-sample
+spec:
+  # TODO(user): Add fields here
