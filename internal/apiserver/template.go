@@ -7,8 +7,23 @@ import "encoding/json"
 var DefaultTemplate = []byte(`{
   "log": {"level": "info"},
   "inbounds": [
-    {"type": "socks", "tag": "socks-in", "listen": "127.0.0.1", "listen_port": 1080},
-    {"type": "http", "tag": "http-in", "listen": "127.0.0.1", "listen_port": 1081}
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "address": "172.19.0.1/30",
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "gvisor",
+      "platform": {
+        "http_proxy": {
+          "enabled": true,
+          "server": "127.0.0.1",
+          "server_port": 7891
+        }
+      }
+    },
+    {"type": "socks", "tag": "socks-in", "listen": "127.0.0.1", "listen_port": 7890},
+    {"type": "http", "tag": "http-in", "listen": "127.0.0.1", "listen_port": 7891}
   ],
   "outbounds": [],
   "route": {
