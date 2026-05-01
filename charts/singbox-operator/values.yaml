@@ -1,0 +1,52 @@
+# Default values for singbox-operator
+
+operator:
+  image:
+    repository: ghcr.io/your-org/singbox-operator
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  # Metrics port
+  metricsPort: 8080
+  # Health probe port
+  healthProbePort: 8081
+
+# Webhook configuration
+webhook:
+  enabled: true
+  port: 9443
+
+# cert-manager integration for webhook TLS
+certManager:
+  enabled: true
+  # Issuer name (must exist in the namespace)
+  issuerName: "selfsigned-issuer"
+  issuerKind: "Issuer"
+
+# Default values injected by MutatingWebhook
+defaults:
+  relayPort: 10808
+  relayProtocol: socks5
+  protocols:
+    vless: 10443
+    trojan: 10444
+    socks5: 10808
+    http: 10080
+
+# Namespace to watch (empty = all namespaces)
+watchNamespace: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+nameOverride: ""
+fullnameOverride: ""

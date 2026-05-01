@@ -1,0 +1,27 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "singbox-operator.fullname" . }}-mutating-webhook-configuration
+  labels:
+    {{- include "singbox-operator.labels" . | nindent 4 }}
+  {{- if .Values.certManager.enabled }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "singbox-operator.fullname" . }}-webhook-server-cert
+  {{- end }}
+webhooks:
+- name: mproxynode.kb.io
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ include "singbox-operator.fullname" . }}-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-proxy-proxy-io-v1alpha1-proxynode
+  failurePolicy: Fail
+  rules:
+  - apiGroups: ["proxy.proxy.io"]
+    apiVersions: ["v1alpha1"]
+    operations: ["CREATE", "UPDATE"]
+    resources: ["proxynodes"]
+  sideEffects: None
+{{- end }}

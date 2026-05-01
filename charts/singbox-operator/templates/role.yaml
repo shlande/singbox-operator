@@ -1,0 +1,26 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "singbox-operator.fullname" . }}-manager-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "singbox-operator.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["proxy.proxy.io"]
+  resources: ["proxynodes", "proxyusers", "proxyroutes"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["proxy.proxy.io"]
+  resources: ["proxynodes/status", "proxyusers/status", "proxyroutes/status"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: ["proxy.proxy.io"]
+  resources: ["proxynodes/finalizers", "proxyusers/finalizers", "proxyroutes/finalizers"]
+  verbs: ["update"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["configmaps", "services", "secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["events.k8s.io"]
+  resources: ["events"]
+  verbs: ["create", "patch"]

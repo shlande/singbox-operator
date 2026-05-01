@@ -1,0 +1,17 @@
+{{- if and .Values.webhook.enabled .Values.certManager.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "singbox-operator.fullname" . }}-webhook-server-cert
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "singbox-operator.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+  - {{ include "singbox-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc
+  - {{ include "singbox-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: {{ .Values.certManager.issuerKind }}
+    name: {{ .Values.certManager.issuerName }}
+  secretName: {{ include "singbox-operator.fullname" . }}-webhook-server-cert
+{{- end }}
