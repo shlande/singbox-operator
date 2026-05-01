@@ -35,8 +35,8 @@ type ProtocolConfig struct {
 	// +kubebuilder:validation:Enum=vless;trojan;socks5;http
 	Protocol string `json:"protocol"`
 	// Port is the external NodePort for client connections
-	// +kubebuilder:validation:Minimum=1024
-	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:validation:Minimum=30000
+	// +kubebuilder:validation:Maximum=32767
 	Port int32 `json:"port"`
 }
 

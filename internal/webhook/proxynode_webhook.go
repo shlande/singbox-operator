@@ -93,6 +93,17 @@ func validateProxyNode(node *v1alpha1.ProxyNode) error {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "relayPort"), node.Spec.RelayPort, "relayPort must be between 1024 and 65535"))
 	}
 
+	// Validate supportedProtocols ports are in Kubernetes NodePort range (30000-32767)
+	for i, proto := range node.Spec.SupportedProtocols {
+		if proto.Port != 0 && (proto.Port < 30000 || proto.Port > 32767) {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec", "supportedProtocols").Index(i).Child("port"),
+				proto.Port,
+				"port must be in the Kubernetes NodePort range (30000-32767)",
+			))
+		}
+	}
+
 	// Validate no duplicate protocols in supportedProtocols
 	seenProtocols := make(map[string]bool)
 	for i, proto := range node.Spec.SupportedProtocols {

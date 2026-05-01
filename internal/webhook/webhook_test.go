@@ -302,6 +302,47 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects supportedProtocols port below NodePort range", func(t *testing.T) {
+		node := &v1alpha1.ProxyNode{
+			Spec: v1alpha1.ProxyNodeSpec{
+				NodeRef:   "node-1",
+				Address:   "1.2.3.4",
+				Region:    "us-west",
+				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				RelayPort: 10808,
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 29999},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err == nil {
+			t.Error("Expected error for port below 30000, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "30000") {
+			t.Errorf("Expected error to mention '30000', got: %v", err)
+		}
+	})
+
+	t.Run("rejects supportedProtocols port above NodePort range", func(t *testing.T) {
+		node := &v1alpha1.ProxyNode{
+			Spec: v1alpha1.ProxyNodeSpec{
+				NodeRef:   "node-1",
+				Address:   "1.2.3.4",
+				Region:    "us-west",
+				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				RelayPort: 10808,
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 32768},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err == nil {
+			t.Error("Expected error for port above 32767, got nil")
+		}
+	})
+
 	t.Run("accepts valid ProxyNode with IP", func(t *testing.T) {
 		node := &v1alpha1.ProxyNode{
 			Spec: v1alpha1.ProxyNodeSpec{
@@ -311,7 +352,7 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				RelayPort: 10808,
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 10443},
+					{Protocol: "vless", Port: 30443},
 				},
 			},
 		}

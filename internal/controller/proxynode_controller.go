@@ -349,71 +349,71 @@ func (r *ProxyNodeReconciler) reconcileDeployment(ctx context.Context, node *pro
 }
 
 func (r *ProxyNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.ProxyNode) error {
-	relaySvc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      node.Name + relaySvcSuffix,
-			Namespace: node.Namespace,
-		},
-	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, relaySvc, func() error {
-		relayPort := corev1.ServicePort{
-			Name:     "relay",
-			Port:     node.Spec.RelayPort,
-			Protocol: corev1.ProtocolTCP,
-		}
-		if node.Spec.RelayPort >= 30000 && node.Spec.RelayPort <= 32767 {
-			relayPort.NodePort = node.Spec.RelayPort
-		}
-		relaySvc.Spec = corev1.ServiceSpec{
-			Type: corev1.ServiceTypeNodePort,
-			Selector: map[string]string{
-				"app":       "singbox",
-				"proxynode": node.Name,
-			},
-			Ports: []corev1.ServicePort{relayPort},
-		}
-		return controllerutil.SetControllerReference(node, relaySvc, r.Scheme)
-	})
-	if err != nil {
+	if err := r.reconcileNodePortService(ctx, node, node.Name+relaySvcSuffix, "relay", node.Spec.RelayPort); err != nil {
 		return fmt.Errorf("reconciling relay service: %w", err)
 	}
 
 	if hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
 		for _, proto := range node.Spec.SupportedProtocols {
-			protoName := proto.Protocol
-			protoPort := proto.Port
-			svcName := fmt.Sprintf(node.Name+entrySvcSuffix, protoName)
-			entrySvc := &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      svcName,
-					Namespace: node.Namespace,
-				},
-			}
-			_, err := controllerutil.CreateOrUpdate(ctx, r.Client, entrySvc, func() error {
-				svcPort := corev1.ServicePort{
-					Name:     protoName,
-					Port:     protoPort,
-					Protocol: corev1.ProtocolTCP,
-				}
-				if protoPort >= 30000 && protoPort <= 32767 {
-					svcPort.NodePort = protoPort
-				}
-				entrySvc.Spec = corev1.ServiceSpec{
-					Type: corev1.ServiceTypeNodePort,
-					Selector: map[string]string{
-						"app":       "singbox",
-						"proxynode": node.Name,
-					},
-					Ports: []corev1.ServicePort{svcPort},
-				}
-				return controllerutil.SetControllerReference(node, entrySvc, r.Scheme)
-			})
-			if err != nil {
-				return fmt.Errorf("reconciling entry service for %s: %w", protoName, err)
+			svcName := fmt.Sprintf(node.Name+entrySvcSuffix, proto.Protocol)
+			if err := r.reconcileNodePortService(ctx, node, svcName, proto.Protocol, proto.Port); err != nil {
+				return fmt.Errorf("reconciling entry service for %s: %w", proto.Protocol, err)
 			}
 		}
 	}
 	return nil
+}
+
+// reconcileNodePortService ensures a NodePort Service exists with the desired port pinned as NodePort.
+// If the existing Service has a different NodePort, it is deleted and recreated, since Kubernetes
+// does not allow in-place NodePort changes.
+func (r *ProxyNodeReconciler) reconcileNodePortService(
+	ctx context.Context,
+	node *proxyv1alpha1.ProxyNode,
+	svcName, portName string,
+	desiredPort int32,
+) error {
+	desiredNodePort := int32(0)
+	if desiredPort >= 30000 && desiredPort <= 32767 {
+		desiredNodePort = desiredPort
+	}
+
+	existing := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: svcName, Namespace: node.Namespace}, existing)
+	if err == nil && len(existing.Spec.Ports) > 0 {
+		if existing.Spec.Ports[0].NodePort != desiredNodePort {
+			if delErr := r.Delete(ctx, existing); delErr != nil {
+				return fmt.Errorf("deleting service with stale NodePort: %w", delErr)
+			}
+		}
+	}
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcName,
+			Namespace: node.Namespace,
+		},
+	}
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
+		svcPort := corev1.ServicePort{
+			Name:     portName,
+			Port:     desiredPort,
+			Protocol: corev1.ProtocolTCP,
+		}
+		if desiredNodePort != 0 {
+			svcPort.NodePort = desiredNodePort
+		}
+		svc.Spec = corev1.ServiceSpec{
+			Type: corev1.ServiceTypeNodePort,
+			Selector: map[string]string{
+				"app":       "singbox",
+				"proxynode": node.Name,
+			},
+			Ports: []corev1.ServicePort{svcPort},
+		}
+		return controllerutil.SetControllerReference(node, svc, r.Scheme)
+	})
+	return err
 }
 
 func (r *ProxyNodeReconciler) updateStatus(ctx context.Context, node *proxyv1alpha1.ProxyNode, configHash string) (ctrl.Result, error) {
