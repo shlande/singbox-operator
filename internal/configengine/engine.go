@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
@@ -50,8 +51,14 @@ type logConfig struct {
 	Level string `json:"level"`
 }
 
+type routeRule struct {
+	Inbound  []string `json:"inbound"`
+	Outbound string   `json:"outbound"`
+}
+
 type routeConfig struct {
-	Final string `json:"final"`
+	Rules []routeRule `json:"rules,omitempty"`
+	Final string      `json:"final"`
 }
 
 // Compute calculates the complete sing-box config.json for a given ProxyNode.
@@ -61,26 +68,32 @@ func Compute(input Input) (Output, error) {
 	isInbound := hasRole(node, v1alpha1.ProxyRoleInbound)
 	isOutbound := hasRole(node, v1alpha1.ProxyRoleOutbound)
 
+	// Sort routes by name for deterministic port assignment and hash stability.
+	myRoutes := routesForNode(input)
+
 	var inbounds []interface{}
 	var outbounds []interface{}
+	var rules []routeRule
 
 	if isInbound {
-		inbounds = append(inbounds, buildUserInbounds(input)...)
+		if len(myRoutes) > 0 {
+			ibs, rls := buildRouteUserInbounds(input, myRoutes)
+			inbounds = append(inbounds, ibs...)
+			rules = rls
+		} else {
+			inbounds = append(inbounds, buildUserInbounds(input)...)
+		}
+		outbounds = append(outbounds, buildOutboundNodeOutbounds(input, myRoutes)...)
+		outbounds = append(outbounds, buildRouteOutbounds(input, myRoutes)...)
 	}
 
 	if isOutbound {
 		inbounds = append(inbounds, buildRelayInbound(input))
 	}
 
-	if isInbound {
-		outbounds = append(outbounds, buildOutboundNodeOutbounds(input)...)
-		outbounds = append(outbounds, buildRouteOutbounds(input)...)
-	}
-
-	// Always append direct; deduplicate by tag
+	// Always append direct; deduplicate by tag.
 	outbounds = deduplicateByTag(append(outbounds, buildDirectOutbound()))
 
-	// Ensure inbounds is always an initialized slice (not nil)
 	if inbounds == nil {
 		inbounds = []interface{}{}
 	}
@@ -91,7 +104,10 @@ func Compute(input Input) (Output, error) {
 		Log:       logConfig{Level: "info"},
 		Inbounds:  inbounds,
 		Outbounds: outbounds,
-		Route:     routeConfig{Final: final},
+		Route: routeConfig{
+			Rules: rules,
+			Final: final,
+		},
 	}
 
 	data, err := json.Marshal(cfg)
@@ -145,6 +161,110 @@ func findProtocolPort(node *v1alpha1.ProxyNode, protocol string) int32 {
 	return 0
 }
 
+// routesForNode returns routes targeting this inbound node, sorted by name
+// for deterministic port assignment across reconcile cycles.
+func routesForNode(input Input) []*v1alpha1.ProxyRoute {
+	var result []*v1alpha1.ProxyRoute
+	for _, r := range input.Routes {
+		if r.Spec.InboundNode == input.Node.Name {
+			result = append(result, r)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+	return result
+}
+
+// routePortOffset computes a port offset for a given route index and protocol
+// index such that no two (routeIdx, protoIdx) pairs produce the same offset.
+// Layout: offset = routeIdx * numProtocols + protoIdx
+// Example: 2 routes, protocols=[vless:30080, trojan:30081], numProtocols=2
+//
+//	vless route[0] = 30080 + 0*2 + 0 = 30080
+//	trojan route[0] = 30081 + 0*2 + 0 = 30081  (base already differs)
+//	vless route[1] = 30080 + 1*2 + 0 = 30082
+//	trojan route[1] = 30081 + 1*2 + 0 = 30083
+func routePort(basePort int32, routeIdx, protoIdx, numProtocols int) int32 {
+	return basePort + int32(routeIdx*numProtocols+protoIdx)
+}
+
+// buildRouteUserInbounds creates one inbound listener per user per route,
+// each on a distinct port derived from the protocol base port + route offset.
+// It also returns the routing rules that bind each inbound tag to its outbound.
+func buildRouteUserInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface{}, []routeRule) {
+	numProtocols := len(input.Node.Spec.SupportedProtocols)
+	if numProtocols == 0 {
+		numProtocols = 1
+	}
+
+	var inbounds []interface{}
+	var rules []routeRule
+
+	for routeIdx, route := range routes {
+		outboundTag := fmt.Sprintf("outbound-%s", route.Spec.OutboundNode)
+		var inboundTagsForRoute []string
+
+		for protoIdx, proto := range input.Node.Spec.SupportedProtocols {
+			port := routePort(proto.Port, routeIdx, protoIdx, numProtocols)
+
+			for _, user := range input.Users {
+				if user.Spec.Protocol != proto.Protocol {
+					continue
+				}
+				cred := input.UserCreds[user.Name]
+				tag := fmt.Sprintf("inbound-%s-%s-%s", proto.Protocol, user.Name, route.Spec.OutboundNode)
+				inboundTagsForRoute = append(inboundTagsForRoute, tag)
+
+				switch proto.Protocol {
+				case "vless":
+					inbounds = append(inbounds, map[string]interface{}{
+						"type":        "vless",
+						"tag":         tag,
+						"listen":      "::",
+						"listen_port": port,
+						"users":       []map[string]interface{}{{"uuid": cred.UUID}},
+					})
+				case "trojan":
+					inbounds = append(inbounds, map[string]interface{}{
+						"type":        "trojan",
+						"tag":         tag,
+						"listen":      "::",
+						"listen_port": port,
+						"users":       []map[string]interface{}{{"password": cred.Password}},
+					})
+				case "socks5":
+					inbounds = append(inbounds, map[string]interface{}{
+						"type":        "socks",
+						"tag":         tag,
+						"listen":      "::",
+						"listen_port": port,
+						"users":       []map[string]interface{}{{"username": cred.Username, "password": cred.Password}},
+					})
+				case "http":
+					inbounds = append(inbounds, map[string]interface{}{
+						"type":        "http",
+						"tag":         tag,
+						"listen":      "::",
+						"listen_port": port,
+						"users":       []map[string]interface{}{{"username": cred.UUID, "password": cred.Password}},
+					})
+				}
+			}
+		}
+
+		if len(inboundTagsForRoute) > 0 {
+			rules = append(rules, routeRule{
+				Inbound:  inboundTagsForRoute,
+				Outbound: outboundTag,
+			})
+		}
+	}
+
+	return inbounds, rules
+}
+
+// buildUserInbounds creates one inbound per user (fallback when no Routes exist).
 func buildUserInbounds(input Input) []interface{} {
 	var result []interface{}
 	for _, user := range input.Users {
@@ -201,9 +321,20 @@ func buildRelayInbound(input Input) interface{} {
 	}
 }
 
-func buildOutboundNodeOutbounds(input Input) []interface{} {
+// buildOutboundNodeOutbounds creates SOCKS5 outbounds for region-auto-collected
+// outbound nodes, skipping any node already covered by an explicit Route to
+// avoid duplicate outbound entries with different tags.
+func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.ProxyRoute) []interface{} {
+	routedNodes := make(map[string]bool, len(myRoutes))
+	for _, r := range myRoutes {
+		routedNodes[r.Spec.OutboundNode] = true
+	}
+
 	var result []interface{}
 	for _, outNode := range input.OutboundNodes {
+		if routedNodes[outNode.Name] {
+			continue
+		}
 		cred := input.NodeCreds[outNode.Name]
 		result = append(result, map[string]interface{}{
 			"type":        "socks",
@@ -217,12 +348,12 @@ func buildOutboundNodeOutbounds(input Input) []interface{} {
 	return result
 }
 
-func buildRouteOutbounds(input Input) []interface{} {
+// buildRouteOutbounds creates SOCKS5 outbounds for explicit ProxyRoutes.
+// Uses tag "outbound-{outboundNodeName}" to match what buildRouteUserInbounds
+// references in routing rules.
+func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.ProxyRoute) []interface{} {
 	var result []interface{}
-	for _, route := range input.Routes {
-		if route.Spec.InboundNode != input.Node.Name {
-			continue
-		}
+	for _, route := range myRoutes {
 		outNode, ok := input.OutboundNodesByName[route.Spec.OutboundNode]
 		if !ok {
 			continue
@@ -230,7 +361,7 @@ func buildRouteOutbounds(input Input) []interface{} {
 		cred := input.NodeCreds[outNode.Name]
 		result = append(result, map[string]interface{}{
 			"type":        "socks",
-			"tag":         fmt.Sprintf("route-%s", route.Name),
+			"tag":         fmt.Sprintf("outbound-%s", outNode.Name),
 			"server":      outNode.Spec.Address,
 			"server_port": outNode.Spec.RelayPort,
 			"username":    cred.Username,

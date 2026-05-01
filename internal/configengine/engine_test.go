@@ -110,6 +110,16 @@ func containsTag(tags []string, tag string) bool {
 	return false
 }
 
+func routeRulesOf(t *testing.T, cfg map[string]interface{}) []interface{} {
+	t.Helper()
+	r, ok := cfg["route"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	rules, _ := r["rules"].([]interface{})
+	return rules
+}
+
 // ---------------------------------------------------------------------------
 // Test 1: Inbound node with 2 vless users + 1 outbound node
 // ---------------------------------------------------------------------------
@@ -315,20 +325,45 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 	}
 
 	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
 	obs := outboundTags(t, cfg)
 
-	if !containsTag(obs, "route-route-a-to-b") {
-		t.Errorf("missing route outbound tag, got %v", obs)
+	expectedInboundTag := "inbound-vless-user-dave-node-b"
+	if !containsTag(ibs, expectedInboundTag) {
+		t.Errorf("missing per-route inbound tag %q, got %v", expectedInboundTag, ibs)
 	}
 
-	// verify it points to node-b's address
+	if !containsTag(obs, "outbound-node-b") {
+		t.Errorf("missing outbound tag outbound-node-b, got %v", obs)
+	}
+
 	for _, ob := range outboundsOf(t, cfg) {
 		m := ob.(map[string]interface{})
-		if m["tag"] == "route-route-a-to-b" {
+		if m["tag"] == "outbound-node-b" {
 			if m["server"] != "5.6.7.8" {
 				t.Errorf("expected server=5.6.7.8, got %v", m["server"])
 			}
 		}
+	}
+
+	rules := routeRulesOf(t, cfg)
+	if len(rules) == 0 {
+		t.Fatal("expected at least one routing rule, got none")
+	}
+	found := false
+	for _, rule := range rules {
+		m := rule.(map[string]interface{})
+		if m["outbound"] == "outbound-node-b" {
+			inboundList, _ := m["inbound"].([]interface{})
+			for _, ib := range inboundList {
+				if ib.(string) == expectedInboundTag {
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		t.Errorf("no routing rule found binding %q to outbound-node-b", expectedInboundTag)
 	}
 }
 
@@ -552,5 +587,148 @@ func TestConfigEngine_Socks5AndHTTPUsers(t *testing.T) {
 				t.Errorf("expected type=http, got %v", m["type"])
 			}
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test 10: Dedup — region-auto outbound node that is also in an explicit Route
+// must appear exactly once in outbounds.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_DedupRegionAutoAndExplicitRoute(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+		nil, 10808,
+	)
+	user := makeUser("user-eve", "vless")
+	route := makeRoute("route-a-to-b", "node-a", "node-b")
+
+	input := configengine.Input{
+		Node:                nodeA,
+		Users:               []*v1alpha1.ProxyUser{user},
+		UserCreds:           map[string]configengine.UserCredential{"user-eve": {UUID: "eeee-5555"}},
+		OutboundNodes:       []*v1alpha1.ProxyNode{nodeB},
+		Routes:              []*v1alpha1.ProxyRoute{route},
+		NodeCreds:           map[string]configengine.NodeCredential{"node-b": {Username: "u", Password: "p"}},
+		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{"node-b": nodeB},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	count := 0
+	for _, tag := range obs {
+		if tag == "outbound-node-b" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected outbound-node-b exactly once, got %d times in %v", count, obs)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test 11: Multi-route inbounds — 1 user, 2 routes → 2 inbounds on distinct
+// ports with routing rules binding each to its outbound.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeB := makeNode("node-b", "5.5.5.5", "us-east",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10808,
+	)
+	nodeC := makeNode("node-c", "6.6.6.6", "us-east",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10808,
+	)
+	user := makeUser("user-frank", "vless")
+	routeToB := makeRoute("route-a-to-b", "node-a", "node-b")
+	routeToC := makeRoute("route-a-to-c", "node-a", "node-c")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.ProxyUser{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-frank": {UUID: "ffff-6666"},
+		},
+		Routes: []*v1alpha1.ProxyRoute{routeToB, routeToC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+			"node-c": {Username: "uc", Password: "pc"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+	obs := outboundTags(t, cfg)
+
+	ibTagB := "inbound-vless-user-frank-node-b"
+	ibTagC := "inbound-vless-user-frank-node-c"
+
+	if !containsTag(ibs, ibTagB) {
+		t.Errorf("missing inbound tag %q, got %v", ibTagB, ibs)
+	}
+	if !containsTag(ibs, ibTagC) {
+		t.Errorf("missing inbound tag %q, got %v", ibTagC, ibs)
+	}
+
+	if !containsTag(obs, "outbound-node-b") {
+		t.Errorf("missing outbound-node-b, got %v", obs)
+	}
+	if !containsTag(obs, "outbound-node-c") {
+		t.Errorf("missing outbound-node-c, got %v", obs)
+	}
+
+	portOf := func(tag string) float64 {
+		for _, ib := range inboundsOf(t, cfg) {
+			m := ib.(map[string]interface{})
+			if m["tag"] == tag {
+				return m["listen_port"].(float64)
+			}
+		}
+		return -1
+	}
+
+	portB := portOf(ibTagB)
+	portC := portOf(ibTagC)
+	if portB == portC {
+		t.Errorf("expected distinct ports for different routes, both got %v", portB)
+	}
+
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 2 {
+		t.Fatalf("expected 2 routing rules, got %d", len(rules))
+	}
+
+	ruleOutbounds := make(map[string]bool)
+	for _, rule := range rules {
+		m := rule.(map[string]interface{})
+		ruleOutbounds[m["outbound"].(string)] = true
+	}
+	if !ruleOutbounds["outbound-node-b"] {
+		t.Errorf("missing routing rule for outbound-node-b")
+	}
+	if !ruleOutbounds["outbound-node-c"] {
+		t.Errorf("missing routing rule for outbound-node-c")
 	}
 }
