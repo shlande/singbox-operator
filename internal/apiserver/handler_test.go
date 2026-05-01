@@ -18,6 +18,13 @@ import (
 	"github.com/shlande/singbox-operator/internal/credmanager"
 )
 
+const (
+	protoVless  = "vless"
+	protoTrojan = "trojan"
+	protoSocks5 = "socks5"
+	protoHTTP   = "http"
+)
+
 func TestBuildClientConfig_TwoOutboundNodes(t *testing.T) {
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
@@ -98,7 +105,7 @@ func TestBuildClientConfig_DerivedUUID(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if m["type"] == "vless" {
+		if m["type"] == protoVless {
 			foundUUID, _ = m["uuid"].(string)
 		}
 	}
@@ -141,7 +148,7 @@ func TestBuildClientConfig_TrojanPassword(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if m["type"] == "trojan" {
+		if m["type"] == protoTrojan {
 			foundPassword, _ = m["password"].(string)
 		}
 	}
@@ -182,7 +189,7 @@ func TestBuildClientConfig_EmptyEntryEndpoints(t *testing.T) {
 			continue
 		}
 		tp, _ := m["type"].(string)
-		if tp == "vless" || tp == "trojan" {
+		if tp == protoVless || tp == protoTrojan {
 			t.Errorf("unexpected proxy outbound with type %q when EntryEndpoints is empty", tp)
 		}
 	}
@@ -559,7 +566,7 @@ func TestBuildClientConfig_HTTPPassword(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if m["type"] == "http" {
+		if m["type"] == protoHTTP {
 			foundPassword, _ = m["password"].(string)
 		}
 	}
@@ -840,8 +847,8 @@ func TestBuildClientConfig_RouteWithMissingOutbound(t *testing.T) {
 	user := makeProxyUser("user-alice", "vless", "secret-alice")
 
 	input := ClientConfigInput{
-		User:     user,
-		UserCred: credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		User:         user,
+		UserCred:     credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
 		InboundNodes: []*proxyv1alpha1.ProxyNode{inbound},
 		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{
 			"node-a": {route},
