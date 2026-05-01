@@ -18,40 +18,466 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	proxyv1alpha1 "github.com/your-org/singbox-operator/api/v1alpha1"
+	"github.com/your-org/singbox-operator/internal/configengine"
+	"github.com/your-org/singbox-operator/internal/credmanager"
+)
+
+const (
+	proxyNodeFinalizer   = "proxy.io/proxynode-finalizer"
+	configMapSuffix      = "-config"
+	deploymentSuffix     = "-deploy"
+	relaySvcSuffix       = "-relay-svc"
+	entrySvcSuffix       = "-%s-entry-svc" // formatted with protocol name
+	configHashAnnotation = "proxy.io/config-hash"
+	singboxImage         = "ghcr.io/sagernet/sing-box:latest"
 )
 
 // ProxyNodeReconciler reconciles a ProxyNode object
+// +kubebuilder:rbac:groups=proxy.proxy.io,resources=proxynodes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=proxy.proxy.io,resources=proxynodes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=proxy.proxy.io,resources=proxynodes/finalizers,verbs=update
+// +kubebuilder:rbac:groups=proxy.proxy.io,resources=proxyusers,verbs=get;list;watch
+// +kubebuilder:rbac:groups=proxy.proxy.io,resources=proxyroutes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 type ProxyNodeReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=proxy.proxy.io,resources=proxynodes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=proxy.proxy.io,resources=proxynodes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=proxy.proxy.io,resources=proxynodes/finalizers,verbs=update
-
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the ProxyNode object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.23.3/pkg/reconcile
 func (r *ProxyNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	node := &proxyv1alpha1.ProxyNode{}
+	if err := r.Get(ctx, req.NamespacedName, node); err != nil {
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
 
+	if !node.DeletionTimestamp.IsZero() {
+		return r.handleDeletion(ctx, node)
+	}
+
+	if !controllerutil.ContainsFinalizer(node, proxyNodeFinalizer) {
+		controllerutil.AddFinalizer(node, proxyNodeFinalizer)
+		if err := r.Update(ctx, node); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	if err := r.ensureCredential(ctx, node); err != nil {
+		logger.Error(err, "Failed to ensure node credential")
+		return ctrl.Result{}, err
+	}
+
+	input, err := r.collectInput(ctx, node)
+	if err != nil {
+		logger.Error(err, "Failed to collect input")
+		return ctrl.Result{}, err
+	}
+
+	output, err := configengine.Compute(input)
+	if err != nil {
+		logger.Error(err, "Failed to compute config")
+		return r.setDegraded(ctx, node, "ConfigComputeFailed", err.Error())
+	}
+
+	if err := r.reconcileConfigMap(ctx, node, output); err != nil {
+		logger.Error(err, "Failed to reconcile ConfigMap")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.reconcileDeployment(ctx, node, output.Hash); err != nil {
+		logger.Error(err, "Failed to reconcile Deployment")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.reconcileServices(ctx, node); err != nil {
+		logger.Error(err, "Failed to reconcile Services")
+		return ctrl.Result{}, err
+	}
+
+	return r.updateStatus(ctx, node, output.Hash)
+}
+
+func (r *ProxyNodeReconciler) handleDeletion(ctx context.Context, node *proxyv1alpha1.ProxyNode) (ctrl.Result, error) {
+	if controllerutil.ContainsFinalizer(node, proxyNodeFinalizer) {
+		controllerutil.RemoveFinalizer(node, proxyNodeFinalizer)
+		if err := r.Update(ctx, node); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	return ctrl.Result{}, nil
+}
+
+func (r *ProxyNodeReconciler) ensureCredential(ctx context.Context, node *proxyv1alpha1.ProxyNode) error {
+	if hasRole(node, proxyv1alpha1.ProxyRoleOutbound) {
+		_, err := credmanager.EnsureNodeCredential(ctx, r.Client, node)
+		return err
+	}
+	return nil
+}
+
+func (r *ProxyNodeReconciler) collectInput(ctx context.Context, node *proxyv1alpha1.ProxyNode) (configengine.Input, error) {
+	input := configengine.Input{
+		Node:                node,
+		UserCreds:           make(map[string]configengine.UserCredential),
+		NodeCreds:           make(map[string]configengine.NodeCredential),
+		OutboundNodesByName: make(map[string]*proxyv1alpha1.ProxyNode),
+	}
+
+	allNodes := &proxyv1alpha1.ProxyNodeList{}
+	if err := r.List(ctx, allNodes, client.InNamespace(node.Namespace)); err != nil {
+		return input, fmt.Errorf("listing ProxyNodes: %w", err)
+	}
+	for i := range allNodes.Items {
+		other := &allNodes.Items[i]
+		if other.Name == node.Name {
+			continue
+		}
+		if other.Spec.Region == node.Spec.Region && hasRole(other, proxyv1alpha1.ProxyRoleOutbound) {
+			input.OutboundNodes = append(input.OutboundNodes, other)
+			input.OutboundNodesByName[other.Name] = other
+			cred, err := credmanager.GetNodeCredential(ctx, r.Client, other.Name, node.Namespace)
+			if err == nil {
+				input.NodeCreds[other.Name] = configengine.NodeCredential{
+					Username: cred.Username,
+					Password: cred.Password,
+				}
+			}
+		}
+	}
+
+	if hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
+		allUsers := &proxyv1alpha1.ProxyUserList{}
+		if err := r.List(ctx, allUsers, client.InNamespace(node.Namespace)); err != nil {
+			return input, fmt.Errorf("listing ProxyUsers: %w", err)
+		}
+		for i := range allUsers.Items {
+			user := &allUsers.Items[i]
+			if nodeSupportsProtocol(node, user.Spec.Protocol) {
+				input.Users = append(input.Users, user)
+				cred, err := credmanager.GetUserCredential(ctx, r.Client, user)
+				if err == nil {
+					input.UserCreds[user.Name] = configengine.UserCredential{
+						UUID:     cred.UUID,
+						Password: cred.Password,
+						Username: cred.Username,
+					}
+				}
+			}
+		}
+	}
+
+	allRoutes := &proxyv1alpha1.ProxyRouteList{}
+	if err := r.List(ctx, allRoutes, client.InNamespace(node.Namespace)); err != nil {
+		return input, fmt.Errorf("listing ProxyRoutes: %w", err)
+	}
+	for i := range allRoutes.Items {
+		route := &allRoutes.Items[i]
+		if route.Spec.InboundNode == node.Name {
+			input.Routes = append(input.Routes, route)
+			outboundNode := &proxyv1alpha1.ProxyNode{}
+			if err := r.Get(ctx, types.NamespacedName{Name: route.Spec.OutboundNode, Namespace: node.Namespace}, outboundNode); err == nil {
+				input.OutboundNodesByName[outboundNode.Name] = outboundNode
+				cred, err := credmanager.GetNodeCredential(ctx, r.Client, outboundNode.Name, node.Namespace)
+				if err == nil {
+					input.NodeCreds[outboundNode.Name] = configengine.NodeCredential{
+						Username: cred.Username,
+						Password: cred.Password,
+					}
+				}
+			}
+		}
+	}
+
+	if hasRole(node, proxyv1alpha1.ProxyRoleOutbound) {
+		cred, err := credmanager.GetNodeCredential(ctx, r.Client, node.Name, node.Namespace)
+		if err == nil {
+			input.NodeCreds[node.Name] = configengine.NodeCredential{
+				Username: cred.Username,
+				Password: cred.Password,
+			}
+		}
+	}
+
+	return input, nil
+}
+
+func (r *ProxyNodeReconciler) reconcileConfigMap(ctx context.Context, node *proxyv1alpha1.ProxyNode, output configengine.Output) error {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      node.Name + configMapSuffix,
+			Namespace: node.Namespace,
+		},
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+		if cm.Annotations == nil {
+			cm.Annotations = make(map[string]string)
+		}
+		cm.Annotations[configHashAnnotation] = output.Hash
+		cm.Data = map[string]string{
+			"config.json": string(output.Config),
+		}
+		return controllerutil.SetControllerReference(node, cm, r.Scheme)
+	})
+	return err
+}
+
+func (r *ProxyNodeReconciler) reconcileDeployment(ctx context.Context, node *proxyv1alpha1.ProxyNode, configHash string) error {
+	cmName := node.Name + configMapSuffix
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      node.Name + deploymentSuffix,
+			Namespace: node.Namespace,
+		},
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
+		replicas := int32(1)
+		deploy.Spec = appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       "singbox",
+					"proxynode": node.Name,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app":       "singbox",
+						"proxynode": node.Name,
+					},
+					Annotations: map[string]string{
+						configHashAnnotation: configHash,
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{
+						"kubernetes.io/hostname": node.Spec.NodeRef,
+					},
+					Containers: []corev1.Container{
+						{
+							Name:  "singbox",
+							Image: singboxImage,
+							Args:  []string{"run", "-c", "/etc/sing-box/config.json"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "config",
+									MountPath: "/etc/sing-box",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: cmName,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		return controllerutil.SetControllerReference(node, deploy, r.Scheme)
+	})
+	return err
+}
+
+func (r *ProxyNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.ProxyNode) error {
+	relaySvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      node.Name + relaySvcSuffix,
+			Namespace: node.Namespace,
+		},
+	}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, relaySvc, func() error {
+		relaySvc.Spec = corev1.ServiceSpec{
+			Type: corev1.ServiceTypeNodePort,
+			Selector: map[string]string{
+				"app":       "singbox",
+				"proxynode": node.Name,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "relay",
+					Port:     node.Spec.RelayPort,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		}
+		return controllerutil.SetControllerReference(node, relaySvc, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("reconciling relay service: %w", err)
+	}
+
+	if hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
+		for _, proto := range node.Spec.SupportedProtocols {
+			protoName := proto.Protocol
+			protoPort := proto.Port
+			svcName := fmt.Sprintf(node.Name+entrySvcSuffix, protoName)
+			entrySvc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: node.Namespace,
+				},
+			}
+			_, err := controllerutil.CreateOrUpdate(ctx, r.Client, entrySvc, func() error {
+				entrySvc.Spec = corev1.ServiceSpec{
+					Type: corev1.ServiceTypeNodePort,
+					Selector: map[string]string{
+						"app":       "singbox",
+						"proxynode": node.Name,
+					},
+					Ports: []corev1.ServicePort{
+						{
+							Name:     protoName,
+							Port:     protoPort,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+				}
+				return controllerutil.SetControllerReference(node, entrySvc, r.Scheme)
+			})
+			if err != nil {
+				return fmt.Errorf("reconciling entry service for %s: %w", protoName, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (r *ProxyNodeReconciler) updateStatus(ctx context.Context, node *proxyv1alpha1.ProxyNode, configHash string) (ctrl.Result, error) {
+	latest := &proxyv1alpha1.ProxyNode{}
+	if err := r.Get(ctx, types.NamespacedName{Name: node.Name, Namespace: node.Namespace}, latest); err != nil {
+		return ctrl.Result{}, err
+	}
+	latest.Status.Phase = "Running"
+	latest.Status.ConfigHash = configHash
+	latest.Status.ObservedGeneration = latest.Generation
+
+	var endpoints []string
+	for _, proto := range latest.Spec.SupportedProtocols {
+		endpoints = append(endpoints, fmt.Sprintf("%s:%s:%d", proto.Protocol, latest.Spec.Address, proto.Port))
+	}
+	latest.Status.EntryEndpoints = endpoints
+
+	apimeta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+		Type:               "Ready",
+		Status:             metav1.ConditionTrue,
+		Reason:             "Reconciled",
+		Message:            "ProxyNode reconciled successfully",
+		ObservedGeneration: latest.Generation,
+	})
+
+	if err := r.Status().Update(ctx, latest); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *ProxyNodeReconciler) setDegraded(ctx context.Context, node *proxyv1alpha1.ProxyNode, reason, message string) (ctrl.Result, error) {
+	latest := &proxyv1alpha1.ProxyNode{}
+	if err := r.Get(ctx, types.NamespacedName{Name: node.Name, Namespace: node.Namespace}, latest); err != nil {
+		return ctrl.Result{}, err
+	}
+	latest.Status.Phase = "Failed"
+	apimeta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+		Type:               "Degraded",
+		Status:             metav1.ConditionTrue,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: latest.Generation,
+	})
+	if err := r.Status().Update(ctx, latest); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, fmt.Errorf("%s: %s", reason, message)
+}
+
+// sameRegionNodeMapper enqueues all ProxyNodes in the same region when any ProxyNode changes
+func (r *ProxyNodeReconciler) sameRegionNodeMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	changedNode, ok := obj.(*proxyv1alpha1.ProxyNode)
+	if !ok {
+		return nil
+	}
+	allNodes := &proxyv1alpha1.ProxyNodeList{}
+	if err := r.List(ctx, allNodes, client.InNamespace(changedNode.Namespace)); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, n := range allNodes.Items {
+		if n.Name != changedNode.Name && n.Spec.Region == changedNode.Spec.Region {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: n.Name, Namespace: n.Namespace},
+			})
+		}
+	}
+	return requests
+}
+
+// matchingProtocolNodeMapper enqueues inbound ProxyNodes that support the changed ProxyUser's protocol
+func (r *ProxyNodeReconciler) matchingProtocolNodeMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	user, ok := obj.(*proxyv1alpha1.ProxyUser)
+	if !ok {
+		return nil
+	}
+	allNodes := &proxyv1alpha1.ProxyNodeList{}
+	if err := r.List(ctx, allNodes, client.InNamespace(user.Namespace)); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, n := range allNodes.Items {
+		if hasRole(&n, proxyv1alpha1.ProxyRoleInbound) && nodeSupportsProtocol(&n, user.Spec.Protocol) {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: n.Name, Namespace: n.Namespace},
+			})
+		}
+	}
+	return requests
+}
+
+// affectedByRouteMapper enqueues the inbound ProxyNode referenced by a changed ProxyRoute
+func (r *ProxyNodeReconciler) affectedByRouteMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	route, ok := obj.(*proxyv1alpha1.ProxyRoute)
+	if !ok {
+		return nil
+	}
+	return []reconcile.Request{
+		{NamespacedName: types.NamespacedName{Name: route.Spec.InboundNode, Namespace: route.Namespace}},
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -59,5 +485,35 @@ func (r *ProxyNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&proxyv1alpha1.ProxyNode{}).
 		Named("proxynode").
+		Owns(&corev1.ConfigMap{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{}).
+		Watches(&proxyv1alpha1.ProxyNode{},
+			handler.EnqueueRequestsFromMapFunc(r.sameRegionNodeMapper),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&proxyv1alpha1.ProxyUser{},
+			handler.EnqueueRequestsFromMapFunc(r.matchingProtocolNodeMapper)).
+		Watches(&proxyv1alpha1.ProxyRoute{},
+			handler.EnqueueRequestsFromMapFunc(r.affectedByRouteMapper)).
 		Complete(r)
+}
+
+// Helper functions
+
+func hasRole(node *proxyv1alpha1.ProxyNode, role proxyv1alpha1.ProxyRole) bool {
+	for _, r := range node.Spec.Roles {
+		if r == role {
+			return true
+		}
+	}
+	return false
+}
+
+func nodeSupportsProtocol(node *proxyv1alpha1.ProxyNode, protocol string) bool {
+	for _, p := range node.Spec.SupportedProtocols {
+		if p.Protocol == protocol {
+			return true
+		}
+	}
+	return false
 }
