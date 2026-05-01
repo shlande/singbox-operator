@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/internal/apiserver"
 	"github.com/shlande/singbox-operator/internal/controller"
 	proxywebhook "github.com/shlande/singbox-operator/internal/webhook"
 	// +kubebuilder:scaffold:imports
@@ -63,6 +64,8 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
+	var apiBindAddress string
+	var clientConfigTemplate string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -80,6 +83,10 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&apiBindAddress, "api-bind-address", ":8082",
+		"The address the client config API endpoint binds to.")
+	flag.StringVar(&clientConfigTemplate, "client-config-template", "",
+		"ConfigMap reference for client config template in namespace/name format.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -210,6 +217,14 @@ func main() {
 	}
 	if err := proxywebhook.SetupProxyRouteWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create webhook", "webhook", "ProxyRoute")
+		os.Exit(1)
+	}
+	if err := mgr.Add(&apiserver.Server{
+		BindAddress: apiBindAddress,
+		TemplateRef: clientConfigTemplate,
+		Client:      mgr.GetClient(),
+	}); err != nil {
+		setupLog.Error(err, "Failed to register API server")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
