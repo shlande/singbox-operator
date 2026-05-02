@@ -144,10 +144,12 @@ func (r *ProxyNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if err := r.reconcileServices(ctx, node); err != nil {
+	if requeue, err := r.reconcileServices(ctx, node); err != nil {
 		logger.Error(err, "Failed to reconcile Services")
 		reconcileErr = err
 		return ctrl.Result{}, err
+	} else if requeue {
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return r.updateStatus(ctx, node, output.Hash)
@@ -381,44 +383,52 @@ func (r *ProxyNodeReconciler) reconcileDeployment(ctx context.Context, node *pro
 	return err
 }
 
-func (r *ProxyNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.ProxyNode) error {
-	if err := r.reconcileNodePortService(ctx, node, node.Name+relaySvcSuffix, "relay", relayContainerPort, node.Spec.RelayNodePort); err != nil {
-		return fmt.Errorf("reconciling relay service: %w", err)
+func (r *ProxyNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.ProxyNode) (requeue bool, err error) {
+	if requeue, err = r.reconcileNodePortService(ctx, node, node.Name+relaySvcSuffix, "relay", relayContainerPort, node.Spec.RelayNodePort); err != nil {
+		return requeue, fmt.Errorf("reconciling relay service: %w", err)
+	}
+	if requeue {
+		return true, nil
 	}
 
 	if hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
 		for _, proto := range node.Spec.SupportedProtocols {
 			svcName := fmt.Sprintf(node.Name+entrySvcSuffix, proto.Protocol)
-			if err := r.reconcileNodePortService(ctx, node, svcName, proto.Protocol, proto.Port, proto.Port); err != nil {
-				return fmt.Errorf("reconciling entry service for %s: %w", proto.Protocol, err)
+			if requeue, err = r.reconcileNodePortService(ctx, node, svcName, proto.Protocol, proto.Port, proto.Port); err != nil {
+				return requeue, fmt.Errorf("reconciling entry service for %s: %w", proto.Protocol, err)
+			}
+			if requeue {
+				return true, nil
 			}
 		}
 	}
-	return nil
+	return false, nil
 }
 
-// reconcileNodePortService ensures a NodePort Service exists with clusterPort as the Service port
-// and nodePort pinned as the NodePort. If the existing Service has a different NodePort, it is
-// deleted and recreated, since Kubernetes does not allow in-place NodePort changes.
 func (r *ProxyNodeReconciler) reconcileNodePortService(
 	ctx context.Context,
 	node *proxyv1alpha1.ProxyNode,
 	svcName, portName string,
 	clusterPort, nodePort int32,
-) error {
+) (requeue bool, err error) {
 	desiredNodePort := int32(0)
 	if nodePort >= 30000 && nodePort <= 32767 {
 		desiredNodePort = nodePort
 	}
 
 	existing := &corev1.Service{}
-	err := r.Get(ctx, types.NamespacedName{Name: svcName, Namespace: node.Namespace}, existing)
-	if err == nil && len(existing.Spec.Ports) > 0 {
+	getErr := r.Get(ctx, types.NamespacedName{Name: svcName, Namespace: node.Namespace}, existing)
+	if getErr == nil && desiredNodePort != 0 && len(existing.Spec.Ports) > 0 {
 		if existing.Spec.Ports[0].NodePort != desiredNodePort {
 			if delErr := r.Delete(ctx, existing); delErr != nil {
-				return fmt.Errorf("deleting service with stale NodePort: %w", delErr)
+				return false, fmt.Errorf("deleting service with stale NodePort: %w", delErr)
 			}
+			return true, nil
 		}
+	}
+
+	if getErr != nil && !errors.IsNotFound(getErr) {
+		return false, getErr
 	}
 
 	svc := &corev1.Service{
@@ -446,7 +456,7 @@ func (r *ProxyNodeReconciler) reconcileNodePortService(
 		}
 		return controllerutil.SetControllerReference(node, svc, r.Scheme)
 	})
-	return err
+	return false, err
 }
 
 func (r *ProxyNodeReconciler) updateStatus(ctx context.Context, node *proxyv1alpha1.ProxyNode, configHash string) (ctrl.Result, error) {
