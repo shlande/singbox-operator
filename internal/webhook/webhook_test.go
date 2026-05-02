@@ -333,11 +333,46 @@ func TestProxyNodeWebhook_ValidateUpdate(t *testing.T) {
 	})
 }
 
+func TestProxyUserWebhook_Default(t *testing.T) {
+	w := &webhook.ProxyUserWebhook{}
+	ctx := context.Background()
+
+	t.Run("defaults empty protocol to hysteria2", func(t *testing.T) {
+		user := &v1alpha1.ProxyUser{
+			Spec: v1alpha1.ProxyUserSpec{
+				Protocol:   "",
+				AuthSecret: corev1.SecretReference{Name: "my-secret"},
+			},
+		}
+		if err := w.Default(ctx, user); err != nil {
+			t.Fatalf("Default() error: %v", err)
+		}
+		if user.Spec.Protocol != "hysteria2" {
+			t.Errorf("Expected protocol=hysteria2, got %q", user.Spec.Protocol)
+		}
+	})
+
+	t.Run("does not override explicitly set protocol", func(t *testing.T) {
+		user := &v1alpha1.ProxyUser{
+			Spec: v1alpha1.ProxyUserSpec{
+				Protocol:   "vless",
+				AuthSecret: corev1.SecretReference{Name: "my-secret"},
+			},
+		}
+		if err := w.Default(ctx, user); err != nil {
+			t.Fatalf("Default() error: %v", err)
+		}
+		if user.Spec.Protocol != "vless" {
+			t.Errorf("Expected protocol=vless (unchanged), got %q", user.Spec.Protocol)
+		}
+	})
+}
+
 func TestProxyUserWebhook_ValidateCreate(t *testing.T) {
 	w := &webhook.ProxyUserWebhook{}
 	ctx := context.Background()
 
-	t.Run("rejects empty protocol", func(t *testing.T) {
+	t.Run("accepts empty protocol (defaulted by webhook)", func(t *testing.T) {
 		user := &v1alpha1.ProxyUser{
 			Spec: v1alpha1.ProxyUserSpec{
 				Protocol:   "",
@@ -345,11 +380,8 @@ func TestProxyUserWebhook_ValidateCreate(t *testing.T) {
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
-		if err == nil {
-			t.Error("Expected error for empty protocol, got nil")
-		}
-		if err != nil && !strings.Contains(err.Error(), "protocol") {
-			t.Errorf("Expected error to mention 'protocol', got: %v", err)
+		if err != nil {
+			t.Errorf("Expected no error for empty protocol (optional field), got: %v", err)
 		}
 	})
 
@@ -379,6 +411,19 @@ func TestProxyUserWebhook_ValidateCreate(t *testing.T) {
 		}
 		if err != nil && !strings.Contains(err.Error(), "authSecret") {
 			t.Errorf("Expected error to mention 'authSecret', got: %v", err)
+		}
+	})
+
+	t.Run("accepts valid ProxyUser with hysteria2", func(t *testing.T) {
+		user := &v1alpha1.ProxyUser{
+			Spec: v1alpha1.ProxyUserSpec{
+				Protocol:   "hysteria2",
+				AuthSecret: corev1.SecretReference{Name: "my-secret"},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, user)
+		if err != nil {
+			t.Errorf("Expected no error for hysteria2 ProxyUser, got: %v", err)
 		}
 	})
 

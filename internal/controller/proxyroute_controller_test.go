@@ -72,10 +72,10 @@ var _ = Describe("ProxyRoute Reconciler", func() {
 		outboundNode := &proxyv1alpha1.ProxyNode{
 			ObjectMeta: metav1.ObjectMeta{Name: outboundName, Namespace: ns},
 			Spec: proxyv1alpha1.ProxyNodeSpec{
-				NodeRef:       "k8s-node-pr-2",
-				Address:       "20.0.0.2",
-				Region:        "pr-other-region",
-				Roles:         []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
+				NodeRef: "k8s-node-pr-2",
+				Address: "20.0.0.2",
+				Region:  "pr-other-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
 			},
 		}
 		Expect(k8sClient.Create(ctx, outboundNode)).To(Succeed())

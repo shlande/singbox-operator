@@ -441,10 +441,10 @@ func makeOutboundNode(name, region string) *proxyv1alpha1.ProxyNode {
 			Namespace: "default",
 		},
 		Spec: proxyv1alpha1.ProxyNodeSpec{
-			NodeRef:   name,
-			Address:   "10.0.0.1",
-			Region:    region,
-			Roles:     []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
+			NodeRef: name,
+			Address: "10.0.0.1",
+			Region:  region,
+			Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
 		},
 	}
 }

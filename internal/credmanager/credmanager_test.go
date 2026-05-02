@@ -92,10 +92,10 @@ func TestEnsureNodeCredential_Idempotent(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.ProxyNodeSpec{
-			NodeRef:   "k8s-node-1",
-			Address:   "1.2.3.4",
-			Region:    "us-west",
-			Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+			NodeRef: "k8s-node-1",
+			Address: "1.2.3.4",
+			Region:  "us-west",
+			Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
 		},
 	}
 	if err := c.Create(ctx, node); err != nil {
@@ -130,10 +130,10 @@ func TestGetNodeCredential(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.ProxyNodeSpec{
-			NodeRef:   "k8s-node-2",
-			Address:   "2.3.4.5",
-			Region:    "us-east",
-			Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+			NodeRef: "k8s-node-2",
+			Address: "2.3.4.5",
+			Region:  "us-east",
+			Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
 		},
 	}
 	if err := c.Create(ctx, node); err != nil {

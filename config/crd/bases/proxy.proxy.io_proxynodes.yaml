@@ -101,9 +101,10 @@ spec:
                       minimum: 30000
                       type: integer
                     protocol:
-                      description: 'Protocol is the proxy protocol: vless, trojan,
-                        socks5, or http'
+                      description: 'Protocol is the proxy protocol: hysteria2, vless,
+                        trojan, socks5, or http'
                       enum:
+                      - hysteria2
                       - vless
                       - trojan
                       - socks5

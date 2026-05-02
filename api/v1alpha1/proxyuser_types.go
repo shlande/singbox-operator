@@ -23,11 +23,14 @@ import (
 
 // ProxyUserSpec defines the desired state of ProxyUser
 type ProxyUserSpec struct {
-	// Protocol is the inbound proxy protocol (must match a ProxyNode's supportedProtocols)
-	// +kubebuilder:validation:Enum=vless;trojan;socks5;http
-	Protocol string `json:"protocol"`
+	// Protocol is the inbound proxy protocol (must match a ProxyNode's supportedProtocols).
+	// Defaults to hysteria2 when omitted.
+	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http
+	// +kubebuilder:default=hysteria2
+	// +optional
+	Protocol string `json:"protocol,omitempty"`
 	// AuthSecret references the Secret containing authentication credentials
-	// (e.g., uuid for vless, password for trojan)
+	// (e.g., password for hysteria2/trojan, uuid for vless)
 	AuthSecret corev1.SecretReference `json:"authSecret"`
 }
 

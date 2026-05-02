@@ -31,8 +31,8 @@ const (
 
 // ProtocolConfig declares a supported inbound protocol and its external NodePort
 type ProtocolConfig struct {
-	// Protocol is the proxy protocol: vless, trojan, socks5, or http
-	// +kubebuilder:validation:Enum=vless;trojan;socks5;http
+	// Protocol is the proxy protocol: hysteria2, vless, trojan, socks5, or http
+	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http
 	Protocol string `json:"protocol"`
 	// Port is the external NodePort for client connections
 	// +kubebuilder:validation:Minimum=30000

@@ -876,6 +876,127 @@ func TestConfigEngine_RegionAutoVirtualUsers(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Test 14: hysteria2 inbound — users have password, inbound has tls block
+// ---------------------------------------------------------------------------
+func TestConfigEngine_Hysteria2Inbound(t *testing.T) {
+	node := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "hysteria2", Port: 30443}},
+		0,
+	)
+	user := makeUser("user-alice", "hysteria2")
+
+	input := configengine.Input{
+		Node:  node,
+		Users: []*v1alpha1.ProxyUser{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {Password: "s3cr3t"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+
+	if !containsTag(ibs, "inbound-hysteria2") {
+		t.Errorf("missing inbound-hysteria2 tag, got %v", ibs)
+	}
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]interface{})
+		if m["tag"] != "inbound-hysteria2" {
+			continue
+		}
+		if m["type"] != "hysteria2" {
+			t.Errorf("expected type=hysteria2, got %v", m["type"])
+		}
+		tls, ok := m["tls"].(map[string]interface{})
+		if !ok {
+			t.Error("expected tls block in hysteria2 inbound")
+		} else if tls["enabled"] != true {
+			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+		}
+		users, _ := m["users"].([]interface{})
+		if len(users) != 1 {
+			t.Fatalf("expected 1 user, got %d", len(users))
+		}
+		u := users[0].(map[string]interface{})
+		if u["name"] != "user-alice" {
+			t.Errorf("expected name=user-alice, got %v", u["name"])
+		}
+		if _, hasPassword := u["password"]; !hasPassword {
+			t.Error("expected password field in hysteria2 user")
+		}
+		if _, hasUUID := u["uuid"]; hasUUID {
+			t.Error("hysteria2 user must not have uuid field")
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test 15: hysteria2 inbound with outbound nodes — virtual users use DerivePassword
+// ---------------------------------------------------------------------------
+func TestConfigEngine_Hysteria2VirtualUsers(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "hysteria2", Port: 30443}},
+		0,
+	)
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	user := makeUser("user-alice", "hysteria2")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.ProxyUser{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {Password: "s3cr3t"},
+		},
+		OutboundNodes: []*v1alpha1.ProxyNode{nodeB},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "relay-user", Password: "relay-pass"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{"node-b": nodeB},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]interface{})
+		if m["tag"] != "inbound-hysteria2" {
+			continue
+		}
+		users, _ := m["users"].([]interface{})
+		if len(users) != 1 {
+			t.Fatalf("expected 1 virtual user, got %d", len(users))
+		}
+		u := users[0].(map[string]interface{})
+		if u["name"] != "user-alice#node-b" {
+			t.Errorf("expected virtual user name=user-alice#node-b, got %v", u["name"])
+		}
+		if _, hasPassword := u["password"]; !hasPassword {
+			t.Error("expected password field in hysteria2 virtual user")
+		}
+	}
+
+	obs := outboundTags(t, cfg)
+	if !containsTag(obs, "outbound-node-b") {
+		t.Errorf("missing outbound-node-b, got %v", obs)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Test 12: DeriveUUID — determinism and uniqueness
 // ---------------------------------------------------------------------------
 func TestDeriveUUID(t *testing.T) {

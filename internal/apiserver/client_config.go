@@ -130,6 +130,10 @@ func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeNam
 	}
 
 	switch protocol {
+	case "hysteria2":
+		ob["type"] = "hysteria2"
+		ob["password"] = configengine.DerivePassword(cred.Password, outboundNodeName)
+		ob["tls"] = map[string]interface{}{"enabled": true}
 	case "vless":
 		ob["type"] = "vless"
 		ob["uuid"] = configengine.DeriveUUID(cred.UUID, outboundNodeName)

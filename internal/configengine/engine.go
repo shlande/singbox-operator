@@ -248,6 +248,11 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface
 				cred := input.UserCreds[user.Name]
 				vName := virtualUserName(user.Name, nodeName)
 				switch proto.Protocol {
+				case "hysteria2":
+					users = append(users, map[string]interface{}{
+						"name":     vName,
+						"password": DerivePassword(cred.Password, nodeName),
+					})
 				case "vless":
 					users = append(users, map[string]interface{}{
 						"name": vName,
@@ -311,6 +316,11 @@ func buildUsersBlock(input Input, protocol string) []map[string]interface{} {
 		}
 		cred := input.UserCreds[user.Name]
 		switch protocol {
+		case "hysteria2":
+			users = append(users, map[string]interface{}{
+				"name":     user.Name,
+				"password": cred.Password,
+			})
 		case "vless":
 			users = append(users, map[string]interface{}{
 				"name": user.Name,
@@ -353,13 +363,17 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]inte
 	if protocol == "socks5" {
 		typeStr = "socks"
 	}
-	return map[string]interface{}{
+	entry := map[string]interface{}{
 		"type":        typeStr,
 		"tag":         tag,
 		"listen":      "::",
 		"listen_port": port,
 		"users":       users,
 	}
+	if protocol == "hysteria2" {
+		entry["tls"] = map[string]interface{}{"enabled": true}
+	}
+	return entry
 }
 
 func buildUserInbounds(input Input) []interface{} {
