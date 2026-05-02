@@ -344,6 +344,7 @@ func (r *SingBoxNodeReconciler) reconcileDeployment(ctx context.Context, node *p
 		replicas := int32(1)
 		deploy.Spec = appsv1.DeploymentSpec{
 			Replicas: &replicas,
+			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":         "singbox",
