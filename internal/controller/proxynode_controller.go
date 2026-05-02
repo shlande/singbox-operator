@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -179,6 +180,9 @@ func (r *ProxyNodeReconciler) collectInput(ctx context.Context, node *proxyv1alp
 	if err := r.List(ctx, allNodes, client.InNamespace(node.Namespace)); err != nil {
 		return input, fmt.Errorf("listing ProxyNodes: %w", err)
 	}
+	sort.Slice(allNodes.Items, func(i, j int) bool {
+		return allNodes.Items[i].Name < allNodes.Items[j].Name
+	})
 	for i := range allNodes.Items {
 		other := &allNodes.Items[i]
 		if other.Name == node.Name {
@@ -202,6 +206,9 @@ func (r *ProxyNodeReconciler) collectInput(ctx context.Context, node *proxyv1alp
 		if err := r.List(ctx, allUsers, client.InNamespace(node.Namespace)); err != nil {
 			return input, fmt.Errorf("listing ProxyUsers: %w", err)
 		}
+		sort.Slice(allUsers.Items, func(i, j int) bool {
+			return allUsers.Items[i].Name < allUsers.Items[j].Name
+		})
 		for i := range allUsers.Items {
 			user := &allUsers.Items[i]
 			if nodeSupportsProtocol(node, user.Spec.Protocol) {
