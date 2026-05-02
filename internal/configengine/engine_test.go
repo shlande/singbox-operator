@@ -288,7 +288,7 @@ func TestConfigEngine_MultiRoleNode(t *testing.T) {
 		Node:  node,
 		Users: []*v1alpha1.ProxyUser{user},
 		UserCreds: map[string]configengine.UserCredential{
-			"user-carol": {Password: "s3cr3t"},
+			"user-carol": {UUID: "s3cr3t-uuid"},
 		},
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-c": {Username: "relay-u", Password: "relay-p"},
@@ -594,8 +594,8 @@ func TestConfigEngine_Socks5AndHTTPUsers(t *testing.T) {
 		Node:  node,
 		Users: []*v1alpha1.ProxyUser{userS, userH},
 		UserCreds: map[string]configengine.UserCredential{
-			"user-socks": {Username: "su", Password: "sp"},
-			"user-http":  {UUID: "hu", Password: "hp"},
+			"user-socks": {UUID: "socks-uuid"},
+			"user-http":  {UUID: "http-uuid"},
 		},
 		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
 	}
@@ -890,7 +890,7 @@ func TestConfigEngine_Hysteria2Inbound(t *testing.T) {
 		Node:  node,
 		Users: []*v1alpha1.ProxyUser{user},
 		UserCreds: map[string]configengine.UserCredential{
-			"user-alice": {Password: "s3cr3t"},
+			"user-alice": {UUID: "s3cr3t-uuid"},
 		},
 		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
 	}
@@ -956,7 +956,7 @@ func TestConfigEngine_Hysteria2VirtualUsers(t *testing.T) {
 		Node:  nodeA,
 		Users: []*v1alpha1.ProxyUser{user},
 		UserCreds: map[string]configengine.UserCredential{
-			"user-alice": {Password: "s3cr3t"},
+			"user-alice": {UUID: "s3cr3t-uuid"},
 		},
 		OutboundNodes: []*v1alpha1.ProxyNode{nodeB},
 		NodeCreds: map[string]configengine.NodeCredential{

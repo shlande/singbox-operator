@@ -13,11 +13,9 @@ import (
 
 const relayContainerPort = int32(10808)
 
-// UserCredential holds authentication credentials for a ProxyUser.
+// UserCredential holds the UUID that drives all per-protocol credential derivation.
 type UserCredential struct {
-	UUID     string
-	Password string
-	Username string
+	UUID string
 }
 
 // NodeCredential holds the SOCKS5 credentials for inter-node relay.
@@ -211,9 +209,26 @@ func virtualUserName(userName, outboundNodeName string) string {
 	return fmt.Sprintf("%s#%s", userName, outboundNodeName)
 }
 
-func DerivePassword(basePassword, suffix string) string {
-	h := sha256.Sum256([]byte(basePassword + "#" + suffix))
+func DerivePassword(baseUUID, suffix string) string {
+	h := sha256.Sum256([]byte(baseUUID + "#" + suffix))
 	return fmt.Sprintf("%x", h)[:32]
+}
+
+// DeriveAuth returns the sing-box auth fields for a given protocol, user UUID,
+// and outbound node name. It is the single derivation point for all protocols.
+func DeriveAuth(protocol, uuid, nodeName string) map[string]interface{} {
+	switch protocol {
+	case "hysteria2", "trojan":
+		return map[string]interface{}{"password": DerivePassword(uuid, nodeName)}
+	case "vless":
+		return map[string]interface{}{"uuid": DeriveUUID(uuid, nodeName)}
+	case "socks5":
+		return map[string]interface{}{"username": uuid, "password": DerivePassword(uuid, nodeName)}
+	case "http":
+		return map[string]interface{}{"username": uuid, "password": DerivePassword(uuid, nodeName)}
+	default:
+		return map[string]interface{}{"password": DerivePassword(uuid, nodeName)}
+	}
 }
 
 func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface{}, []routeRule) {
@@ -247,35 +262,9 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface
 				}
 				cred := input.UserCreds[user.Name]
 				vName := virtualUserName(user.Name, nodeName)
-				switch proto.Protocol {
-				case "hysteria2":
-					users = append(users, map[string]interface{}{
-						"name":     vName,
-						"password": DerivePassword(cred.Password, nodeName),
-					})
-				case "vless":
-					users = append(users, map[string]interface{}{
-						"name": vName,
-						"uuid": DeriveUUID(cred.UUID, nodeName),
-					})
-				case "trojan":
-					users = append(users, map[string]interface{}{
-						"name":     vName,
-						"password": DerivePassword(cred.Password, nodeName),
-					})
-				case "socks5":
-					users = append(users, map[string]interface{}{
-						"name":     vName,
-						"username": cred.Username,
-						"password": DerivePassword(cred.Password, nodeName),
-					})
-				case "http":
-					users = append(users, map[string]interface{}{
-						"name":     vName,
-						"username": cred.UUID,
-						"password": DerivePassword(cred.Password, nodeName),
-					})
-				}
+				auth := DeriveAuth(proto.Protocol, cred.UUID, nodeName)
+				auth["name"] = vName
+				users = append(users, auth)
 			}
 		}
 
@@ -315,35 +304,9 @@ func buildUsersBlock(input Input, protocol string) []map[string]interface{} {
 			continue
 		}
 		cred := input.UserCreds[user.Name]
-		switch protocol {
-		case "hysteria2":
-			users = append(users, map[string]interface{}{
-				"name":     user.Name,
-				"password": cred.Password,
-			})
-		case "vless":
-			users = append(users, map[string]interface{}{
-				"name": user.Name,
-				"uuid": cred.UUID,
-			})
-		case "trojan":
-			users = append(users, map[string]interface{}{
-				"name":     user.Name,
-				"password": cred.Password,
-			})
-		case "socks5":
-			users = append(users, map[string]interface{}{
-				"name":     user.Name,
-				"username": cred.Username,
-				"password": cred.Password,
-			})
-		case "http":
-			users = append(users, map[string]interface{}{
-				"name":     user.Name,
-				"username": cred.UUID,
-				"password": cred.Password,
-			})
-		}
+		auth := DeriveAuth(protocol, cred.UUID, "")
+		auth["name"] = user.Name
+		users = append(users, auth)
 	}
 	return users
 }

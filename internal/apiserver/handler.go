@@ -51,17 +51,15 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 			logger.Error(err, "Failed to get credential for user", "user", user.Name)
 			continue
 		}
-		if cred.UUID == "" {
+		if !strings.EqualFold(cred.UUID, requestUUID) {
 			continue
 		}
-		if strings.EqualFold(cred.UUID, requestUUID) {
-			if matchedUser != nil {
-				logger.Info("Multiple ProxyUsers match UUID, using first match", "namespace", namespace, "uuid", requestUUID)
-				break
-			}
-			matchedUser = user
-			matchedCred = cred
+		if matchedUser != nil {
+			logger.Info("Multiple ProxyUsers match UUID, using first match", "namespace", namespace, "uuid", requestUUID)
+			break
 		}
+		matchedUser = user
+		matchedCred = cred
 	}
 
 	if matchedUser == nil {

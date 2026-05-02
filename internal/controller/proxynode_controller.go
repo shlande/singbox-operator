@@ -216,9 +216,7 @@ func (r *ProxyNodeReconciler) collectInput(ctx context.Context, node *proxyv1alp
 				cred, err := credmanager.GetUserCredential(ctx, r.Client, user)
 				if err == nil {
 					input.UserCreds[user.Name] = configengine.UserCredential{
-						UUID:     cred.UUID,
-						Password: cred.Password,
-						Username: cred.Username,
+						UUID: cred.UUID,
 					}
 				}
 			}

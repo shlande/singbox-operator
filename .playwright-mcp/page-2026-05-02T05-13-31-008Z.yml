@@ -1,0 +1,908 @@
+- generic [ref=e2]:
+  - region
+  - generic [ref=e3]:
+    - link "Skip to content" [ref=e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=e6]:
+      - heading "Navigation Menu" [level=2] [ref=e7]
+      - generic [ref=e8]:
+        - link "Homepage" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e11]
+        - generic [ref=e13]:
+          - navigation "Global" [ref=e16]:
+            - list [ref=e17]:
+              - listitem [ref=e18]:
+                - button "Platform" [ref=e20] [cursor=pointer]:
+                  - text: Platform
+                  - img [ref=e21]
+              - listitem [ref=e23]:
+                - button "Solutions" [ref=e25] [cursor=pointer]:
+                  - text: Solutions
+                  - img [ref=e26]
+              - listitem [ref=e28]:
+                - button "Resources" [ref=e30] [cursor=pointer]:
+                  - text: Resources
+                  - img [ref=e31]
+              - listitem [ref=e33]:
+                - button "Open Source" [ref=e35] [cursor=pointer]:
+                  - text: Open Source
+                  - img [ref=e36]
+              - listitem [ref=e38]:
+                - button "Enterprise" [ref=e40] [cursor=pointer]:
+                  - text: Enterprise
+                  - img [ref=e41]
+              - listitem [ref=e43]:
+                - link "Pricing" [ref=e44] [cursor=pointer]:
+                  - /url: https://github.com/pricing
+                  - generic [ref=e45]: Pricing
+          - generic [ref=e46]:
+            - button "Search or jump to…" [ref=e49] [cursor=pointer]:
+              - img [ref=e51]
+            - link "Sign in" [ref=e54] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fshlande%2Fsingbox-operator%2Factions
+            - link "Sign up" [ref=e55] [cursor=pointer]:
+              - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E%2Factions%2Findex&source=header-repo&source_repo=shlande%2Fsingbox-operator
+            - button "Appearance settings" [ref=e58] [cursor=pointer]:
+              - img
+  - main [ref=e62]:
+    - generic [ref=e63]:
+      - generic [ref=e64]:
+        - generic [ref=e66]:
+          - img [ref=e67]
+          - link "shlande" [ref=e70] [cursor=pointer]:
+            - /url: /shlande
+          - generic [ref=e71]: /
+          - strong [ref=e72]:
+            - link "singbox-operator" [ref=e73] [cursor=pointer]:
+              - /url: /shlande/singbox-operator
+          - generic [ref=e74]: Public
+        - generic [ref=e75]:
+          - list:
+            - listitem [ref=e76]:
+              - link "You must be signed in to change notification settings" [ref=e77] [cursor=pointer]:
+                - /url: /login?return_to=%2Fshlande%2Fsingbox-operator
+                - img [ref=e78]
+                - text: Notifications
+            - listitem [ref=e80]:
+              - link "Fork 0" [ref=e81] [cursor=pointer]:
+                - /url: /login?return_to=%2Fshlande%2Fsingbox-operator
+                - img [ref=e82]
+                - text: Fork
+                - generic "0" [ref=e84]
+            - listitem [ref=e85]:
+              - link "You must be signed in to star a repository" [ref=e87] [cursor=pointer]:
+                - /url: /login?return_to=%2Fshlande%2Fsingbox-operator
+                - img [ref=e88]
+                - text: Star
+                - generic "0 users starred this repository" [ref=e90]: "0"
+      - navigation "Repository" [ref=e91]:
+        - list [ref=e92]:
+          - listitem [ref=e93]:
+            - link "Code" [ref=e94] [cursor=pointer]:
+              - /url: /shlande/singbox-operator
+              - img [ref=e95]
+              - generic [ref=e97]: Code
+          - listitem [ref=e98]:
+            - link "Issues" [ref=e99] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/issues
+              - img [ref=e100]
+              - generic [ref=e103]: Issues
+          - listitem [ref=e104]:
+            - link "Pull requests" [ref=e105] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/pulls
+              - img [ref=e106]
+              - generic [ref=e108]: Pull requests
+          - listitem [ref=e109]:
+            - link "Actions" [ref=e110] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/actions
+              - img [ref=e111]
+              - generic [ref=e113]: Actions
+          - listitem [ref=e114]:
+            - link "Projects" [ref=e115] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/projects
+              - img [ref=e116]
+              - generic [ref=e118]: Projects
+          - listitem [ref=e119]:
+            - link "Security and quality" [ref=e120] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/security
+              - img [ref=e121]
+              - generic [ref=e123]: Security and quality
+          - listitem [ref=e124]:
+            - link "Insights" [ref=e125] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/pulse
+              - img [ref=e126]
+              - generic [ref=e128]: Insights
+    - generic [ref=e130]:
+      - 'heading "Actions: shlande/singbox-operator" [level=1] [ref=e131]'
+      - generic [ref=e134]:
+        - generic [ref=e135]:
+          - heading "Actions" [level=2] [ref=e137]
+          - navigation "Actions Workflows" [ref=e141]:
+            - list [ref=e143]:
+              - listitem [ref=e144]:
+                - link "All workflows" [ref=e145] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/actions
+                  - generic [ref=e146]: All workflows
+              - listitem [ref=e147]
+              - listitem [ref=e148]:
+                - list "Workflows" [ref=e152]:
+                  - listitem [ref=e153]:
+                    - link "E2E Tests" [ref=e154] [cursor=pointer]:
+                      - /url: /shlande/singbox-operator/actions/workflows/test-e2e.yml
+                      - generic [ref=e155]: E2E Tests
+                  - listitem [ref=e156]:
+                    - link "Lint" [ref=e157] [cursor=pointer]:
+                      - /url: /shlande/singbox-operator/actions/workflows/lint.yml
+                      - generic [ref=e158]: Lint
+                  - listitem [ref=e159]:
+                    - link "Release" [ref=e160] [cursor=pointer]:
+                      - /url: /shlande/singbox-operator/actions/workflows/release.yml
+                      - generic [ref=e161]: Release
+                  - listitem [ref=e162]:
+                    - link "Tests" [ref=e163] [cursor=pointer]:
+                      - /url: /shlande/singbox-operator/actions/workflows/test.yml
+                      - generic [ref=e164]: Tests
+              - listitem [ref=e165]
+              - listitem [ref=e166]:
+                - generic [ref=e169]:
+                  - heading "Management" [level=3] [ref=e171]
+                  - list "Management" [ref=e172]:
+                    - listitem [ref=e173]:
+                      - link "Caches" [ref=e174] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/actions/caches
+                        - generic:
+                          - img
+                        - generic [ref=e175]: Caches
+        - generic [ref=e178]:
+          - generic [ref=e179]:
+            - generic [ref=e180]:
+              - heading "All workflows" [level=2] [ref=e182]:
+                - generic [ref=e184]: All workflows
+              - search [ref=e188]:
+                - combobox "Filter workflow runs" [ref=e189]
+                - img
+            - generic [ref=e190]: Showing runs from all workflows
+          - generic [ref=e191]:
+            - generic [ref=e192]:
+              - strong [ref=e195]: 117 workflow runs
+              - generic [ref=e196]:
+                - button "Workflow" [ref=e200] [cursor=pointer]:
+                  - generic [ref=e202]: Workflow
+                  - generic:
+                    - img
+                - button "Event" [ref=e206] [cursor=pointer]:
+                  - generic [ref=e208]: Event
+                  - generic:
+                    - img
+                - button "Status" [ref=e212] [cursor=pointer]:
+                  - generic [ref=e214]: Status
+                  - generic:
+                    - img
+                - button "Branch" [ref=e218] [cursor=pointer]:
+                  - generic [ref=e220]: Branch
+                  - generic:
+                    - img
+                - button "Actor" [ref=e224] [cursor=pointer]:
+                  - generic [ref=e226]: Actor
+                  - generic:
+                    - img
+            - generic [ref=e227]:
+              - generic [ref=e229]:
+                - generic [ref=e230]:
+                  - 'link "currently running: Run 34 of Tests. feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…" [ref=e231] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25244520400
+                    - img "currently running:" [ref=e234]
+                    - generic [ref=e238]: "feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…"
+                  - generic [ref=e239]:
+                    - text: "Tests #34:"
+                    - generic [ref=e240]:
+                      - text: Commit
+                      - link "6355f38" [ref=e241] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/6355f38622316ebf7c7b9da91eb1263b3d6a251e
+                      - text: pushed by
+                      - link "shlande" [ref=e242] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.13" [ref=e244] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.13
+                - generic [ref=e246]:
+                  - generic [ref=e247]:
+                    - generic [ref=e248]:
+                      - img [ref=e250]
+                      - generic "May 2, 2026, 1:13 PM GMT+8" [ref=e252]: now
+                    - generic [ref=e253]:
+                      - img [ref=e254]
+                      - text: In progress
+                  - group [ref=e257]:
+                    - generic "Show options" [ref=e258] [cursor=pointer]:
+                      - img "Show options" [ref=e259]
+              - generic [ref=e262]:
+                - generic [ref=e263]:
+                  - 'link "currently running: Run 15 of Release. feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…" [ref=e264] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25244520389
+                    - img "currently running:" [ref=e267]
+                    - generic [ref=e271]: "feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…"
+                  - generic [ref=e272]:
+                    - text: "Release #15:"
+                    - generic [ref=e273]:
+                      - text: Commit
+                      - link "6355f38" [ref=e274] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/6355f38622316ebf7c7b9da91eb1263b3d6a251e
+                      - text: pushed by
+                      - link "shlande" [ref=e275] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.13" [ref=e277] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.13
+                - generic [ref=e279]:
+                  - generic [ref=e280]:
+                    - generic [ref=e281]:
+                      - img [ref=e283]
+                      - generic "May 2, 2026, 1:13 PM GMT+8" [ref=e285]: now
+                    - generic [ref=e286]:
+                      - img [ref=e287]
+                      - text: In progress
+                  - group [ref=e290]:
+                    - generic "Show options" [ref=e291] [cursor=pointer]:
+                      - img "Show options" [ref=e292]
+              - generic [ref=e295]:
+                - generic [ref=e296]:
+                  - 'link "currently running: Run 34 of Lint. feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…" [ref=e297] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25244520382
+                    - img "currently running:" [ref=e300]
+                    - generic [ref=e304]: "feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…"
+                  - generic [ref=e305]:
+                    - text: "Lint #34:"
+                    - generic [ref=e306]:
+                      - text: Commit
+                      - link "6355f38" [ref=e307] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/6355f38622316ebf7c7b9da91eb1263b3d6a251e
+                      - text: pushed by
+                      - link "shlande" [ref=e308] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.13" [ref=e310] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.13
+                - generic [ref=e312]:
+                  - generic [ref=e313]:
+                    - generic [ref=e314]:
+                      - img [ref=e316]
+                      - generic "May 2, 2026, 1:13 PM GMT+8" [ref=e318]: now
+                    - generic [ref=e319]:
+                      - img [ref=e320]
+                      - text: In progress
+                  - group [ref=e323]:
+                    - generic "Show options" [ref=e324] [cursor=pointer]:
+                      - img "Show options" [ref=e325]
+              - generic [ref=e328]:
+                - generic [ref=e329]:
+                  - 'link "currently running: Run 34 of E2E Tests. feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…" [ref=e330] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25244520378
+                    - img "currently running:" [ref=e333]
+                    - generic [ref=e337]: "feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…"
+                  - generic [ref=e338]:
+                    - text: "E2E Tests #34:"
+                    - generic [ref=e339]:
+                      - text: Commit
+                      - link "6355f38" [ref=e340] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/6355f38622316ebf7c7b9da91eb1263b3d6a251e
+                      - text: pushed by
+                      - link "shlande" [ref=e341] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.13" [ref=e343] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.13
+                - generic [ref=e345]:
+                  - generic [ref=e346]:
+                    - generic [ref=e347]:
+                      - img [ref=e349]
+                      - generic "May 2, 2026, 1:13 PM GMT+8" [ref=e351]: now
+                    - generic [ref=e352]:
+                      - img [ref=e353]
+                      - text: In progress
+                  - group [ref=e356]:
+                    - generic "Show options" [ref=e357] [cursor=pointer]:
+                      - img "Show options" [ref=e358]
+              - generic [ref=e361]:
+                - generic [ref=e362]:
+                  - 'link "currently running: Run 33 of Lint. feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…" [ref=e363] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25244519709
+                    - img "currently running:" [ref=e366]
+                    - generic [ref=e370]: "feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…"
+                  - generic [ref=e371]:
+                    - text: "Lint #33:"
+                    - generic [ref=e372]:
+                      - text: Commit
+                      - link "6355f38" [ref=e373] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/6355f38622316ebf7c7b9da91eb1263b3d6a251e
+                      - text: pushed by
+                      - link "shlande" [ref=e374] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e376] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e378]:
+                  - generic [ref=e379]:
+                    - generic [ref=e380]:
+                      - img [ref=e382]
+                      - generic "May 2, 2026, 1:13 PM GMT+8" [ref=e384]: now
+                    - generic [ref=e385]:
+                      - img [ref=e386]
+                      - text: In progress
+                  - group [ref=e389]:
+                    - generic "Show options" [ref=e390] [cursor=pointer]:
+                      - img "Show options" [ref=e391]
+              - generic [ref=e394]:
+                - generic [ref=e395]:
+                  - 'link "currently running: Run 33 of E2E Tests. feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…" [ref=e396] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25244519706
+                    - img "currently running:" [ref=e399]
+                    - generic [ref=e403]: "feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…"
+                  - generic [ref=e404]:
+                    - text: "E2E Tests #33:"
+                    - generic [ref=e405]:
+                      - text: Commit
+                      - link "6355f38" [ref=e406] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/6355f38622316ebf7c7b9da91eb1263b3d6a251e
+                      - text: pushed by
+                      - link "shlande" [ref=e407] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e409] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e411]:
+                  - generic [ref=e412]:
+                    - generic [ref=e413]:
+                      - img [ref=e415]
+                      - generic "May 2, 2026, 1:13 PM GMT+8" [ref=e417]: now
+                    - generic [ref=e418]:
+                      - img [ref=e419]
+                      - text: In progress
+                  - group [ref=e422]:
+                    - generic "Show options" [ref=e423] [cursor=pointer]:
+                      - img "Show options" [ref=e424]
+              - generic [ref=e427]:
+                - generic [ref=e428]:
+                  - 'link "currently running: Run 33 of Tests. feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…" [ref=e429] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25244519704
+                    - img "currently running:" [ref=e432]
+                    - generic [ref=e436]: "feat(hysteria2): add hysteria2 as default inbound protocol, make Prox…"
+                  - generic [ref=e437]:
+                    - text: "Tests #33:"
+                    - generic [ref=e438]:
+                      - text: Commit
+                      - link "6355f38" [ref=e439] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/6355f38622316ebf7c7b9da91eb1263b3d6a251e
+                      - text: pushed by
+                      - link "shlande" [ref=e440] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e442] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e444]:
+                  - generic [ref=e445]:
+                    - generic [ref=e446]:
+                      - img [ref=e448]
+                      - generic "May 2, 2026, 1:13 PM GMT+8" [ref=e450]: now
+                    - generic [ref=e451]:
+                      - img [ref=e452]
+                      - text: In progress
+                  - group [ref=e455]:
+                    - generic "Show options" [ref=e456] [cursor=pointer]:
+                      - img "Show options" [ref=e457]
+              - generic [ref=e460]:
+                - generic [ref=e461]:
+                  - 'link "completed successfully: Run 32 of Tests. chore: remove accidental binary and add to gitignore" [ref=e462] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235060713
+                    - img "completed successfully:" [ref=e464]
+                    - generic [ref=e466]: "chore: remove accidental binary and add to gitignore"
+                  - generic [ref=e467]:
+                    - text: "Tests #32:"
+                    - generic [ref=e468]:
+                      - text: Commit
+                      - link "5510579" [ref=e469] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/5510579ca8af128310072cc97e99290e2df0cded
+                      - text: pushed by
+                      - link "shlande" [ref=e470] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e472] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e474]:
+                  - generic [ref=e475]:
+                    - generic [ref=e476]:
+                      - img [ref=e478]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e480]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e481]:
+                      - img "Run duration" [ref=e482]
+                      - text: 55s
+                  - group [ref=e485]:
+                    - generic "Show options" [ref=e486] [cursor=pointer]:
+                      - img "Show options" [ref=e487]
+              - generic [ref=e490]:
+                - generic [ref=e491]:
+                  - 'link "failed: Run 32 of E2E Tests. chore: remove accidental binary and add to gitignore" [ref=e492] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235060704
+                    - img "failed:" [ref=e494]
+                    - generic [ref=e496]: "chore: remove accidental binary and add to gitignore"
+                  - generic [ref=e497]:
+                    - text: "E2E Tests #32:"
+                    - generic [ref=e498]:
+                      - text: Commit
+                      - link "5510579" [ref=e499] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/5510579ca8af128310072cc97e99290e2df0cded
+                      - text: pushed by
+                      - link "shlande" [ref=e500] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e502] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e504]:
+                  - generic [ref=e505]:
+                    - generic [ref=e506]:
+                      - img [ref=e508]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e510]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e511]:
+                      - img "Run duration" [ref=e512]
+                      - text: 6m 16s
+                  - group [ref=e515]:
+                    - generic "Show options" [ref=e516] [cursor=pointer]:
+                      - img "Show options" [ref=e517]
+              - generic [ref=e520]:
+                - generic [ref=e521]:
+                  - 'link "failed: Run 32 of Lint. chore: remove accidental binary and add to gitignore" [ref=e522] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235060693
+                    - img "failed:" [ref=e524]
+                    - generic [ref=e526]: "chore: remove accidental binary and add to gitignore"
+                  - generic [ref=e527]:
+                    - text: "Lint #32:"
+                    - generic [ref=e528]:
+                      - text: Commit
+                      - link "5510579" [ref=e529] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/5510579ca8af128310072cc97e99290e2df0cded
+                      - text: pushed by
+                      - link "shlande" [ref=e530] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e532] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e534]:
+                  - generic [ref=e535]:
+                    - generic [ref=e536]:
+                      - img [ref=e538]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e540]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e541]:
+                      - img "Run duration" [ref=e542]
+                      - text: 2m 8s
+                  - group [ref=e545]:
+                    - generic "Show options" [ref=e546] [cursor=pointer]:
+                      - img "Show options" [ref=e547]
+              - generic [ref=e550]:
+                - generic [ref=e551]:
+                  - 'link "failed: Run 31 of Lint. refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…" [ref=e552] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235053937
+                    - img "failed:" [ref=e554]
+                    - generic [ref=e556]: "refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…"
+                  - generic [ref=e557]:
+                    - text: "Lint #31:"
+                    - generic [ref=e558]:
+                      - text: Commit
+                      - link "ae6be35" [ref=e559] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/ae6be35a58016601829134f654426b95b884d730
+                      - text: pushed by
+                      - link "shlande" [ref=e560] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.12" [ref=e562] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.12
+                - generic [ref=e564]:
+                  - generic [ref=e565]:
+                    - generic [ref=e566]:
+                      - img [ref=e568]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e570]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e571]:
+                      - img "Run duration" [ref=e572]
+                      - text: 2m 21s
+                  - group [ref=e575]:
+                    - generic "Show options" [ref=e576] [cursor=pointer]:
+                      - img "Show options" [ref=e577]
+              - generic [ref=e580]:
+                - generic [ref=e581]:
+                  - 'link "completed successfully: Run 31 of Tests. refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…" [ref=e582] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235053934
+                    - img "completed successfully:" [ref=e584]
+                    - generic [ref=e586]: "refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…"
+                  - generic [ref=e587]:
+                    - text: "Tests #31:"
+                    - generic [ref=e588]:
+                      - text: Commit
+                      - link "ae6be35" [ref=e589] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/ae6be35a58016601829134f654426b95b884d730
+                      - text: pushed by
+                      - link "shlande" [ref=e590] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.12" [ref=e592] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.12
+                - generic [ref=e594]:
+                  - generic [ref=e595]:
+                    - generic [ref=e596]:
+                      - img [ref=e598]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e600]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e601]:
+                      - img "Run duration" [ref=e602]
+                      - text: 56s
+                  - group [ref=e605]:
+                    - generic "Show options" [ref=e606] [cursor=pointer]:
+                      - img "Show options" [ref=e607]
+              - generic [ref=e610]:
+                - generic [ref=e611]:
+                  - 'link "failed: Run 31 of E2E Tests. refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…" [ref=e612] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235053919
+                    - img "failed:" [ref=e614]
+                    - generic [ref=e616]: "refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…"
+                  - generic [ref=e617]:
+                    - text: "E2E Tests #31:"
+                    - generic [ref=e618]:
+                      - text: Commit
+                      - link "ae6be35" [ref=e619] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/ae6be35a58016601829134f654426b95b884d730
+                      - text: pushed by
+                      - link "shlande" [ref=e620] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.12" [ref=e622] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.12
+                - generic [ref=e624]:
+                  - generic [ref=e625]:
+                    - generic [ref=e626]:
+                      - img [ref=e628]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e630]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e631]:
+                      - img "Run duration" [ref=e632]
+                      - text: 6m 19s
+                  - group [ref=e635]:
+                    - generic "Show options" [ref=e636] [cursor=pointer]:
+                      - img "Show options" [ref=e637]
+              - generic [ref=e640]:
+                - generic [ref=e641]:
+                  - 'link "completed successfully: Run 14 of Release. refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…" [ref=e642] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235053916
+                    - img "completed successfully:" [ref=e644]
+                    - generic [ref=e646]: "refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…"
+                  - generic [ref=e647]:
+                    - text: "Release #14:"
+                    - generic [ref=e648]:
+                      - text: Commit
+                      - link "ae6be35" [ref=e649] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/ae6be35a58016601829134f654426b95b884d730
+                      - text: pushed by
+                      - link "shlande" [ref=e650] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.12" [ref=e652] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.12
+                - generic [ref=e654]:
+                  - generic [ref=e655]:
+                    - generic [ref=e656]:
+                      - img [ref=e658]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e660]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e661]:
+                      - img "Run duration" [ref=e662]
+                      - text: 4m 32s
+                  - group [ref=e665]:
+                    - generic "Show options" [ref=e666] [cursor=pointer]:
+                      - img "Show options" [ref=e667]
+              - generic [ref=e670]:
+                - generic [ref=e671]:
+                  - 'link "failed: Run 30 of Lint. refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…" [ref=e672] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235052450
+                    - img "failed:" [ref=e674]
+                    - generic [ref=e676]: "refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…"
+                  - generic [ref=e677]:
+                    - text: "Lint #30:"
+                    - generic [ref=e678]:
+                      - text: Commit
+                      - link "ae6be35" [ref=e679] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/ae6be35a58016601829134f654426b95b884d730
+                      - text: pushed by
+                      - link "shlande" [ref=e680] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e682] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e684]:
+                  - generic [ref=e685]:
+                    - generic [ref=e686]:
+                      - img [ref=e688]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e690]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e691]:
+                      - img "Run duration" [ref=e692]
+                      - text: 2m 13s
+                  - group [ref=e695]:
+                    - generic "Show options" [ref=e696] [cursor=pointer]:
+                      - img "Show options" [ref=e697]
+              - generic [ref=e700]:
+                - generic [ref=e701]:
+                  - 'link "completed successfully: Run 30 of Tests. refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…" [ref=e702] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235052428
+                    - img "completed successfully:" [ref=e704]
+                    - generic [ref=e706]: "refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…"
+                  - generic [ref=e707]:
+                    - text: "Tests #30:"
+                    - generic [ref=e708]:
+                      - text: Commit
+                      - link "ae6be35" [ref=e709] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/ae6be35a58016601829134f654426b95b884d730
+                      - text: pushed by
+                      - link "shlande" [ref=e710] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e712] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e714]:
+                  - generic [ref=e715]:
+                    - generic [ref=e716]:
+                      - img [ref=e718]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e720]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e721]:
+                      - img "Run duration" [ref=e722]
+                      - text: 53s
+                  - group [ref=e725]:
+                    - generic "Show options" [ref=e726] [cursor=pointer]:
+                      - img "Show options" [ref=e727]
+              - generic [ref=e730]:
+                - generic [ref=e731]:
+                  - 'link "failed: Run 30 of E2E Tests. refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…" [ref=e732] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25235052424
+                    - img "failed:" [ref=e734]
+                    - generic [ref=e736]: "refactor(proxynode): remove RelayPort/RelayProtocol, use RelayNodePor…"
+                  - generic [ref=e737]:
+                    - text: "E2E Tests #30:"
+                    - generic [ref=e738]:
+                      - text: Commit
+                      - link "ae6be35" [ref=e739] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/ae6be35a58016601829134f654426b95b884d730
+                      - text: pushed by
+                      - link "shlande" [ref=e740] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e742] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e744]:
+                  - generic [ref=e745]:
+                    - generic [ref=e746]:
+                      - img [ref=e748]
+                      - generic "May 2, 2026, 6:01 AM GMT+8" [ref=e750]: May 2, 6:01 AM GMT+8
+                    - generic [ref=e751]:
+                      - img "Run duration" [ref=e752]
+                      - text: 6m 12s
+                  - group [ref=e755]:
+                    - generic "Show options" [ref=e756] [cursor=pointer]:
+                      - img "Show options" [ref=e757]
+              - generic [ref=e760]:
+                - generic [ref=e761]:
+                  - 'link "failed: Run 29 of Lint. fix(proxynode): validate NodePort range in webhook and auto-recreate …" [ref=e762] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25234013904
+                    - img "failed:" [ref=e764]
+                    - generic [ref=e766]: "fix(proxynode): validate NodePort range in webhook and auto-recreate …"
+                  - generic [ref=e767]:
+                    - text: "Lint #29:"
+                    - generic [ref=e768]:
+                      - text: Commit
+                      - link "e6ad0a0" [ref=e769] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/e6ad0a07626b5a0beb468b467d0c3ad910052b25
+                      - text: pushed by
+                      - link "shlande" [ref=e770] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.11" [ref=e772] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.11
+                - generic [ref=e774]:
+                  - generic [ref=e775]:
+                    - generic [ref=e776]:
+                      - img [ref=e778]
+                      - generic "May 2, 2026, 5:30 AM GMT+8" [ref=e780]: May 2, 5:30 AM GMT+8
+                    - generic [ref=e781]:
+                      - img "Run duration" [ref=e782]
+                      - text: 1m 59s
+                  - group [ref=e785]:
+                    - generic "Show options" [ref=e786] [cursor=pointer]:
+                      - img "Show options" [ref=e787]
+              - generic [ref=e790]:
+                - generic [ref=e791]:
+                  - 'link "failed: Run 29 of Tests. fix(proxynode): validate NodePort range in webhook and auto-recreate …" [ref=e792] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25234013878
+                    - img "failed:" [ref=e794]
+                    - generic [ref=e796]: "fix(proxynode): validate NodePort range in webhook and auto-recreate …"
+                  - generic [ref=e797]:
+                    - text: "Tests #29:"
+                    - generic [ref=e798]:
+                      - text: Commit
+                      - link "e6ad0a0" [ref=e799] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/e6ad0a07626b5a0beb468b467d0c3ad910052b25
+                      - text: pushed by
+                      - link "shlande" [ref=e800] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.11" [ref=e802] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.11
+                - generic [ref=e804]:
+                  - generic [ref=e805]:
+                    - generic [ref=e806]:
+                      - img [ref=e808]
+                      - generic "May 2, 2026, 5:30 AM GMT+8" [ref=e810]: May 2, 5:30 AM GMT+8
+                    - generic [ref=e811]:
+                      - img "Run duration" [ref=e812]
+                      - text: 58s
+                  - group [ref=e815]:
+                    - generic "Show options" [ref=e816] [cursor=pointer]:
+                      - img "Show options" [ref=e817]
+              - generic [ref=e820]:
+                - generic [ref=e821]:
+                  - 'link "failed: Run 29 of E2E Tests. fix(proxynode): validate NodePort range in webhook and auto-recreate …" [ref=e822] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25234013877
+                    - img "failed:" [ref=e824]
+                    - generic [ref=e826]: "fix(proxynode): validate NodePort range in webhook and auto-recreate …"
+                  - generic [ref=e827]:
+                    - text: "E2E Tests #29:"
+                    - generic [ref=e828]:
+                      - text: Commit
+                      - link "e6ad0a0" [ref=e829] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/e6ad0a07626b5a0beb468b467d0c3ad910052b25
+                      - text: pushed by
+                      - link "shlande" [ref=e830] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.11" [ref=e832] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.11
+                - generic [ref=e834]:
+                  - generic [ref=e835]:
+                    - generic [ref=e836]:
+                      - img [ref=e838]
+                      - generic "May 2, 2026, 5:30 AM GMT+8" [ref=e840]: May 2, 5:30 AM GMT+8
+                    - generic [ref=e841]:
+                      - img "Run duration" [ref=e842]
+                      - text: 6m 23s
+                  - group [ref=e845]:
+                    - generic "Show options" [ref=e846] [cursor=pointer]:
+                      - img "Show options" [ref=e847]
+              - generic [ref=e850]:
+                - generic [ref=e851]:
+                  - 'link "completed successfully: Run 13 of Release. fix(proxynode): validate NodePort range in webhook and auto-recreate …" [ref=e852] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25234013870
+                    - img "completed successfully:" [ref=e854]
+                    - generic [ref=e856]: "fix(proxynode): validate NodePort range in webhook and auto-recreate …"
+                  - generic [ref=e857]:
+                    - text: "Release #13:"
+                    - generic [ref=e858]:
+                      - text: Commit
+                      - link "e6ad0a0" [ref=e859] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/e6ad0a07626b5a0beb468b467d0c3ad910052b25
+                      - text: pushed by
+                      - link "shlande" [ref=e860] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.11" [ref=e862] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.11
+                - generic [ref=e864]:
+                  - generic [ref=e865]:
+                    - generic [ref=e866]:
+                      - img [ref=e868]
+                      - generic "May 2, 2026, 5:30 AM GMT+8" [ref=e870]: May 2, 5:30 AM GMT+8
+                    - generic [ref=e871]:
+                      - img "Run duration" [ref=e872]
+                      - text: 4m 38s
+                  - group [ref=e875]:
+                    - generic "Show options" [ref=e876] [cursor=pointer]:
+                      - img "Show options" [ref=e877]
+              - generic [ref=e880]:
+                - generic [ref=e881]:
+                  - 'link "failed: Run 28 of Lint. fix(proxynode): validate NodePort range in webhook and auto-recreate …" [ref=e882] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25234012371
+                    - img "failed:" [ref=e884]
+                    - generic [ref=e886]: "fix(proxynode): validate NodePort range in webhook and auto-recreate …"
+                  - generic [ref=e887]:
+                    - text: "Lint #28:"
+                    - generic [ref=e888]:
+                      - text: Commit
+                      - link "e6ad0a0" [ref=e889] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/e6ad0a07626b5a0beb468b467d0c3ad910052b25
+                      - text: pushed by
+                      - link "shlande" [ref=e890] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e892] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e894]:
+                  - generic [ref=e895]:
+                    - generic [ref=e896]:
+                      - img [ref=e898]
+                      - generic "May 2, 2026, 5:30 AM GMT+8" [ref=e900]: May 2, 5:30 AM GMT+8
+                    - generic [ref=e901]:
+                      - img "Run duration" [ref=e902]
+                      - text: 2m 10s
+                  - group [ref=e905]:
+                    - generic "Show options" [ref=e906] [cursor=pointer]:
+                      - img "Show options" [ref=e907]
+              - generic [ref=e910]:
+                - generic [ref=e911]:
+                  - 'link "failed: Run 28 of Tests. fix(proxynode): validate NodePort range in webhook and auto-recreate …" [ref=e912] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25234012350
+                    - img "failed:" [ref=e914]
+                    - generic [ref=e916]: "fix(proxynode): validate NodePort range in webhook and auto-recreate …"
+                  - generic [ref=e917]:
+                    - text: "Tests #28:"
+                    - generic [ref=e918]:
+                      - text: Commit
+                      - link "e6ad0a0" [ref=e919] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/e6ad0a07626b5a0beb468b467d0c3ad910052b25
+                      - text: pushed by
+                      - link "shlande" [ref=e920] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e922] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e924]:
+                  - generic [ref=e925]:
+                    - generic [ref=e926]:
+                      - img [ref=e928]
+                      - generic "May 2, 2026, 5:30 AM GMT+8" [ref=e930]: May 2, 5:30 AM GMT+8
+                    - generic [ref=e931]:
+                      - img "Run duration" [ref=e932]
+                      - text: 54s
+                  - group [ref=e935]:
+                    - generic "Show options" [ref=e936] [cursor=pointer]:
+                      - img "Show options" [ref=e937]
+              - generic [ref=e940]:
+                - generic [ref=e941]:
+                  - 'link "failed: Run 28 of E2E Tests. fix(proxynode): validate NodePort range in webhook and auto-recreate …" [ref=e942] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25234012347
+                    - img "failed:" [ref=e944]
+                    - generic [ref=e946]: "fix(proxynode): validate NodePort range in webhook and auto-recreate …"
+                  - generic [ref=e947]:
+                    - text: "E2E Tests #28:"
+                    - generic [ref=e948]:
+                      - text: Commit
+                      - link "e6ad0a0" [ref=e949] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/e6ad0a07626b5a0beb468b467d0c3ad910052b25
+                      - text: pushed by
+                      - link "shlande" [ref=e950] [cursor=pointer]:
+                        - /url: /shlande
+                - link "main" [ref=e952] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/heads/main
+                - generic [ref=e954]:
+                  - generic [ref=e955]:
+                    - generic [ref=e956]:
+                      - img [ref=e958]
+                      - generic "May 2, 2026, 5:30 AM GMT+8" [ref=e960]: May 2, 5:30 AM GMT+8
+                    - generic [ref=e961]:
+                      - img "Run duration" [ref=e962]
+                      - text: 6m 20s
+                  - group [ref=e965]:
+                    - generic "Show options" [ref=e966] [cursor=pointer]:
+                      - img "Show options" [ref=e967]
+              - generic [ref=e970]:
+                - generic [ref=e971]:
+                  - 'link "failed: Run 27 of E2E Tests. fix(controller): pin Service NodePort to Spec.Port when in NodePort r…" [ref=e972] [cursor=pointer]':
+                    - /url: /shlande/singbox-operator/actions/runs/25233533857
+                    - img "failed:" [ref=e974]
+                    - generic [ref=e976]: "fix(controller): pin Service NodePort to Spec.Port when in NodePort r…"
+                  - generic [ref=e977]:
+                    - text: "E2E Tests #27:"
+                    - generic [ref=e978]:
+                      - text: Commit
+                      - link "5258499" [ref=e979] [cursor=pointer]:
+                        - /url: /shlande/singbox-operator/commit/5258499ec499a12b1b80de16001894d209a8ec27
+                      - text: pushed by
+                      - link "shlande" [ref=e980] [cursor=pointer]:
+                        - /url: /shlande
+                - link "v0.0.1-beta.10" [ref=e982] [cursor=pointer]:
+                  - /url: /shlande/singbox-operator/tree/refs/tags/v0.0.1-beta.10
+                - generic [ref=e984]:
+                  - generic [ref=e985]:
+                    - generic [ref=e986]:
+                      - img [ref=e988]
+                      - generic "May 2, 2026, 5:16 AM GMT+8" [ref=e990]: May 2, 5:16 AM GMT+8
+                    - generic [ref=e991]:
+                      - img "Run duration" [ref=e992]
+                      - text: 6m 11s
+                  - group [ref=e995]:
+                    - generic "Show options" [ref=e996] [cursor=pointer]:
+                      - img "Show options" [ref=e997]
+          - navigation "Pagination" [ref=e1001]:
+            - generic "Previous page" [ref=e1002]: Previous
+            - emphasis [ref=e1003] [cursor=pointer]: "1"
+            - link "Page 2" [ref=e1004] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/actions?page=2
+              - text: "2"
+            - link "Page 3" [ref=e1005] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/actions?page=3
+              - text: "3"
+            - link "Page 4" [ref=e1006] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/actions?page=4
+              - text: "4"
+            - link "Page 5" [ref=e1007] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/actions?page=5
+              - text: "5"
+            - link "Next page" [ref=e1008] [cursor=pointer]:
+              - /url: /shlande/singbox-operator/actions?page=2
+              - text: Next

@@ -38,11 +38,11 @@ type NodeCredential struct {
 	Password string
 }
 
-// UserCredential holds authentication credentials for a ProxyUser.
+// UserCredential holds the UUID that is the single source of truth for all
+// per-protocol credential derivation. Concrete auth values (passwords, UUIDs
+// per outbound node) are derived at config-generation time via configengine.
 type UserCredential struct {
-	UUID     string // for vless
-	Password string // for trojan/socks5/http
-	Username string // for socks5/http
+	UUID string
 }
 
 // secretName returns the Secret name for a ProxyNode's relay credentials.
@@ -120,9 +120,7 @@ func GetUserCredential(ctx context.Context, c client.Client, user *v1alpha1.Prox
 		return UserCredential{}, fmt.Errorf("getting auth secret for user %s: %w", user.Name, err)
 	}
 	return UserCredential{
-		UUID:     string(secret.Data["uuid"]),
-		Password: string(secret.Data["password"]),
-		Username: string(secret.Data["username"]),
+		UUID: string(secret.Data["uuid"]),
 	}, nil
 }
 

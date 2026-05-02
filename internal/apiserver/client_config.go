@@ -123,32 +123,21 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 }
 
 func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeName string, cred credmanager.UserCredential) map[string]interface{} {
+	typeStr := protocol
+	if protocol == "socks5" {
+		typeStr = "socks"
+	}
 	ob := map[string]interface{}{
+		"type":        typeStr,
 		"tag":         tag,
 		"server":      address,
 		"server_port": port,
 	}
-
-	switch protocol {
-	case "hysteria2":
-		ob["type"] = "hysteria2"
-		ob["password"] = configengine.DerivePassword(cred.Password, outboundNodeName)
-		ob["tls"] = map[string]interface{}{"enabled": true}
-	case "vless":
-		ob["type"] = "vless"
-		ob["uuid"] = configengine.DeriveUUID(cred.UUID, outboundNodeName)
-	case "trojan":
-		ob["type"] = "trojan"
-		ob["password"] = configengine.DerivePassword(cred.Password, outboundNodeName)
-	case "socks5":
-		ob["type"] = "socks"
-		ob["username"] = cred.Username
-		ob["password"] = configengine.DerivePassword(cred.Password, outboundNodeName)
-	case "http":
-		ob["type"] = "http"
-		ob["username"] = cred.Username
-		ob["password"] = configengine.DerivePassword(cred.Password, outboundNodeName)
+	for k, v := range configengine.DeriveAuth(protocol, cred.UUID, outboundNodeName) {
+		ob[k] = v
 	}
-
+	if protocol == "hysteria2" {
+		ob["tls"] = map[string]interface{}{"enabled": true}
+	}
 	return ob
 }

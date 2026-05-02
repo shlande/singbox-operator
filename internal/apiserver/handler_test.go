@@ -116,7 +116,7 @@ func TestBuildClientConfig_DerivedUUID(t *testing.T) {
 }
 
 func TestBuildClientConfig_TrojanPassword(t *testing.T) {
-	const basePassword = "secret"
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 	const outboundName = "node-c"
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -129,7 +129,7 @@ func TestBuildClientConfig_TrojanPassword(t *testing.T) {
 	user := makeProxyUser("user-bob", "trojan", "secret-bob")
 	input := ClientConfigInput{
 		User:            user,
-		UserCred:        credmanager.UserCredential{Password: basePassword},
+		UserCred:        credmanager.UserCredential{UUID: baseUUID},
 		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
 		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
 		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{outboundName: outbound},
@@ -140,7 +140,7 @@ func TestBuildClientConfig_TrojanPassword(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expectedPassword := configengine.DerivePassword(basePassword, outboundName)
+	expectedPassword := configengine.DerivePassword(baseUUID, outboundName)
 
 	var foundPassword string
 	for _, ob := range result {
@@ -499,7 +499,7 @@ func newFakeClient(objs ...client.Object) client.Client {
 }
 
 func TestBuildClientConfig_Socks5Password(t *testing.T) {
-	const basePassword = "mysecret"
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 	const outboundName = "node-d"
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -512,7 +512,7 @@ func TestBuildClientConfig_Socks5Password(t *testing.T) {
 	user := makeProxyUser("user-charlie", "socks5", "secret-charlie")
 	input := ClientConfigInput{
 		User:            user,
-		UserCred:        credmanager.UserCredential{Password: basePassword, Username: "charlie"},
+		UserCred:        credmanager.UserCredential{UUID: baseUUID},
 		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
 		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
 		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{outboundName: outbound},
@@ -523,7 +523,7 @@ func TestBuildClientConfig_Socks5Password(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expectedPassword := configengine.DerivePassword(basePassword, outboundName)
+	expectedPassword := configengine.DerivePassword(baseUUID, outboundName)
 
 	var foundPassword string
 	for _, ob := range result {
@@ -542,7 +542,7 @@ func TestBuildClientConfig_Socks5Password(t *testing.T) {
 }
 
 func TestBuildClientConfig_HTTPPassword(t *testing.T) {
-	const basePassword = "httppass"
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 	const outboundName = "node-e"
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -555,7 +555,7 @@ func TestBuildClientConfig_HTTPPassword(t *testing.T) {
 	user := makeProxyUser("user-dave", "http", "secret-dave")
 	input := ClientConfigInput{
 		User:            user,
-		UserCred:        credmanager.UserCredential{Password: basePassword, Username: "dave"},
+		UserCred:        credmanager.UserCredential{UUID: baseUUID},
 		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
 		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
 		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{outboundName: outbound},
@@ -566,7 +566,7 @@ func TestBuildClientConfig_HTTPPassword(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expectedPassword := configengine.DerivePassword(basePassword, outboundName)
+	expectedPassword := configengine.DerivePassword(baseUUID, outboundName)
 
 	var foundPassword string
 	for _, ob := range result {
