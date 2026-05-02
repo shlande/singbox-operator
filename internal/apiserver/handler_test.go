@@ -34,13 +34,13 @@ func TestBuildClientConfig_TwoOutboundNodes(t *testing.T) {
 	outbound1 := makeOutboundNode("node-b1", "us")
 	outbound2 := makeOutboundNode("node-b2", "us")
 
-	user := makeProxyUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "vless", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
 			"node-b1": outbound1,
 			"node-b2": outbound2,
 		},
@@ -83,13 +83,13 @@ func TestBuildClientConfig_DerivedUUID(t *testing.T) {
 
 	outbound := makeOutboundNode(outboundName, "us")
 
-	user := makeProxyUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "vless", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{outboundName: outbound},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{outboundName: outbound},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -126,13 +126,13 @@ func TestBuildClientConfig_TrojanPassword(t *testing.T) {
 
 	outbound := makeOutboundNode(outboundName, "us")
 
-	user := makeProxyUser("user-bob", "trojan", "secret-bob")
+	user := makeUser("user-bob", "trojan", "secret-bob")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{outboundName: outbound},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{outboundName: outbound},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -164,14 +164,14 @@ func TestBuildClientConfig_EmptyEntryEndpoints(t *testing.T) {
 	})
 
 	outbound := makeOutboundNode("node-b", "us")
-	user := makeProxyUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "vless", "secret-alice")
 
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{"node-b": outbound},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{"node-b": outbound},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -208,17 +208,17 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 	outboundX := makeOutboundNode("outbound-x", "us")
 	outboundY := makeOutboundNode("outbound-y", "us")
 
-	route := makeProxyRoute("route-1", "default", "node-a", "outbound-x")
-	user := makeProxyUser("user-alice", "vless", "secret-alice")
+	route := makeCustomRoute("route-1", "default", "node-a", "outbound-x")
+	user := makeUser("user-alice", "vless", "secret-alice")
 
 	input := ClientConfigInput{
 		User:         user,
 		UserCred:     credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-		InboundNodes: []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{
+		InboundNodes: []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{
 			"node-a": {route},
 		},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
 			"outbound-x": outboundX,
 			"outbound-y": outboundY,
 		},
@@ -374,7 +374,7 @@ func TestHandler_Success(t *testing.T) {
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
 
-	user := makeProxyUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "vless", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -418,13 +418,13 @@ func TestHandler_Success(t *testing.T) {
 	}
 }
 
-func makeInboundNode(name, region, address string, protocols []proxyv1alpha1.ProtocolConfig) *proxyv1alpha1.ProxyNode {
-	return &proxyv1alpha1.ProxyNode{
+func makeInboundNode(name, region, address string, protocols []proxyv1alpha1.ProtocolConfig) *proxyv1alpha1.SingBoxNode {
+	return &proxyv1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
-		Spec: proxyv1alpha1.ProxyNodeSpec{
+		Spec: proxyv1alpha1.SingBoxNodeSpec{
 			NodeRef:            name,
 			Address:            address,
 			Region:             region,
@@ -434,13 +434,13 @@ func makeInboundNode(name, region, address string, protocols []proxyv1alpha1.Pro
 	}
 }
 
-func makeOutboundNode(name, region string) *proxyv1alpha1.ProxyNode {
-	return &proxyv1alpha1.ProxyNode{
+func makeOutboundNode(name, region string) *proxyv1alpha1.SingBoxNode {
+	return &proxyv1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
-		Spec: proxyv1alpha1.ProxyNodeSpec{
+		Spec: proxyv1alpha1.SingBoxNodeSpec{
 			NodeRef: name,
 			Address: "10.0.0.1",
 			Region:  region,
@@ -449,13 +449,13 @@ func makeOutboundNode(name, region string) *proxyv1alpha1.ProxyNode {
 	}
 }
 
-func makeProxyUser(name, protocol, secretName string) *proxyv1alpha1.ProxyUser {
-	return &proxyv1alpha1.ProxyUser{
+func makeUser(name, protocol, secretName string) *proxyv1alpha1.User {
+	return &proxyv1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
-		Spec: proxyv1alpha1.ProxyUserSpec{
+		Spec: proxyv1alpha1.UserSpec{
 			Protocol: protocol,
 			AuthSecret: corev1.SecretReference{
 				Name:      secretName,
@@ -478,13 +478,13 @@ func makeUserSecret(namespace, name, uuid, password string) *corev1.Secret {
 	}
 }
 
-func makeProxyRoute(name, namespace, inbound, outbound string) *proxyv1alpha1.ProxyRoute {
-	return &proxyv1alpha1.ProxyRoute{
+func makeCustomRoute(name, namespace, inbound, outbound string) *proxyv1alpha1.CustomRoute {
+	return &proxyv1alpha1.CustomRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: proxyv1alpha1.ProxyRouteSpec{
+		Spec: proxyv1alpha1.CustomRouteSpec{
 			InboundNode:  inbound,
 			OutboundNode: outbound,
 		},
@@ -509,13 +509,13 @@ func TestBuildClientConfig_Socks5Password(t *testing.T) {
 
 	outbound := makeOutboundNode(outboundName, "us")
 
-	user := makeProxyUser("user-charlie", "socks5", "secret-charlie")
+	user := makeUser("user-charlie", "socks5", "secret-charlie")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{outboundName: outbound},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{outboundName: outbound},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -552,13 +552,13 @@ func TestBuildClientConfig_HTTPPassword(t *testing.T) {
 
 	outbound := makeOutboundNode(outboundName, "us")
 
-	user := makeProxyUser("user-dave", "http", "secret-dave")
+	user := makeUser("user-dave", "http", "secret-dave")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{outboundName: outbound},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{outboundName: outbound},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -589,7 +589,7 @@ func TestHandler_TemplateRef_InvalidFormat(t *testing.T) {
 	const namespace = "default"
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
-	user := makeProxyUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "vless", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -623,7 +623,7 @@ func TestHandler_TemplateRef_MissingConfigMap(t *testing.T) {
 	const namespace = "default"
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
-	user := makeProxyUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "vless", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -657,7 +657,7 @@ func TestHandler_TemplateRef_WithConfigMap(t *testing.T) {
 	const namespace = "default"
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
-	user := makeProxyUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "vless", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -709,13 +709,13 @@ func TestBuildClientConfig_UnsupportedProtocol(t *testing.T) {
 
 	outbound := makeOutboundNode("node-b", "us")
 
-	user := makeProxyUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "vless", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{"node-b": outbound},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{"node-b": outbound},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -740,13 +740,13 @@ func TestBuildClientConfig_BadEndpointFormat(t *testing.T) {
 
 	outbound := makeOutboundNode("node-b", "us")
 
-	user := makeProxyUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "vless", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{"node-b": outbound},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{"node-b": outbound},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -761,13 +761,13 @@ func TestBuildClientConfig_BadEndpointFormat(t *testing.T) {
 
 func TestBuildClientConfig_NullInboundInResolve(t *testing.T) {
 	outbound := makeOutboundNode("node-b", "us")
-	user := makeProxyUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "vless", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-		InboundNodes:    []*proxyv1alpha1.ProxyNode{},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{"node-b": outbound},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{"node-b": outbound},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -785,7 +785,7 @@ func TestHandler_TemplateRef_ConfigMapMissingKey(t *testing.T) {
 	const namespace = "default"
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
-	user := makeProxyUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "vless", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -851,17 +851,17 @@ func TestBuildClientConfig_RouteWithMissingOutbound(t *testing.T) {
 	})
 	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
-	route := makeProxyRoute("route-1", "default", "node-a", "nonexistent-outbound")
-	user := makeProxyUser("user-alice", "vless", "secret-alice")
+	route := makeCustomRoute("route-1", "default", "node-a", "nonexistent-outbound")
+	user := makeUser("user-alice", "vless", "secret-alice")
 
 	input := ClientConfigInput{
 		User:         user,
 		UserCred:     credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-		InboundNodes: []*proxyv1alpha1.ProxyNode{inbound},
-		RoutesByInbound: map[string][]*proxyv1alpha1.ProxyRoute{
+		InboundNodes: []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{
 			"node-a": {route},
 		},
-		OutboundsByName: map[string]*proxyv1alpha1.ProxyNode{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{},
 	}
 
 	result, err := BuildClientConfig(input)
@@ -882,10 +882,10 @@ func TestHandler_MultipleUsersMatchUUID(t *testing.T) {
 	secret2 := makeUserSecret(namespace, "secret-2", testUUID, "pw2")
 	secret2.Name = "secret-2"
 
-	user1 := makeProxyUser("user-1", "vless", "secret-1")
+	user1 := makeUser("user-1", "vless", "secret-1")
 	user1.Namespace = namespace
 
-	user2 := makeProxyUser("user-2", "vless", "secret-2")
+	user2 := makeUser("user-2", "vless", "secret-2")
 	user2.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{

@@ -22,9 +22,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestProxyNodeDeepCopy(t *testing.T) {
-	original := &ProxyNode{
-		Spec: ProxyNodeSpec{
+func TestSingBoxNodeDeepCopy(t *testing.T) {
+	original := &SingBoxNode{
+		Spec: SingBoxNodeSpec{
 			NodeRef: "node-1",
 			Address: "1.2.3.4",
 			Region:  "us-west",
@@ -34,7 +34,7 @@ func TestProxyNodeDeepCopy(t *testing.T) {
 			},
 			RelayNodePort: 31962,
 		},
-		Status: ProxyNodeStatus{
+		Status: SingBoxNodeStatus{
 			Phase:      "Running",
 			ConfigHash: "abc123",
 			Conditions: []metav1.Condition{
@@ -58,12 +58,12 @@ func TestProxyNodeDeepCopy(t *testing.T) {
 	}
 }
 
-func TestProxyUserDeepCopy(t *testing.T) {
-	original := &ProxyUser{
-		Spec: ProxyUserSpec{
+func TestUserDeepCopy(t *testing.T) {
+	original := &User{
+		Spec: UserSpec{
 			Protocol: "vless",
 		},
-		Status: ProxyUserStatus{
+		Status: UserStatus{
 			ActiveNodeCount: 2,
 			ActiveNodes:     []string{"node-a", "node-b"},
 		},
@@ -78,9 +78,9 @@ func TestProxyUserDeepCopy(t *testing.T) {
 	}
 }
 
-func TestProxyRouteDeepCopy(t *testing.T) {
-	original := &ProxyRoute{
-		Spec: ProxyRouteSpec{
+func TestCustomRouteDeepCopy(t *testing.T) {
+	original := &CustomRoute{
+		Spec: CustomRouteSpec{
 			InboundNode:  "inbound-a",
 			OutboundNode: "outbound-b",
 		},
@@ -94,10 +94,10 @@ func TestProxyRouteDeepCopy(t *testing.T) {
 	}
 }
 
-func TestProxyNodeStatusConditionsInit(t *testing.T) {
-	node := &ProxyNode{}
+func TestSingBoxNodeStatusConditionsInit(t *testing.T) {
+	node := &SingBoxNode{}
 	if node.Status.Conditions != nil {
-		t.Error("Expected nil Conditions on empty ProxyNode")
+		t.Error("Expected nil Conditions on empty SingBoxNode")
 	}
 	node.Status.Conditions = []metav1.Condition{
 		{

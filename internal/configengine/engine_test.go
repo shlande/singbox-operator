@@ -11,10 +11,10 @@ import (
 )
 
 // helper: build a minimal ProxyNode
-func makeNode(name, address, region string, roles []v1alpha1.ProxyRole, protocols []v1alpha1.ProtocolConfig, relayNodePort int32) *v1alpha1.ProxyNode {
-	return &v1alpha1.ProxyNode{
+func makeNode(name, address, region string, roles []v1alpha1.ProxyRole, protocols []v1alpha1.ProtocolConfig, relayNodePort int32) *v1alpha1.SingBoxNode {
+	return &v1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: v1alpha1.ProxyNodeSpec{
+		Spec: v1alpha1.SingBoxNodeSpec{
 			Address:            address,
 			Region:             region,
 			Roles:              roles,
@@ -24,17 +24,17 @@ func makeNode(name, address, region string, roles []v1alpha1.ProxyRole, protocol
 	}
 }
 
-func makeUser(name, protocol string) *v1alpha1.ProxyUser {
-	return &v1alpha1.ProxyUser{
+func makeUser(name, protocol string) *v1alpha1.User {
+	return &v1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       v1alpha1.ProxyUserSpec{Protocol: protocol},
+		Spec:       v1alpha1.UserSpec{Protocol: protocol},
 	}
 }
 
-func makeRoute(name, inboundNode, outboundNode string) *v1alpha1.ProxyRoute {
-	return &v1alpha1.ProxyRoute{
+func makeRoute(name, inboundNode, outboundNode string) *v1alpha1.CustomRoute {
+	return &v1alpha1.CustomRoute{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: v1alpha1.ProxyRouteSpec{
+		Spec: v1alpha1.CustomRouteSpec{
 			InboundNode:  inboundNode,
 			OutboundNode: outboundNode,
 		},
@@ -138,16 +138,16 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 
 	input := configengine.Input{
 		Node:  node,
-		Users: []*v1alpha1.ProxyUser{user1, user2},
+		Users: []*v1alpha1.User{user1, user2},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-alice": {UUID: "aaaa-1111"},
 			"user-bob":   {UUID: "bbbb-2222"},
 		},
-		OutboundNodes: []*v1alpha1.ProxyNode{outNode},
+		OutboundNodes: []*v1alpha1.SingBoxNode{outNode},
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-b": {Username: "relay-user", Password: "relay-pass"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{"node-b": outNode},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-b": outNode},
 	}
 
 	out, err := configengine.Compute(input)
@@ -237,7 +237,7 @@ func TestConfigEngine_OutboundNode(t *testing.T) {
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-b": {Username: "relay-user", Password: "relay-pass"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
 	}
 
 	out, err := configengine.Compute(input)
@@ -286,14 +286,14 @@ func TestConfigEngine_MultiRoleNode(t *testing.T) {
 	user := makeUser("user-carol", "trojan")
 	input := configengine.Input{
 		Node:  node,
-		Users: []*v1alpha1.ProxyUser{user},
+		Users: []*v1alpha1.User{user},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-carol": {UUID: "s3cr3t-uuid"},
 		},
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-c": {Username: "relay-u", Password: "relay-p"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
 	}
 
 	out, err := configengine.Compute(input)
@@ -335,15 +335,15 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 
 	input := configengine.Input{
 		Node:  nodeA,
-		Users: []*v1alpha1.ProxyUser{user},
+		Users: []*v1alpha1.User{user},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-dave": {UUID: "dddd-4444"},
 		},
-		Routes: []*v1alpha1.ProxyRoute{route},
+		Routes: []*v1alpha1.CustomRoute{route},
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-b": {Username: "r-user", Password: "r-pass"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{"node-b": nodeB},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-b": nodeB},
 	}
 
 	out, err := configengine.Compute(input)
@@ -418,9 +418,9 @@ func TestConfigEngine_NoUsersOnEntry(t *testing.T) {
 	)
 	input := configengine.Input{
 		Node:                node,
-		Users:               []*v1alpha1.ProxyUser{},
+		Users:               []*v1alpha1.User{},
 		UserCreds:           map[string]configengine.UserCredential{},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
 	}
 
 	out, err := configengine.Compute(input)
@@ -458,14 +458,14 @@ func TestConfigEngine_MultipleOutboundNodes(t *testing.T) {
 
 	input := configengine.Input{
 		Node:          node,
-		Users:         []*v1alpha1.ProxyUser{},
+		Users:         []*v1alpha1.User{},
 		UserCreds:     map[string]configengine.UserCredential{},
-		OutboundNodes: []*v1alpha1.ProxyNode{outNode1, outNode2},
+		OutboundNodes: []*v1alpha1.SingBoxNode{outNode1, outNode2},
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-b1": {Username: "u1", Password: "p1"},
 			"node-b2": {Username: "u2", Password: "p2"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
 			"node-b1": outNode1,
 			"node-b2": outNode2,
 		},
@@ -506,11 +506,11 @@ func TestConfigEngine_HashConsistency(t *testing.T) {
 	user := makeUser("user-alice", "vless")
 	input := configengine.Input{
 		Node:  node,
-		Users: []*v1alpha1.ProxyUser{user},
+		Users: []*v1alpha1.User{user},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-alice": {UUID: "aaaa-1111"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
 	}
 
 	out1, err := configengine.Compute(input)
@@ -533,7 +533,7 @@ func TestConfigEngine_HashConsistency(t *testing.T) {
 	// different input → different hash
 	user2 := makeUser("user-bob", "vless")
 	input2 := input
-	input2.Users = []*v1alpha1.ProxyUser{user2}
+	input2.Users = []*v1alpha1.User{user2}
 	input2.UserCreds = map[string]configengine.UserCredential{
 		"user-bob": {UUID: "bbbb-2222"},
 	}
@@ -592,12 +592,12 @@ func TestConfigEngine_Socks5AndHTTPUsers(t *testing.T) {
 
 	input := configengine.Input{
 		Node:  node,
-		Users: []*v1alpha1.ProxyUser{userS, userH},
+		Users: []*v1alpha1.User{userS, userH},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-socks": {UUID: "socks-uuid"},
 			"user-http":  {UUID: "http-uuid"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
 	}
 
 	out, err := configengine.Compute(input)
@@ -645,12 +645,12 @@ func TestConfigEngine_DedupRegionAutoAndExplicitRoute(t *testing.T) {
 
 	input := configengine.Input{
 		Node:                nodeA,
-		Users:               []*v1alpha1.ProxyUser{user},
+		Users:               []*v1alpha1.User{user},
 		UserCreds:           map[string]configengine.UserCredential{"user-eve": {UUID: "eeee-5555"}},
-		OutboundNodes:       []*v1alpha1.ProxyNode{nodeB},
-		Routes:              []*v1alpha1.ProxyRoute{route},
+		OutboundNodes:       []*v1alpha1.SingBoxNode{nodeB},
+		Routes:              []*v1alpha1.CustomRoute{route},
 		NodeCreds:           map[string]configengine.NodeCredential{"node-b": {Username: "u", Password: "p"}},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{"node-b": nodeB},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-b": nodeB},
 	}
 
 	out, err := configengine.Compute(input)
@@ -694,16 +694,16 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 
 	input := configengine.Input{
 		Node:  nodeA,
-		Users: []*v1alpha1.ProxyUser{user},
+		Users: []*v1alpha1.User{user},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-frank": {UUID: "ffff-6666"},
 		},
-		Routes: []*v1alpha1.ProxyRoute{routeToB, routeToC},
+		Routes: []*v1alpha1.CustomRoute{routeToB, routeToC},
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-b": {Username: "ub", Password: "pb"},
 			"node-c": {Username: "uc", Password: "pc"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
 			"node-b": nodeB,
 			"node-c": nodeC,
 		},
@@ -805,16 +805,16 @@ func TestConfigEngine_RegionAutoVirtualUsers(t *testing.T) {
 
 	input := configengine.Input{
 		Node:  nodeA,
-		Users: []*v1alpha1.ProxyUser{user},
+		Users: []*v1alpha1.User{user},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-alice": {UUID: "aaaa-1111"},
 		},
-		OutboundNodes: []*v1alpha1.ProxyNode{nodeB, nodeC},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB, nodeC},
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-b": {Username: "ub", Password: "pb"},
 			"node-c": {Username: "uc", Password: "pc"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
 			"node-b": nodeB,
 			"node-c": nodeC,
 		},
@@ -888,11 +888,11 @@ func TestConfigEngine_Hysteria2Inbound(t *testing.T) {
 
 	input := configengine.Input{
 		Node:  node,
-		Users: []*v1alpha1.ProxyUser{user},
+		Users: []*v1alpha1.User{user},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-alice": {UUID: "s3cr3t-uuid"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
 	}
 
 	out, err := configengine.Compute(input)
@@ -954,15 +954,15 @@ func TestConfigEngine_Hysteria2VirtualUsers(t *testing.T) {
 
 	input := configengine.Input{
 		Node:  nodeA,
-		Users: []*v1alpha1.ProxyUser{user},
+		Users: []*v1alpha1.User{user},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-alice": {UUID: "s3cr3t-uuid"},
 		},
-		OutboundNodes: []*v1alpha1.ProxyNode{nodeB},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB},
 		NodeCreds: map[string]configengine.NodeCredential{
 			"node-b": {Username: "relay-user", Password: "relay-pass"},
 		},
-		OutboundNodesByName: map[string]*v1alpha1.ProxyNode{"node-b": nodeB},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-b": nodeB},
 	}
 
 	out, err := configengine.Compute(input)

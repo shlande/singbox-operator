@@ -1,0 +1,114 @@
+apiVersion: v1
+items:
+- apiVersion: proxy.proxy.io/v1alpha1
+  kind: ProxyNode
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"proxy.proxy.io/v1alpha1","kind":"ProxyNode","metadata":{"annotations":{},"name":"acck-jp","namespace":"sing-box-operator"},"spec":{"address":"172.29.1.9","nodeRef":"acck-jp","region":"jp-tokyo","relayPort":10808,"relayProtocol":"socks5","roles":["outbound"]}}
+    creationTimestamp: "2026-05-01T17:01:52Z"
+    finalizers:
+    - proxy.io/proxynode-finalizer
+    generation: 3
+    name: acck-jp
+    namespace: sing-box-operator
+    resourceVersion: "430639196"
+    uid: f134ae8b-00d6-458d-a281-1ca9cf6e2799
+  spec:
+    address: 45.192.196.236
+    nodeRef: acck-jp
+    region: jp-tokyo
+    relayNodePort: 31962
+    roles:
+    - outbound
+  status:
+    conditions:
+    - lastTransitionTime: "2026-05-01T17:02:22Z"
+      message: ProxyNode reconciled successfully
+      observedGeneration: 3
+      reason: Reconciled
+      status: "True"
+      type: Ready
+    configHash: 4b641510cd994718
+    observedGeneration: 3
+    phase: Running
+- apiVersion: proxy.proxy.io/v1alpha1
+  kind: ProxyNode
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"proxy.proxy.io/v1alpha1","kind":"ProxyNode","metadata":{"annotations":{},"name":"claw-jp-2","namespace":"sing-box-operator"},"spec":{"address":"172.29.1.5","nodeRef":"claw-jp-2","region":"jp-tokyo","relayPort":10808,"relayProtocol":"socks5","roles":["inbound"],"supportedProtocols":[{"port":30080,"protocol":"vless"},{"port":30081,"protocol":"trojan"}]}}
+      proxy.io/reconcile-trigger: 20260502T071816Z
+      reconcile-trigger: "1777670621"
+    creationTimestamp: "2026-05-01T17:01:39Z"
+    finalizers:
+    - proxy.io/proxynode-finalizer
+    generation: 4
+    name: claw-jp-2
+    namespace: sing-box-operator
+    resourceVersion: "430784362"
+    uid: 5ef29eed-d1c8-490b-b5d5-6afd83cd3d99
+  spec:
+    address: 47.74.12.150
+    nodeRef: claw-jp-2
+    region: jp-tokyo
+    roles:
+    - inbound
+    supportedProtocols:
+    - port: 30080
+      protocol: vless
+    - port: 30081
+      protocol: trojan
+    - port: 30900
+      protocol: hysteria2
+  status:
+    conditions:
+    - lastTransitionTime: "2026-05-01T17:01:42Z"
+      message: ProxyNode reconciled successfully
+      observedGeneration: 4
+      reason: Reconciled
+      status: "True"
+      type: Ready
+    configHash: 756ec3bdc5422d76
+    entryEndpoints:
+    - vless:47.74.12.150:30080
+    - trojan:47.74.12.150:30081
+    - hysteria2:47.74.12.150:30900
+    observedGeneration: 4
+    phase: Running
+    tlsServerName: sing-box.shlande.top
+- apiVersion: proxy.proxy.io/v1alpha1
+  kind: ProxyNode
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"proxy.proxy.io/v1alpha1","kind":"ProxyNode","metadata":{"annotations":{},"name":"xtom-jp","namespace":"sing-box-operator"},"spec":{"address":"172.29.1.11","nodeRef":"xtom-jp","region":"jp-tokyo","relayPort":10808,"relayProtocol":"socks5","roles":["outbound"]}}
+    creationTimestamp: "2026-05-01T17:12:28Z"
+    finalizers:
+    - proxy.io/proxynode-finalizer
+    generation: 2
+    name: xtom-jp
+    namespace: sing-box-operator
+    resourceVersion: "430639886"
+    uid: 0e1fbc59-d8d8-4624-af51-b81bbaa63718
+  spec:
+    address: 172.29.1.11
+    nodeRef: xtom-jp
+    region: jp-tokyo
+    relayNodePort: 31092
+    roles:
+    - outbound
+  status:
+    conditions:
+    - lastTransitionTime: "2026-05-01T17:12:32Z"
+      message: ProxyNode reconciled successfully
+      observedGeneration: 2
+      reason: Reconciled
+      status: "True"
+      type: Ready
+    configHash: fb5e18744e5eb938
+    observedGeneration: 2
+    phase: Running
+kind: List
+metadata:
+  resourceVersion: ""

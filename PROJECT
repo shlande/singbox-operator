@@ -3,7 +3,7 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.14.0
-domain: proxy.io
+domain: shlande.top
 layout:
 - go.kubebuilder.io/v4
 projectName: sing-box-operator-2
@@ -13,27 +13,27 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: proxy.io
-  group: proxy
-  kind: ProxyNode
+  domain: shlande.top
+  group: singboxoperator
+  kind: SingBoxNode
   path: github.com/shlande/singbox-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: proxy.io
-  group: proxy
-  kind: ProxyUser
+  domain: shlande.top
+  group: singboxoperator
+  kind: User
   path: github.com/shlande/singbox-operator/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: proxy.io
-  group: proxy
-  kind: ProxyRoute
+  domain: shlande.top
+  group: singboxoperator
+  kind: CustomRoute
   path: github.com/shlande/singbox-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

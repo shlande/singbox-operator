@@ -45,15 +45,14 @@ type UserCredential struct {
 	UUID string
 }
 
-// secretName returns the Secret name for a ProxyNode's relay credentials.
 func secretName(nodeName string) string {
-	return fmt.Sprintf("proxynode-%s-relay-cred", nodeName)
+	return fmt.Sprintf("singboxnode-%s-relay-cred", nodeName)
 }
 
-// EnsureNodeCredential creates or retrieves the relay credential Secret for a ProxyNode.
+// EnsureNodeCredential creates or retrieves the relay credential Secret for a SingBoxNode.
 // If the Secret doesn't exist, it generates random credentials and creates it.
-// Sets OwnerReference to the ProxyNode for automatic GC on deletion.
-func EnsureNodeCredential(ctx context.Context, c client.Client, node *v1alpha1.ProxyNode) (NodeCredential, error) {
+// Sets OwnerReference to the SingBoxNode for automatic GC on deletion.
+func EnsureNodeCredential(ctx context.Context, c client.Client, node *v1alpha1.SingBoxNode) (NodeCredential, error) {
 	name := secretName(node.Name)
 	secret := &corev1.Secret{}
 	err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: node.Namespace}, secret)
@@ -108,8 +107,8 @@ func GetNodeCredential(ctx context.Context, c client.Client, nodeName, namespace
 	}, nil
 }
 
-// GetUserCredential retrieves authentication credentials from the Secret referenced by a ProxyUser.
-func GetUserCredential(ctx context.Context, c client.Client, user *v1alpha1.ProxyUser) (UserCredential, error) {
+// GetUserCredential retrieves authentication credentials from the Secret referenced by a User.
+func GetUserCredential(ctx context.Context, c client.Client, user *v1alpha1.User) (UserCredential, error) {
 	ref := user.Spec.AuthSecret
 	ns := ref.Namespace
 	if ns == "" {

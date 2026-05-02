@@ -6,14 +6,14 @@ metadata:
   labels:
     {{- include "singbox-operator.labels" . | nindent 4 }}
 rules:
-- apiGroups: ["proxy.proxy.io"]
-  resources: ["proxynodes", "proxyusers", "proxyroutes"]
+- apiGroups: ["singboxoperator.shlande.top"]
+  resources: ["singboxnodes", "users", "customroutes"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-- apiGroups: ["proxy.proxy.io"]
-  resources: ["proxynodes/status", "proxyusers/status", "proxyroutes/status"]
+- apiGroups: ["singboxoperator.shlande.top"]
+  resources: ["singboxnodes/status", "users/status", "customroutes/status"]
   verbs: ["get", "update", "patch"]
-- apiGroups: ["proxy.proxy.io"]
-  resources: ["proxynodes/finalizers", "proxyusers/finalizers", "proxyroutes/finalizers"]
+- apiGroups: ["singboxoperator.shlande.top"]
+  resources: ["singboxnodes/finalizers", "users/finalizers", "customroutes/finalizers"]
   verbs: ["update"]
 - apiGroups: ["apps"]
   resources: ["deployments"]

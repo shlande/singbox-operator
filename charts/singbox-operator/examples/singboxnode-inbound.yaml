@@ -1,0 +1,13 @@
+apiVersion: singboxoperator.shlande.top/v1alpha1
+kind: SingBoxNode
+metadata:
+  name: inbound-us-west-1
+  namespace: default
+spec:
+  nodeRef: k8s-node-1
+  address: "1.2.3.4"
+  region: us-west
+  roles: [inbound]
+  supportedProtocols:
+    - protocol: vless
+      port: 30443

@@ -86,12 +86,12 @@ func TestEnsureNodeCredential_Idempotent(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	node := &v1alpha1.ProxyNode{
+	node := &v1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-node",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.ProxyNodeSpec{
+		Spec: v1alpha1.SingBoxNodeSpec{
 			NodeRef: "k8s-node-1",
 			Address: "1.2.3.4",
 			Region:  "us-west",
@@ -99,7 +99,7 @@ func TestEnsureNodeCredential_Idempotent(t *testing.T) {
 		},
 	}
 	if err := c.Create(ctx, node); err != nil {
-		t.Fatalf("creating ProxyNode: %v", err)
+		t.Fatalf("creating SingBoxNode: %v", err)
 	}
 
 	cred1, err := credmanager.EnsureNodeCredential(ctx, c, node)
@@ -124,12 +124,12 @@ func TestGetNodeCredential(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	node := &v1alpha1.ProxyNode{
+	node := &v1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-node-2",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.ProxyNodeSpec{
+		Spec: v1alpha1.SingBoxNodeSpec{
 			NodeRef: "k8s-node-2",
 			Address: "2.3.4.5",
 			Region:  "us-east",
@@ -137,7 +137,7 @@ func TestGetNodeCredential(t *testing.T) {
 		},
 	}
 	if err := c.Create(ctx, node); err != nil {
-		t.Fatalf("creating ProxyNode: %v", err)
+		t.Fatalf("creating SingBoxNode: %v", err)
 	}
 
 	created, err := credmanager.EnsureNodeCredential(ctx, c, node)
@@ -172,12 +172,12 @@ func TestGetUserCredential(t *testing.T) {
 		t.Fatalf("creating auth secret: %v", err)
 	}
 
-	user := &v1alpha1.ProxyUser{
+	user := &v1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "user-a",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.ProxyUserSpec{
+		Spec: v1alpha1.UserSpec{
 			Protocol: "vless",
 			AuthSecret: corev1.SecretReference{
 				Name:      "user-a-secret",
@@ -186,7 +186,7 @@ func TestGetUserCredential(t *testing.T) {
 		},
 	}
 	if err := c.Create(ctx, user); err != nil {
-		t.Fatalf("creating ProxyUser: %v", err)
+		t.Fatalf("creating User: %v", err)
 	}
 
 	cred, err := credmanager.GetUserCredential(ctx, c, user)

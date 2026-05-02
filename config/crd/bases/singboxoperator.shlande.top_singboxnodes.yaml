@@ -1,0 +1,223 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: singboxnodes.singboxoperator.shlande.top
+spec:
+  group: singboxoperator.shlande.top
+  names:
+    kind: SingBoxNode
+    listKind: SingBoxNodeList
+    plural: singboxnodes
+    shortNames:
+    - sbn
+    singular: singboxnode
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .spec.region
+      name: Region
+      type: string
+    - jsonPath: .spec.roles
+      name: Roles
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: SingBoxNode is the Schema for the singboxnodes API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SingBoxNodeSpec defines the desired state of SingBoxNode
+            properties:
+              address:
+                description: Address is the public IP or hostname of the host machine.
+                minLength: 1
+                type: string
+              nodeRef:
+                description: NodeRef is the name of the Kubernetes Node this proxy
+                  runs on
+                minLength: 1
+                type: string
+              region:
+                description: Region is the geographic region label (e.g. "us-west")
+                minLength: 1
+                type: string
+              relayNodePort:
+                description: |-
+                  RelayNodePort is the Kubernetes NodePort for inter-node relay connections (30000-32767).
+                  Required for outbound nodes that receive relay traffic from inbound nodes.
+                  When unset, outbound nodes are excluded from generated configs.
+                format: int32
+                maximum: 32767
+                minimum: 30000
+                type: integer
+              roles:
+                description: 'Roles defines the proxy roles: inbound and/or outbound
+                  (no relay)'
+                items:
+                  description: ProxyRole defines the role of a proxy node
+                  enum:
+                  - inbound
+                  - outbound
+                  type: string
+                minItems: 1
+                type: array
+              supportedProtocols:
+                description: SupportedProtocols declares inbound protocols (only meaningful
+                  for inbound role)
+                items:
+                  description: ProtocolConfig declares a supported inbound protocol
+                    and its external NodePort
+                  properties:
+                    port:
+                      description: Port is the external NodePort for client connections
+                      format: int32
+                      maximum: 32767
+                      minimum: 30000
+                      type: integer
+                    protocol:
+                      description: 'Protocol is the proxy protocol: hysteria2, vless,
+                        trojan, socks5, or http'
+                      enum:
+                      - hysteria2
+                      - vless
+                      - trojan
+                      - socks5
+                      - http
+                      type: string
+                  required:
+                  - port
+                  - protocol
+                  type: object
+                type: array
+              tlsSecretName:
+                description: |-
+                  TLSSecretName overrides the default TLS secret for this node.
+                  When set, the named kubernetes.io/tls Secret is mounted and used for all
+                  TLS-requiring protocols (e.g. hysteria2). Falls back to the operator-wide
+                  default (configurable via --default-tls-secret flag, default: sing-box-tls).
+                type: string
+            required:
+            - address
+            - nodeRef
+            - region
+            - roles
+            type: object
+          status:
+            description: SingBoxNodeStatus defines the observed state of SingBoxNode
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              configHash:
+                description: ConfigHash is the sha256[:16] of the current sing-box
+                  config
+                type: string
+              entryEndpoints:
+                description: EntryEndpoints lists the external endpoints for inbound
+                  protocols
+                items:
+                  type: string
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the generation observed by the
+                  controller
+                format: int64
+                type: integer
+              phase:
+                description: 'Phase is the current lifecycle phase: Pending, Running,
+                  Failed'
+                type: string
+              tlsServerName:
+                description: |-
+                  TLSServerName is the first DNS SAN extracted from the node's TLS certificate.
+                  Used by clients as the SNI server_name for TLS-requiring protocols (e.g. hysteria2).
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -12,11 +12,11 @@ import (
 
 // ClientConfigInput contains all data needed to generate client config
 type ClientConfigInput struct {
-	User            *v1alpha1.ProxyUser
+	User            *v1alpha1.User
 	UserCred        credmanager.UserCredential
-	InboundNodes    []*v1alpha1.ProxyNode
-	RoutesByInbound map[string][]*v1alpha1.ProxyRoute
-	OutboundsByName map[string]*v1alpha1.ProxyNode
+	InboundNodes    []*v1alpha1.SingBoxNode
+	RoutesByInbound map[string][]*v1alpha1.CustomRoute
+	OutboundsByName map[string]*v1alpha1.SingBoxNode
 }
 
 // BuildClientConfig generates the outbounds array for a client sing-box config.
@@ -62,7 +62,7 @@ func BuildClientConfig(input ClientConfigInput) ([]interface{}, error) {
 	return result, nil
 }
 
-func supportsProtocol(node *v1alpha1.ProxyNode, protocol string) bool {
+func supportsProtocol(node *v1alpha1.SingBoxNode, protocol string) bool {
 	for _, p := range node.Spec.SupportedProtocols {
 		if p.Protocol == protocol {
 			return true
@@ -91,8 +91,8 @@ func findEntryEndpoint(endpoints []string, protocol string) (address string, por
 
 // resolveOutboundNodes mirrors the server-side logic in configengine.buildRouteInbounds:
 // the result is the union of same-region outbound nodes AND explicitly routed outbound nodes.
-func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alpha1.ProxyNode {
-	var inboundNode *v1alpha1.ProxyNode
+func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alpha1.SingBoxNode {
+	var inboundNode *v1alpha1.SingBoxNode
 	for _, n := range input.InboundNodes {
 		if n.Name == inboundName {
 			inboundNode = n
@@ -101,7 +101,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 	}
 
 	seen := make(map[string]bool)
-	var nodes []*v1alpha1.ProxyNode
+	var nodes []*v1alpha1.SingBoxNode
 
 	if inboundNode != nil {
 		for _, n := range input.OutboundsByName {

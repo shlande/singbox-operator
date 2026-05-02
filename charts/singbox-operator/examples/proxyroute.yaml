@@ -1,8 +1,0 @@
-apiVersion: proxy.proxy.io/v1alpha1
-kind: ProxyRoute
-metadata:
-  name: us-west-to-jp-east
-  namespace: default
-spec:
-  inboundNode: inbound-us-west-1
-  outboundNode: outbound-jp-east-1

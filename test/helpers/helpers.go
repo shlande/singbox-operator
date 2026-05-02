@@ -30,13 +30,13 @@ import (
 	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
-func CreateProxyNode(ctx context.Context, c client.Client, name, namespace, region, address string, roles []v1alpha1.ProxyRole, protocols []v1alpha1.ProtocolConfig) (*v1alpha1.ProxyNode, error) {
-	node := &v1alpha1.ProxyNode{
+func CreateSingBoxNode(ctx context.Context, c client.Client, name, namespace, region, address string, roles []v1alpha1.ProxyRole, protocols []v1alpha1.ProtocolConfig) (*v1alpha1.SingBoxNode, error) {
+	node := &v1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.ProxyNodeSpec{
+		Spec: v1alpha1.SingBoxNodeSpec{
 			NodeRef:            name + "-k8s-node",
 			Address:            address,
 			Region:             region,
@@ -45,18 +45,18 @@ func CreateProxyNode(ctx context.Context, c client.Client, name, namespace, regi
 		},
 	}
 	if err := c.Create(ctx, node); err != nil {
-		return nil, fmt.Errorf("creating ProxyNode %s: %w", name, err)
+		return nil, fmt.Errorf("creating SingBoxNode %s: %w", name, err)
 	}
 	return node, nil
 }
 
-func CreateProxyUser(ctx context.Context, c client.Client, name, namespace, protocol, secretName string) (*v1alpha1.ProxyUser, error) {
-	user := &v1alpha1.ProxyUser{
+func CreateUser(ctx context.Context, c client.Client, name, namespace, protocol, secretName string) (*v1alpha1.User, error) {
+	user := &v1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.ProxyUserSpec{
+		Spec: v1alpha1.UserSpec{
 			Protocol: protocol,
 			AuthSecret: corev1.SecretReference{
 				Name:      secretName,
@@ -65,7 +65,7 @@ func CreateProxyUser(ctx context.Context, c client.Client, name, namespace, prot
 		},
 	}
 	if err := c.Create(ctx, user); err != nil {
-		return nil, fmt.Errorf("creating ProxyUser %s: %w", name, err)
+		return nil, fmt.Errorf("creating User %s: %w", name, err)
 	}
 	return user, nil
 }

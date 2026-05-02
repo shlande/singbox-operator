@@ -1,0 +1,26 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: sing-box-operator-2
+    app.kubernetes.io/managed-by: kustomize
+  name: customroute-editor-role
+rules:
+- apiGroups:
+  - singboxoperator.shlande.top
+  resources:
+  - customroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - singboxoperator.shlande.top
+  resources:
+  - customroutes/status
+  verbs:
+  - get

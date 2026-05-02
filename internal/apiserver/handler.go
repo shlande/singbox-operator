@@ -35,14 +35,14 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userList proxyv1alpha1.ProxyUserList
+	var userList proxyv1alpha1.UserList
 	if err := s.Client.List(ctx, &userList, client.InNamespace(namespace)); err != nil {
-		logger.Error(err, "Failed to list ProxyUsers", "namespace", namespace)
+		logger.Error(err, "Failed to list Users", "namespace", namespace)
 		writeInternalError(w)
 		return
 	}
 
-	var matchedUser *proxyv1alpha1.ProxyUser
+	var matchedUser *proxyv1alpha1.User
 	var matchedCred credmanager.UserCredential
 	for i := range userList.Items {
 		user := &userList.Items[i]
@@ -55,7 +55,7 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if matchedUser != nil {
-			logger.Info("Multiple ProxyUsers match UUID, using first match", "namespace", namespace, "uuid", requestUUID)
+			logger.Info("Multiple Users match UUID, using first match", "namespace", namespace, "uuid", requestUUID)
 			break
 		}
 		matchedUser = user
@@ -67,15 +67,15 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var nodeList proxyv1alpha1.ProxyNodeList
+	var nodeList proxyv1alpha1.SingBoxNodeList
 	if err := s.Client.List(ctx, &nodeList, client.InNamespace(namespace)); err != nil {
-		logger.Error(err, "Failed to list ProxyNodes", "namespace", namespace)
+		logger.Error(err, "Failed to list SingBoxNodes", "namespace", namespace)
 		writeInternalError(w)
 		return
 	}
 
-	var inboundNodes []*proxyv1alpha1.ProxyNode
-	outboundsByName := make(map[string]*proxyv1alpha1.ProxyNode)
+	var inboundNodes []*proxyv1alpha1.SingBoxNode
+	outboundsByName := make(map[string]*proxyv1alpha1.SingBoxNode)
 	for i := range nodeList.Items {
 		node := &nodeList.Items[i]
 		if hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
@@ -86,14 +86,14 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var routeList proxyv1alpha1.ProxyRouteList
+	var routeList proxyv1alpha1.CustomRouteList
 	if err := s.Client.List(ctx, &routeList, client.InNamespace(namespace)); err != nil {
-		logger.Error(err, "Failed to list ProxyRoutes", "namespace", namespace)
+		logger.Error(err, "Failed to list CustomRoutes", "namespace", namespace)
 		writeInternalError(w)
 		return
 	}
 
-	routesByInbound := make(map[string][]*proxyv1alpha1.ProxyRoute)
+	routesByInbound := make(map[string][]*proxyv1alpha1.CustomRoute)
 	for i := range routeList.Items {
 		route := &routeList.Items[i]
 		routesByInbound[route.Spec.InboundNode] = append(routesByInbound[route.Spec.InboundNode], route)
@@ -143,7 +143,7 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(result)
 }
 
-func hasRole(node *proxyv1alpha1.ProxyNode, role proxyv1alpha1.ProxyRole) bool {
+func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool {
 	return slices.Contains(node.Spec.Roles, role)
 }
 

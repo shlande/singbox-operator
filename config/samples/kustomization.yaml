@@ -1,6 +1,6 @@
 ## Append samples of your project ##
 resources:
-- proxy_v1alpha1_proxynode.yaml
-- proxy_v1alpha1_proxyuser.yaml
-- proxy_v1alpha1_proxyroute.yaml
+- singboxoperator_v1alpha1_singboxnode.yaml
+- singboxoperator_v1alpha1_user.yaml
+- singboxoperator_v1alpha1_customroute.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

@@ -89,7 +89,7 @@ func main() {
 	flag.StringVar(&clientConfigTemplate, "client-config-template", "",
 		"ConfigMap reference for client config template in namespace/name format.")
 	flag.StringVar(&defaultTLSSecret, "default-tls-secret", "sing-box-tls",
-		"Name of the default kubernetes.io/tls Secret used for TLS-requiring protocols (e.g. hysteria2). Can be overridden per ProxyNode via spec.tlsSecretName.")
+		"Name of the default kubernetes.io/tls Secret used for TLS-requiring protocols (e.g. hysteria2). Can be overridden per SingBoxNode via spec.tlsSecretName.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -171,7 +171,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "7d42b374.proxy.io",
+		LeaderElectionID:       "7d42b374.singboxoperator.shlande.top",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -189,38 +189,38 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&controller.ProxyNodeReconciler{
+	if err := (&controller.SingBoxNodeReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		DefaultTLSSecret: defaultTLSSecret,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "proxynode")
+		setupLog.Error(err, "Failed to create controller", "controller", "singboxnode")
 		os.Exit(1)
 	}
-	if err := (&controller.ProxyUserReconciler{
+	if err := (&controller.UserReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "proxyuser")
+		setupLog.Error(err, "Failed to create controller", "controller", "user")
 		os.Exit(1)
 	}
-	if err := (&controller.ProxyRouteReconciler{
+	if err := (&controller.CustomRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "proxyroute")
+		setupLog.Error(err, "Failed to create controller", "controller", "customroute")
 		os.Exit(1)
 	}
-	if err := proxywebhook.SetupProxyNodeWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create webhook", "webhook", "ProxyNode")
+	if err := proxywebhook.SetupSingBoxNodeWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "SingBoxNode")
 		os.Exit(1)
 	}
-	if err := proxywebhook.SetupProxyUserWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create webhook", "webhook", "ProxyUser")
+	if err := proxywebhook.SetupUserWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "User")
 		os.Exit(1)
 	}
-	if err := proxywebhook.SetupProxyRouteWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create webhook", "webhook", "ProxyRoute")
+	if err := proxywebhook.SetupCustomRouteWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "CustomRoute")
 		os.Exit(1)
 	}
 	if err := mgr.Add(&apiserver.Server{

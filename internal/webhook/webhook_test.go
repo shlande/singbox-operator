@@ -11,13 +11,13 @@ import (
 	"github.com/shlande/singbox-operator/internal/webhook"
 )
 
-func TestProxyNodeWebhook_Default(t *testing.T) {
-	w := &webhook.ProxyNodeWebhook{}
+func TestSingBoxNodeWebhook_Default(t *testing.T) {
+	w := &webhook.SingBoxNodeWebhook{}
 	ctx := context.Background()
 
 	t.Run("does not override explicitly set protocol port", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -36,13 +36,13 @@ func TestProxyNodeWebhook_Default(t *testing.T) {
 	})
 }
 
-func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
-	w := &webhook.ProxyNodeWebhook{}
+func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
+	w := &webhook.SingBoxNodeWebhook{}
 	ctx := context.Background()
 
 	t.Run("rejects empty address", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "",
 				Region:  "us-west",
@@ -59,8 +59,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects invalid address with spaces", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "invalid host",
 				Region:  "us-west",
@@ -74,8 +74,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects relayNodePort outside NodePort range", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef:       "node-1",
 				Address:       "1.2.3.4",
 				Region:        "us-west",
@@ -93,8 +93,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("accepts zero relayNodePort (random assignment)", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef:       "node-1",
 				Address:       "1.2.3.4",
 				Region:        "us-west",
@@ -109,8 +109,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("accepts valid relayNodePort in range", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef:       "node-1",
 				Address:       "1.2.3.4",
 				Region:        "us-west",
@@ -125,8 +125,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects duplicate protocols", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -144,8 +144,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects port conflict between two supportedProtocols", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -166,8 +166,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects port conflict between two supportedProtocols", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -185,8 +185,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects empty roles", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -203,8 +203,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects invalid role", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -218,8 +218,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects supportedProtocols port below NodePort range", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -239,8 +239,8 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects supportedProtocols port above NodePort range", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -256,9 +256,9 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("accepts valid ProxyNode with IP", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+	t.Run("accepts valid SingBoxNode with IP", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -270,13 +270,13 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 		_, err := w.ValidateCreate(ctx, node)
 		if err != nil {
-			t.Errorf("Expected no error for valid ProxyNode, got: %v", err)
+			t.Errorf("Expected no error for valid SingBoxNode, got: %v", err)
 		}
 	})
 
-	t.Run("accepts valid ProxyNode with hostname", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+	t.Run("accepts valid SingBoxNode with hostname", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "example.com",
 				Region:  "us-west",
@@ -285,13 +285,13 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 		_, err := w.ValidateCreate(ctx, node)
 		if err != nil {
-			t.Errorf("Expected no error for valid ProxyNode with hostname, got: %v", err)
+			t.Errorf("Expected no error for valid SingBoxNode with hostname, got: %v", err)
 		}
 	})
 
 	t.Run("accepts both inbound and outbound roles", func(t *testing.T) {
-		node := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
@@ -305,21 +305,21 @@ func TestProxyNodeWebhook_ValidateCreate(t *testing.T) {
 	})
 }
 
-func TestProxyNodeWebhook_ValidateUpdate(t *testing.T) {
-	w := &webhook.ProxyNodeWebhook{}
+func TestSingBoxNodeWebhook_ValidateUpdate(t *testing.T) {
+	w := &webhook.SingBoxNodeWebhook{}
 	ctx := context.Background()
 
 	t.Run("validates new object on update", func(t *testing.T) {
-		old := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		old := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "1.2.3.4",
 				Region:  "us-west",
 				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 			},
 		}
-		newNode := &v1alpha1.ProxyNode{
-			Spec: v1alpha1.ProxyNodeSpec{
+		newNode := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
 				NodeRef: "node-1",
 				Address: "",
 				Region:  "us-west",
@@ -333,13 +333,13 @@ func TestProxyNodeWebhook_ValidateUpdate(t *testing.T) {
 	})
 }
 
-func TestProxyUserWebhook_Default(t *testing.T) {
-	w := &webhook.ProxyUserWebhook{}
+func TestUserWebhook_Default(t *testing.T) {
+	w := &webhook.UserWebhook{}
 	ctx := context.Background()
 
 	t.Run("defaults empty protocol to hysteria2", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
@@ -353,8 +353,8 @@ func TestProxyUserWebhook_Default(t *testing.T) {
 	})
 
 	t.Run("does not override explicitly set protocol", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
@@ -368,13 +368,13 @@ func TestProxyUserWebhook_Default(t *testing.T) {
 	})
 }
 
-func TestProxyUserWebhook_ValidateCreate(t *testing.T) {
-	w := &webhook.ProxyUserWebhook{}
+func TestUserWebhook_ValidateCreate(t *testing.T) {
+	w := &webhook.UserWebhook{}
 	ctx := context.Background()
 
 	t.Run("accepts empty protocol (defaulted by webhook)", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
@@ -386,8 +386,8 @@ func TestProxyUserWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects unknown protocol", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "shadowsocks",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
@@ -399,8 +399,8 @@ func TestProxyUserWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects empty authSecret name", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: ""},
 			},
@@ -414,85 +414,85 @@ func TestProxyUserWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("accepts valid ProxyUser with hysteria2", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+	t.Run("accepts valid User with hysteria2", func(t *testing.T) {
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "hysteria2",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
 		if err != nil {
-			t.Errorf("Expected no error for hysteria2 ProxyUser, got: %v", err)
+			t.Errorf("Expected no error for hysteria2 User, got: %v", err)
 		}
 	})
 
-	t.Run("accepts valid ProxyUser with vless", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+	t.Run("accepts valid User with vless", func(t *testing.T) {
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
 		if err != nil {
-			t.Errorf("Expected no error for valid ProxyUser, got: %v", err)
+			t.Errorf("Expected no error for valid User, got: %v", err)
 		}
 	})
 
-	t.Run("accepts valid ProxyUser with trojan", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+	t.Run("accepts valid User with trojan", func(t *testing.T) {
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "trojan",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
 		if err != nil {
-			t.Errorf("Expected no error for trojan ProxyUser, got: %v", err)
+			t.Errorf("Expected no error for trojan User, got: %v", err)
 		}
 	})
 
-	t.Run("accepts valid ProxyUser with socks5", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+	t.Run("accepts valid User with socks5", func(t *testing.T) {
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "socks5",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
 		if err != nil {
-			t.Errorf("Expected no error for socks5 ProxyUser, got: %v", err)
+			t.Errorf("Expected no error for socks5 User, got: %v", err)
 		}
 	})
 
-	t.Run("accepts valid ProxyUser with http", func(t *testing.T) {
-		user := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+	t.Run("accepts valid User with http", func(t *testing.T) {
+		user := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "http",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
 		if err != nil {
-			t.Errorf("Expected no error for http ProxyUser, got: %v", err)
+			t.Errorf("Expected no error for http User, got: %v", err)
 		}
 	})
 }
 
-func TestProxyUserWebhook_ValidateUpdate(t *testing.T) {
-	w := &webhook.ProxyUserWebhook{}
+func TestUserWebhook_ValidateUpdate(t *testing.T) {
+	w := &webhook.UserWebhook{}
 	ctx := context.Background()
 
 	t.Run("validates new object on update", func(t *testing.T) {
-		old := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+		old := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
-		newUser := &v1alpha1.ProxyUser{
-			Spec: v1alpha1.ProxyUserSpec{
+		newUser := &v1alpha1.User{
+			Spec: v1alpha1.UserSpec{
 				Protocol:   "unknown-protocol",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
@@ -504,13 +504,13 @@ func TestProxyUserWebhook_ValidateUpdate(t *testing.T) {
 	})
 }
 
-func TestProxyRouteWebhook_ValidateCreate(t *testing.T) {
-	w := &webhook.ProxyRouteWebhook{}
+func TestCustomRouteWebhook_ValidateCreate(t *testing.T) {
+	w := &webhook.CustomRouteWebhook{}
 	ctx := context.Background()
 
 	t.Run("rejects empty inboundNode", func(t *testing.T) {
-		route := &v1alpha1.ProxyRoute{
-			Spec: v1alpha1.ProxyRouteSpec{
+		route := &v1alpha1.CustomRoute{
+			Spec: v1alpha1.CustomRouteSpec{
 				InboundNode:  "",
 				OutboundNode: "outbound-1",
 			},
@@ -525,8 +525,8 @@ func TestProxyRouteWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects empty outboundNode", func(t *testing.T) {
-		route := &v1alpha1.ProxyRoute{
-			Spec: v1alpha1.ProxyRouteSpec{
+		route := &v1alpha1.CustomRoute{
+			Spec: v1alpha1.CustomRouteSpec{
 				InboundNode:  "inbound-1",
 				OutboundNode: "",
 			},
@@ -541,8 +541,8 @@ func TestProxyRouteWebhook_ValidateCreate(t *testing.T) {
 	})
 
 	t.Run("rejects both empty", func(t *testing.T) {
-		route := &v1alpha1.ProxyRoute{
-			Spec: v1alpha1.ProxyRouteSpec{
+		route := &v1alpha1.CustomRoute{
+			Spec: v1alpha1.CustomRouteSpec{
 				InboundNode:  "",
 				OutboundNode: "",
 			},
@@ -553,33 +553,33 @@ func TestProxyRouteWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("accepts valid ProxyRoute", func(t *testing.T) {
-		route := &v1alpha1.ProxyRoute{
-			Spec: v1alpha1.ProxyRouteSpec{
+	t.Run("accepts valid CustomRoute", func(t *testing.T) {
+		route := &v1alpha1.CustomRoute{
+			Spec: v1alpha1.CustomRouteSpec{
 				InboundNode:  "inbound-1",
 				OutboundNode: "outbound-1",
 			},
 		}
 		_, err := w.ValidateCreate(ctx, route)
 		if err != nil {
-			t.Errorf("Expected no error for valid ProxyRoute, got: %v", err)
+			t.Errorf("Expected no error for valid CustomRoute, got: %v", err)
 		}
 	})
 }
 
-func TestProxyRouteWebhook_ValidateUpdate(t *testing.T) {
-	w := &webhook.ProxyRouteWebhook{}
+func TestCustomRouteWebhook_ValidateUpdate(t *testing.T) {
+	w := &webhook.CustomRouteWebhook{}
 	ctx := context.Background()
 
 	t.Run("validates new object on update", func(t *testing.T) {
-		old := &v1alpha1.ProxyRoute{
-			Spec: v1alpha1.ProxyRouteSpec{
+		old := &v1alpha1.CustomRoute{
+			Spec: v1alpha1.CustomRouteSpec{
 				InboundNode:  "inbound-1",
 				OutboundNode: "outbound-1",
 			},
 		}
-		newRoute := &v1alpha1.ProxyRoute{
-			Spec: v1alpha1.ProxyRouteSpec{
+		newRoute := &v1alpha1.CustomRoute{
+			Spec: v1alpha1.CustomRouteSpec{
 				InboundNode:  "",
 				OutboundNode: "outbound-1",
 			},
@@ -591,13 +591,13 @@ func TestProxyRouteWebhook_ValidateUpdate(t *testing.T) {
 	})
 }
 
-func TestProxyRouteWebhook_ValidateDelete(t *testing.T) {
-	w := &webhook.ProxyRouteWebhook{}
+func TestCustomRouteWebhook_ValidateDelete(t *testing.T) {
+	w := &webhook.CustomRouteWebhook{}
 	ctx := context.Background()
 
 	t.Run("allows delete", func(t *testing.T) {
-		route := &v1alpha1.ProxyRoute{
-			Spec: v1alpha1.ProxyRouteSpec{
+		route := &v1alpha1.CustomRoute{
+			Spec: v1alpha1.CustomRouteSpec{
 				InboundNode:  "inbound-1",
 				OutboundNode: "outbound-1",
 			},

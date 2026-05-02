@@ -1,9 +1,0 @@
-apiVersion: proxy.proxy.io/v1alpha1
-kind: ProxyUser
-metadata:
-  labels:
-    app.kubernetes.io/name: sing-box-operator-2
-    app.kubernetes.io/managed-by: kustomize
-  name: proxyuser-sample
-spec:
-  # TODO(user): Add fields here

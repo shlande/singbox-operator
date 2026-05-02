@@ -10,46 +10,46 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "singbox-operator.fullname" . }}-webhook-server-cert
   {{- end }}
 webhooks:
-- name: vproxynode.kb.io
+- name: vsingboxnode.kb.io
   admissionReviewVersions: ["v1"]
   clientConfig:
     service:
       name: {{ include "singbox-operator.fullname" . }}-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-proxy-proxy-io-v1alpha1-proxynode
+      path: /validate-singboxoperator-shlande-top-v1alpha1-singboxnode
   failurePolicy: Fail
   rules:
-  - apiGroups: ["proxy.proxy.io"]
+  - apiGroups: ["singboxoperator.shlande.top"]
     apiVersions: ["v1alpha1"]
     operations: ["CREATE", "UPDATE"]
-    resources: ["proxynodes"]
+    resources: ["singboxnodes"]
   sideEffects: None
-- name: vproxyuser.kb.io
+- name: vuser.kb.io
   admissionReviewVersions: ["v1"]
   clientConfig:
     service:
       name: {{ include "singbox-operator.fullname" . }}-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-proxy-proxy-io-v1alpha1-proxyuser
+      path: /validate-singboxoperator-shlande-top-v1alpha1-user
   failurePolicy: Fail
   rules:
-  - apiGroups: ["proxy.proxy.io"]
+  - apiGroups: ["singboxoperator.shlande.top"]
     apiVersions: ["v1alpha1"]
     operations: ["CREATE", "UPDATE"]
-    resources: ["proxyusers"]
+    resources: ["users"]
   sideEffects: None
-- name: vproxyroute.kb.io
+- name: vcustomroute.kb.io
   admissionReviewVersions: ["v1"]
   clientConfig:
     service:
       name: {{ include "singbox-operator.fullname" . }}-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-proxy-proxy-io-v1alpha1-proxyroute
+      path: /validate-singboxoperator-shlande-top-v1alpha1-customroute
   failurePolicy: Fail
   rules:
-  - apiGroups: ["proxy.proxy.io"]
+  - apiGroups: ["singboxoperator.shlande.top"]
     apiVersions: ["v1alpha1"]
     operations: ["CREATE", "UPDATE"]
-    resources: ["proxyroutes"]
+    resources: ["customroutes"]
   sideEffects: None
 {{- end }}

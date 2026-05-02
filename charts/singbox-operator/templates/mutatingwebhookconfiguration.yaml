@@ -10,18 +10,18 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "singbox-operator.fullname" . }}-webhook-server-cert
   {{- end }}
 webhooks:
-- name: mproxynode.kb.io
+- name: msingboxnode.kb.io
   admissionReviewVersions: ["v1"]
   clientConfig:
     service:
       name: {{ include "singbox-operator.fullname" . }}-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /mutate-proxy-proxy-io-v1alpha1-proxynode
+      path: /mutate-singboxoperator-shlande-top-v1alpha1-singboxnode
   failurePolicy: Fail
   rules:
-  - apiGroups: ["proxy.proxy.io"]
+  - apiGroups: ["singboxoperator.shlande.top"]
     apiVersions: ["v1alpha1"]
     operations: ["CREATE", "UPDATE"]
-    resources: ["proxynodes"]
+    resources: ["singboxnodes"]
   sideEffects: None
 {{- end }}

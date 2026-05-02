@@ -26,13 +26,13 @@ type NodeCredential struct {
 
 // Input contains all data needed to compute a node's sing-box config.
 type Input struct {
-	Node                *v1alpha1.ProxyNode
-	Users               []*v1alpha1.ProxyUser
+	Node                *v1alpha1.SingBoxNode
+	Users               []*v1alpha1.User
 	UserCreds           map[string]UserCredential
-	OutboundNodes       []*v1alpha1.ProxyNode
-	Routes              []*v1alpha1.ProxyRoute
+	OutboundNodes       []*v1alpha1.SingBoxNode
+	Routes              []*v1alpha1.CustomRoute
 	NodeCreds           map[string]NodeCredential
-	OutboundNodesByName map[string]*v1alpha1.ProxyNode
+	OutboundNodesByName map[string]*v1alpha1.SingBoxNode
 }
 
 // Output contains the computed sing-box config.
@@ -134,7 +134,7 @@ func ComputeHash(config []byte) string {
 }
 
 // ExtractNodePorts returns all ports that need NodePort Services.
-func ExtractNodePorts(node *v1alpha1.ProxyNode) []int32 {
+func ExtractNodePorts(node *v1alpha1.SingBoxNode) []int32 {
 	var ports []int32
 	for _, p := range node.Spec.SupportedProtocols {
 		ports = append(ports, p.Port)
@@ -149,7 +149,7 @@ func ExtractNodePorts(node *v1alpha1.ProxyNode) []int32 {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-func hasRole(node *v1alpha1.ProxyNode, role v1alpha1.ProxyRole) bool {
+func hasRole(node *v1alpha1.SingBoxNode, role v1alpha1.ProxyRole) bool {
 	for _, r := range node.Spec.Roles {
 		if r == role {
 			return true
@@ -158,7 +158,7 @@ func hasRole(node *v1alpha1.ProxyNode, role v1alpha1.ProxyRole) bool {
 	return false
 }
 
-func findProtocolPort(node *v1alpha1.ProxyNode, protocol string) int32 {
+func findProtocolPort(node *v1alpha1.SingBoxNode, protocol string) int32 {
 	for _, p := range node.Spec.SupportedProtocols {
 		if p.Protocol == protocol {
 			return p.Port
@@ -167,8 +167,8 @@ func findProtocolPort(node *v1alpha1.ProxyNode, protocol string) int32 {
 	return 0
 }
 
-func routesForNode(input Input) []*v1alpha1.ProxyRoute {
-	var result []*v1alpha1.ProxyRoute
+func routesForNode(input Input) []*v1alpha1.CustomRoute {
+	var result []*v1alpha1.CustomRoute
 	for _, r := range input.Routes {
 		if r.Spec.InboundNode == input.Node.Name {
 			result = append(result, r)
@@ -231,7 +231,7 @@ func DeriveAuth(protocol, uuid, nodeName string) map[string]interface{} {
 	}
 }
 
-func buildRouteInbounds(input Input, routes []*v1alpha1.ProxyRoute) ([]interface{}, []routeRule) {
+func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute) ([]interface{}, []routeRule) {
 	var inbounds []interface{}
 	var rules []routeRule
 
@@ -376,7 +376,7 @@ func buildRelayInbound(input Input) interface{} {
 	}
 }
 
-func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.ProxyRoute) []interface{} {
+func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []interface{} {
 	routedNodes := make(map[string]bool, len(myRoutes))
 	for _, r := range myRoutes {
 		routedNodes[r.Spec.OutboundNode] = true
@@ -403,7 +403,7 @@ func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.ProxyRoute) []
 	return result
 }
 
-func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.ProxyRoute) []interface{} {
+func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []interface{} {
 	var result []interface{}
 	for _, route := range myRoutes {
 		outNode, ok := input.OutboundNodesByName[route.Spec.OutboundNode]

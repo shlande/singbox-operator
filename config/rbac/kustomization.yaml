@@ -22,13 +22,12 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the sing-box-operator-2 itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
-- proxyroute_admin_role.yaml
-- proxyroute_editor_role.yaml
-- proxyroute_viewer_role.yaml
-- proxyuser_admin_role.yaml
-- proxyuser_editor_role.yaml
-- proxyuser_viewer_role.yaml
-- proxynode_admin_role.yaml
-- proxynode_editor_role.yaml
-- proxynode_viewer_role.yaml
-
+- customroute_admin_role.yaml
+- customroute_editor_role.yaml
+- customroute_viewer_role.yaml
+- user_admin_role.yaml
+- user_editor_role.yaml
+- user_viewer_role.yaml
+- singboxnode_admin_role.yaml
+- singboxnode_editor_role.yaml
+- singboxnode_viewer_role.yaml
