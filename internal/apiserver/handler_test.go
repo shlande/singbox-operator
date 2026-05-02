@@ -449,6 +449,22 @@ func makeOutboundNode(name, region string) *proxyv1alpha1.SingBoxNode {
 	}
 }
 
+func makeDualRoleNode(name, region, address string, protocols []proxyv1alpha1.ProtocolConfig) *proxyv1alpha1.SingBoxNode {
+	return &proxyv1alpha1.SingBoxNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: proxyv1alpha1.SingBoxNodeSpec{
+			NodeRef:            name,
+			Address:            address,
+			Region:             region,
+			Roles:              []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound, proxyv1alpha1.ProxyRoleOutbound},
+			SupportedProtocols: protocols,
+		},
+	}
+}
+
 func makeUser(name, protocol, secretName string) *proxyv1alpha1.User {
 	return &proxyv1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{
@@ -871,6 +887,72 @@ func TestBuildClientConfig_RouteWithMissingOutbound(t *testing.T) {
 
 	if len(result) != 2 {
 		t.Errorf("expected 2 outbounds (selector+direct) when route outbound is missing, got %d", len(result))
+	}
+}
+
+func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+	node := makeDualRoleNode("node-x", "ap", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "vless", Port: 10443},
+	})
+	node.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+	user := makeUser("user-alice", "vless", "secret-alice")
+	input := ClientConfigInput{
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: baseUUID},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{node},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result) != 3 {
+		t.Errorf("expected 3 outbounds (1 proxy + selector + direct), got %d", len(result))
+	}
+
+	tags := make(map[string]bool)
+	var selectorOutbounds []string
+	for _, ob := range result {
+		m, ok := ob.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if tag, _ := m["tag"].(string); tag != "" {
+			tags[tag] = true
+		}
+		if m["type"] == "selector" {
+			arr, _ := m["outbounds"].([]string)
+			selectorOutbounds = arr
+		}
+	}
+
+	expectedTag := "node-x"
+	if !tags[expectedTag] {
+		t.Errorf("expected proxy outbound tag %q, got %v", expectedTag, tags)
+	}
+	if len(selectorOutbounds) != 1 || selectorOutbounds[0] != expectedTag {
+		t.Errorf("selector.outbounds should be [%q], got %v", expectedTag, selectorOutbounds)
+	}
+
+	expectedUUID := configengine.DeriveUUID(baseUUID, "node-x")
+	var foundUUID string
+	for _, ob := range result {
+		m, ok := ob.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if m["type"] == protoVless {
+			foundUUID, _ = m["uuid"].(string)
+		}
+	}
+	if foundUUID != expectedUUID {
+		t.Errorf("expected derived UUID %q, got %q", expectedUUID, foundUUID)
 	}
 }
 

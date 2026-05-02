@@ -40,7 +40,12 @@ func BuildClientConfig(input ClientConfigInput) ([]interface{}, error) {
 		outboundNodes := resolveOutboundNodes(input, inboundNode.Name)
 
 		for _, outboundNode := range outboundNodes {
-			tag := fmt.Sprintf("%s#%s", outboundNode.Name, inboundNode.Name)
+			var tag string
+			if outboundNode.Name == inboundNode.Name {
+				tag = outboundNode.Name
+			} else {
+				tag = fmt.Sprintf("%s#%s", outboundNode.Name, inboundNode.Name)
+			}
 			ob := buildProxyOutbound(tag, address, port, protocol, outboundNode.Name, inboundNode.Status.TLSServerName, input.UserCred)
 			proxyOutbounds = append(proxyOutbounds, ob)
 			proxyTags = append(proxyTags, tag)
@@ -89,8 +94,6 @@ func findEntryEndpoint(endpoints []string, protocol string) (address string, por
 	return "", 0, false
 }
 
-// resolveOutboundNodes mirrors the server-side logic in configengine.buildRouteInbounds:
-// the result is the union of same-region outbound nodes AND explicitly routed outbound nodes.
 func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alpha1.SingBoxNode {
 	var inboundNode *v1alpha1.SingBoxNode
 	for _, n := range input.InboundNodes {
@@ -110,6 +113,10 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 				nodes = append(nodes, n)
 			}
 		}
+		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] {
+			seen[inboundNode.Name] = true
+			nodes = append(nodes, inboundNode)
+		}
 	}
 
 	for _, r := range input.RoutesByInbound[inboundName] {
@@ -120,6 +127,15 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 	}
 
 	return nodes
+}
+
+func hasOutboundRole(node *v1alpha1.SingBoxNode) bool {
+	for _, r := range node.Spec.Roles {
+		if r == v1alpha1.ProxyRoleOutbound {
+			return true
+		}
+	}
+	return false
 }
 
 func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeName, tlsServerName string, cred credmanager.UserCredential) map[string]interface{} {
