@@ -438,13 +438,19 @@ func (r *ProxyNodeReconciler) reconcileNodePortService(
 		},
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
-		svcPort := corev1.ServicePort{
-			Name:     portName,
+		tcpPort := corev1.ServicePort{
+			Name:     portName + "-tcp",
 			Port:     clusterPort,
 			Protocol: corev1.ProtocolTCP,
 		}
+		udpPort := corev1.ServicePort{
+			Name:     portName + "-udp",
+			Port:     clusterPort,
+			Protocol: corev1.ProtocolUDP,
+		}
 		if desiredNodePort != 0 {
-			svcPort.NodePort = desiredNodePort
+			tcpPort.NodePort = desiredNodePort
+			udpPort.NodePort = desiredNodePort
 		}
 		svc.Spec = corev1.ServiceSpec{
 			Type: corev1.ServiceTypeNodePort,
@@ -452,7 +458,7 @@ func (r *ProxyNodeReconciler) reconcileNodePortService(
 				"app":       "singbox",
 				"proxynode": node.Name,
 			},
-			Ports: []corev1.ServicePort{svcPort},
+			Ports: []corev1.ServicePort{tcpPort, udpPort},
 		}
 		return controllerutil.SetControllerReference(node, svc, r.Scheme)
 	})
