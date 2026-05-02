@@ -997,6 +997,167 @@ func TestConfigEngine_Hysteria2VirtualUsers(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Test 16: Dual-role node (inbound + outbound) generates self-direct outbound
+// and virtual users with routing rules pointing to outbound-<nodeName> (direct).
+// ---------------------------------------------------------------------------
+func TestConfigEngine_DualRoleNode_SelfDirect(t *testing.T) {
+	node := makeNode("node-x", "1.2.3.4", "ap-east",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	user := makeUser("user-alice", "vless")
+
+	input := configengine.Input{
+		Node:  node,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "aaaa-1111"},
+		},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-x": {Username: "relay-u", Password: "relay-p"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+	obs := outboundTags(t, cfg)
+
+	if !containsTag(ibs, "inbound-vless") {
+		t.Errorf("missing inbound-vless, got %v", ibs)
+	}
+	if !containsTag(ibs, "relay-socks5") {
+		t.Errorf("missing relay-socks5, got %v", ibs)
+	}
+
+	if !containsTag(obs, "outbound-node-x") {
+		t.Errorf("missing outbound-node-x, got %v", obs)
+	}
+	if !containsTag(obs, "direct") {
+		t.Errorf("missing direct outbound, got %v", obs)
+	}
+
+	for _, ob := range outboundsOf(t, cfg) {
+		m := ob.(map[string]interface{})
+		if m["tag"] == "outbound-node-x" {
+			if m["type"] != "direct" {
+				t.Errorf("expected outbound-node-x to be type=direct, got %v", m["type"])
+			}
+		}
+	}
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]interface{})
+		if m["tag"] != "inbound-vless" {
+			continue
+		}
+		users := m["users"].([]interface{})
+		if len(users) != 1 {
+			t.Fatalf("expected 1 virtual user in inbound-vless, got %d", len(users))
+		}
+		u := users[0].(map[string]interface{})
+		if u["name"] != "user-alice#node-x" {
+			t.Errorf("expected virtual user user-alice#node-x, got %v", u["name"])
+		}
+	}
+
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 1 {
+		t.Fatalf("expected 1 routing rule, got %d", len(rules))
+	}
+	rule := rules[0].(map[string]interface{})
+	if rule["outbound"] != "outbound-node-x" {
+		t.Errorf("expected rule outbound=outbound-node-x, got %v", rule["outbound"])
+	}
+	authUsers, _ := rule["auth_user"].([]interface{})
+	if len(authUsers) != 1 || authUsers[0].(string) != "user-alice#node-x" {
+		t.Errorf("expected auth_user=[user-alice#node-x], got %v", authUsers)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test 17: Dual-role node with additional outbound peer — self and peer both
+// produce routing rules; self outbound is direct, peer outbound is SOCKS5.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_DualRoleNode_SelfAndPeer(t *testing.T) {
+	node := makeNode("node-x", "1.2.3.4", "ap-east",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	peer := makeNode("node-y", "5.6.7.8", "ap-east",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+		nil, 31962,
+	)
+	user := makeUser("user-bob", "vless")
+
+	input := configengine.Input{
+		Node:  node,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-bob": {UUID: "bbbb-2222"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{peer},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-x": {Username: "rx-u", Password: "rx-p"},
+			"node-y": {Username: "ry-u", Password: "ry-p"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-y": peer},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	if !containsTag(obs, "outbound-node-x") {
+		t.Errorf("missing outbound-node-x, got %v", obs)
+	}
+	if !containsTag(obs, "outbound-node-y") {
+		t.Errorf("missing outbound-node-y, got %v", obs)
+	}
+
+	for _, ob := range outboundsOf(t, cfg) {
+		m := ob.(map[string]interface{})
+		switch m["tag"] {
+		case "outbound-node-x":
+			if m["type"] != "direct" {
+				t.Errorf("expected outbound-node-x type=direct, got %v", m["type"])
+			}
+		case "outbound-node-y":
+			if m["type"] != "socks" {
+				t.Errorf("expected outbound-node-y type=socks, got %v", m["type"])
+			}
+		}
+	}
+
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 2 {
+		t.Fatalf("expected 2 routing rules, got %d", len(rules))
+	}
+	ruleTargets := make(map[string]bool)
+	for _, rule := range rules {
+		rm := rule.(map[string]interface{})
+		ruleTargets[rm["outbound"].(string)] = true
+	}
+	if !ruleTargets["outbound-node-x"] {
+		t.Errorf("missing routing rule for outbound-node-x")
+	}
+	if !ruleTargets["outbound-node-y"] {
+		t.Errorf("missing routing rule for outbound-node-y")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Test 12: DeriveUUID — determinism and uniqueness
 // ---------------------------------------------------------------------------
 func TestDeriveUUID(t *testing.T) {

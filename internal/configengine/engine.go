@@ -70,6 +70,7 @@ func Compute(input Input) (Output, error) {
 
 	isInbound := hasRole(node, v1alpha1.ProxyRoleInbound)
 	isOutbound := hasRole(node, v1alpha1.ProxyRoleOutbound)
+	isSelfOutbound := isInbound && isOutbound
 
 	myRoutes := routesForNode(input)
 
@@ -78,8 +79,9 @@ func Compute(input Input) (Output, error) {
 	var rules []routeRule
 
 	if isInbound {
-		if len(input.OutboundNodes) > 0 || len(myRoutes) > 0 {
-			ibs, rls := buildRouteInbounds(input, myRoutes)
+		hasOutboundPeers := len(input.OutboundNodes) > 0 || len(myRoutes) > 0 || isSelfOutbound
+		if hasOutboundPeers {
+			ibs, rls := buildRouteInbounds(input, myRoutes, isSelfOutbound)
 			inbounds = append(inbounds, ibs...)
 			rules = rls
 		} else {
@@ -87,6 +89,12 @@ func Compute(input Input) (Output, error) {
 		}
 		outbounds = append(outbounds, buildOutboundNodeOutbounds(input, myRoutes)...)
 		outbounds = append(outbounds, buildRouteOutbounds(input, myRoutes)...)
+		if isSelfOutbound {
+			outbounds = append(outbounds, map[string]interface{}{
+				"type": "direct",
+				"tag":  fmt.Sprintf("outbound-%s", node.Name),
+			})
+		}
 	}
 
 	if isOutbound {
@@ -231,7 +239,7 @@ func DeriveAuth(protocol, uuid, nodeName string) map[string]interface{} {
 	}
 }
 
-func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute) ([]interface{}, []routeRule) {
+func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf bool) ([]interface{}, []routeRule) {
 	var inbounds []interface{}
 	var rules []routeRule
 
@@ -248,6 +256,10 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute) ([]interfac
 			seen[r.Spec.OutboundNode] = true
 			outboundNames = append(outboundNames, r.Spec.OutboundNode)
 		}
+	}
+	if includeSelf && !seen[input.Node.Name] {
+		seen[input.Node.Name] = true
+		outboundNames = append(outboundNames, input.Node.Name)
 	}
 
 	for _, proto := range input.Node.Spec.SupportedProtocols {
@@ -297,14 +309,14 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute) ([]interfac
 	return inbounds, rules
 }
 
-func buildUsersBlock(input Input, protocol string) []map[string]interface{} {
+func buildUsersBlock(input Input, protocol, nodeName string) []map[string]interface{} {
 	var users []map[string]interface{}
 	for _, user := range input.Users {
 		if user.Spec.Protocol != protocol {
 			continue
 		}
 		cred := input.UserCreds[user.Name]
-		auth := DeriveAuth(protocol, cred.UUID, "")
+		auth := DeriveAuth(protocol, cred.UUID, nodeName)
 		auth["name"] = user.Name
 		users = append(users, auth)
 	}
@@ -356,7 +368,7 @@ func buildUserInbounds(input Input) []interface{} {
 
 		port := findProtocolPort(input.Node, proto)
 		tag := fmt.Sprintf("inbound-%s", proto)
-		users := buildUsersBlock(input, proto)
+		users := buildUsersBlock(input, proto, input.Node.Name)
 		if len(users) == 0 {
 			continue
 		}
