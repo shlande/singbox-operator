@@ -41,7 +41,7 @@ func BuildClientConfig(input ClientConfigInput) ([]interface{}, error) {
 
 		for _, outboundNode := range outboundNodes {
 			tag := fmt.Sprintf("%s#%s", outboundNode.Name, inboundNode.Name)
-			ob := buildProxyOutbound(tag, address, port, protocol, outboundNode.Name, input.UserCred)
+			ob := buildProxyOutbound(tag, address, port, protocol, outboundNode.Name, inboundNode.Status.TLSServerName, input.UserCred)
 			proxyOutbounds = append(proxyOutbounds, ob)
 			proxyTags = append(proxyTags, tag)
 		}
@@ -122,7 +122,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 	return nodes
 }
 
-func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeName string, cred credmanager.UserCredential) map[string]interface{} {
+func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeName, tlsServerName string, cred credmanager.UserCredential) map[string]interface{} {
 	typeStr := protocol
 	if protocol == "socks5" {
 		typeStr = "socks"
@@ -137,7 +137,13 @@ func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeNam
 		ob[k] = v
 	}
 	if protocol == "hysteria2" {
-		ob["tls"] = map[string]interface{}{"enabled": true, "insecure": true}
+		tls := map[string]interface{}{"enabled": true}
+		if tlsServerName != "" {
+			tls["server_name"] = tlsServerName
+		} else {
+			tls["insecure"] = true
+		}
+		ob["tls"] = tls
 	}
 	return ob
 }

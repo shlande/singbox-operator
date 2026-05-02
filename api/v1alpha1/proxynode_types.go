@@ -83,6 +83,10 @@ type ProxyNodeStatus struct {
 	// EntryEndpoints lists the external endpoints for inbound protocols
 	// +optional
 	EntryEndpoints []string `json:"entryEndpoints,omitempty"`
+	// TLSServerName is the first DNS SAN extracted from the node's TLS certificate.
+	// Used by clients as the SNI server_name for TLS-requiring protocols (e.g. hysteria2).
+	// +optional
+	TLSServerName string `json:"tlsServerName,omitempty"`
 	// Conditions represent the latest available observations
 	// +optional
 	// +listType=map

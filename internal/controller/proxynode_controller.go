@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"sort"
 	"time"
@@ -461,6 +463,7 @@ func (r *ProxyNodeReconciler) updateStatus(ctx context.Context, node *proxyv1alp
 		endpoints = append(endpoints, fmt.Sprintf("%s:%s:%d", proto.Protocol, latest.Spec.Address, proto.Port))
 	}
 	latest.Status.EntryEndpoints = endpoints
+	latest.Status.TLSServerName = r.resolveTLSServerName(ctx, latest)
 
 	apimeta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
 		Type:               "Ready",
@@ -598,4 +601,39 @@ func needsTLS(node *proxyv1alpha1.ProxyNode) bool {
 		}
 	}
 	return false
+}
+
+func (r *ProxyNodeReconciler) resolveTLSServerName(ctx context.Context, node *proxyv1alpha1.ProxyNode) string {
+	if !needsTLS(node) {
+		return ""
+	}
+	secretName := node.Spec.TLSSecretName
+	if secretName == "" {
+		secretName = r.DefaultTLSSecret
+	}
+	if secretName == "" {
+		return ""
+	}
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: node.Namespace}, secret); err != nil {
+		return ""
+	}
+	certPEM := secret.Data["tls.crt"]
+	if len(certPEM) == 0 {
+		return ""
+	}
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return ""
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return ""
+	}
+	for _, san := range cert.DNSNames {
+		if san != "" {
+			return san
+		}
+	}
+	return ""
 }
