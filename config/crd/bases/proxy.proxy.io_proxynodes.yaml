@@ -115,6 +115,13 @@ spec:
                   - protocol
                   type: object
                 type: array
+              tlsSecretName:
+                description: |-
+                  TLSSecretName overrides the default TLS secret for this node.
+                  When set, the named kubernetes.io/tls Secret is mounted and used for all
+                  TLS-requiring protocols (e.g. hysteria2). Falls back to the operator-wide
+                  default (configurable via --default-tls-secret flag, default: sing-box-tls).
+                type: string
             required:
             - address
             - nodeRef

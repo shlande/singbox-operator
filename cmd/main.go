@@ -66,6 +66,7 @@ func main() {
 	var tlsOpts []func(*tls.Config)
 	var apiBindAddress string
 	var clientConfigTemplate string
+	var defaultTLSSecret string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -87,6 +88,8 @@ func main() {
 		"The address the client config API endpoint binds to.")
 	flag.StringVar(&clientConfigTemplate, "client-config-template", "",
 		"ConfigMap reference for client config template in namespace/name format.")
+	flag.StringVar(&defaultTLSSecret, "default-tls-secret", "sing-box-tls",
+		"Name of the default kubernetes.io/tls Secret used for TLS-requiring protocols (e.g. hysteria2). Can be overridden per ProxyNode via spec.tlsSecretName.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -187,8 +190,9 @@ func main() {
 	}
 
 	if err := (&controller.ProxyNodeReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		DefaultTLSSecret: defaultTLSSecret,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "proxynode")
 		os.Exit(1)

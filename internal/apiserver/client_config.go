@@ -137,7 +137,7 @@ func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeNam
 		ob[k] = v
 	}
 	if protocol == "hysteria2" {
-		ob["tls"] = map[string]interface{}{"enabled": true}
+		ob["tls"] = map[string]interface{}{"enabled": true, "insecure": true}
 	}
 	return ob
 }

@@ -334,7 +334,11 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]inte
 		"users":       users,
 	}
 	if protocol == "hysteria2" {
-		entry["tls"] = map[string]interface{}{"enabled": true}
+		entry["tls"] = map[string]interface{}{
+			"enabled":          true,
+			"certificate_path": "/etc/sing-box/tls/tls.crt",
+			"key_path":         "/etc/sing-box/tls/tls.key",
+		}
 	}
 	return entry
 }

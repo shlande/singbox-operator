@@ -70,7 +70,8 @@ const (
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 type ProxyNodeReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme           *runtime.Scheme
+	DefaultTLSSecret string
 }
 
 func (r *ProxyNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -291,6 +292,46 @@ func (r *ProxyNodeReconciler) reconcileConfigMap(ctx context.Context, node *prox
 
 func (r *ProxyNodeReconciler) reconcileDeployment(ctx context.Context, node *proxyv1alpha1.ProxyNode, configHash string) error {
 	cmName := node.Name + configMapSuffix
+
+	volumeMounts := []corev1.VolumeMount{
+		{Name: "config", MountPath: "/etc/sing-box"},
+	}
+	volumes := []corev1.Volume{
+		{
+			Name: "config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: cmName},
+				},
+			},
+		},
+	}
+	if needsTLS(node) {
+		tlsSecret := node.Spec.TLSSecretName
+		if tlsSecret == "" {
+			tlsSecret = r.DefaultTLSSecret
+		}
+		if tlsSecret != "" {
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      "tls",
+				MountPath: "/etc/sing-box/tls",
+				ReadOnly:  true,
+			})
+			volumes = append(volumes, corev1.Volume{
+				Name: "tls",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: tlsSecret,
+						Items: []corev1.KeyToPath{
+							{Key: "tls.crt", Path: "tls.crt"},
+							{Key: "tls.key", Path: "tls.key"},
+						},
+					},
+				},
+			})
+		}
+	}
+
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      node.Name + deploymentSuffix,
@@ -323,29 +364,13 @@ func (r *ProxyNodeReconciler) reconcileDeployment(ctx context.Context, node *pro
 					},
 					Containers: []corev1.Container{
 						{
-							Name:  "singbox",
-							Image: singboxImage,
-							Args:  []string{"run", "-c", "/etc/sing-box/config.json"},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "config",
-									MountPath: "/etc/sing-box",
-								},
-							},
+							Name:         "singbox",
+							Image:        singboxImage,
+							Args:         []string{"run", "-c", "/etc/sing-box/config.json"},
+							VolumeMounts: volumeMounts,
 						},
 					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: cmName,
-									},
-								},
-							},
-						},
-					},
+					Volumes: volumes,
 				},
 			},
 		}
@@ -560,6 +585,15 @@ func hasRole(node *proxyv1alpha1.ProxyNode, role proxyv1alpha1.ProxyRole) bool {
 func nodeSupportsProtocol(node *proxyv1alpha1.ProxyNode, protocol string) bool {
 	for _, p := range node.Spec.SupportedProtocols {
 		if p.Protocol == protocol {
+			return true
+		}
+	}
+	return false
+}
+
+func needsTLS(node *proxyv1alpha1.ProxyNode) bool {
+	for _, p := range node.Spec.SupportedProtocols {
+		if p.Protocol == "hysteria2" {
 			return true
 		}
 	}

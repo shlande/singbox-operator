@@ -64,6 +64,12 @@ type ProxyNodeSpec struct {
 	// +kubebuilder:validation:Minimum=30000
 	// +kubebuilder:validation:Maximum=32767
 	RelayNodePort int32 `json:"relayNodePort,omitempty"`
+	// TLSSecretName overrides the default TLS secret for this node.
+	// When set, the named kubernetes.io/tls Secret is mounted and used for all
+	// TLS-requiring protocols (e.g. hysteria2). Falls back to the operator-wide
+	// default (configurable via --default-tls-secret flag, default: sing-box-tls).
+	// +optional
+	TLSSecretName string `json:"tlsSecretName,omitempty"`
 }
 
 // ProxyNodeStatus defines the observed state of ProxyNode
