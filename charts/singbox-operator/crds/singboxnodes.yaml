@@ -73,8 +73,8 @@ spec:
                   Required for outbound nodes that receive relay traffic from inbound nodes.
                   When unset, outbound nodes are excluded from generated configs.
                 format: int32
-                maximum: 32767
-                minimum: 30000
+                maximum: 65535
+                minimum: 1
                 type: integer
               roles:
                 description: 'Roles defines the proxy roles: inbound and/or outbound
@@ -92,13 +92,16 @@ spec:
                   for inbound role)
                 items:
                   description: ProtocolConfig declares a supported inbound protocol
-                    and its external NodePort
+                    and its host port
                   properties:
                     port:
-                      description: Port is the external NodePort for client connections
+                      description: |-
+                        Port is the port on the host machine for client connections (1-65535).
+                        This is exposed via hostPort on the pod, so the same port number can be
+                        used on different physical nodes without conflict.
                       format: int32
-                      maximum: 32767
-                      minimum: 30000
+                      maximum: 65535
+                      minimum: 1
                       type: integer
                     protocol:
                       description: 'Protocol is the proxy protocol: hysteria2, vless,

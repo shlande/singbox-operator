@@ -29,14 +29,16 @@ const (
 	ProxyRoleOutbound ProxyRole = "outbound"
 )
 
-// ProtocolConfig declares a supported inbound protocol and its external NodePort
+// ProtocolConfig declares a supported inbound protocol and its host port
 type ProtocolConfig struct {
 	// Protocol is the proxy protocol: hysteria2, vless, trojan, socks5, or http
 	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http
 	Protocol string `json:"protocol"`
-	// Port is the external NodePort for client connections
-	// +kubebuilder:validation:Minimum=30000
-	// +kubebuilder:validation:Maximum=32767
+	// Port is the port on the host machine for client connections (1-65535).
+	// This is exposed via hostPort on the pod, so the same port number can be
+	// used on different physical nodes without conflict.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
 }
 
@@ -61,8 +63,8 @@ type SingBoxNodeSpec struct {
 	// Required for outbound nodes that receive relay traffic from inbound nodes.
 	// When unset, outbound nodes are excluded from generated configs.
 	// +optional
-	// +kubebuilder:validation:Minimum=30000
-	// +kubebuilder:validation:Maximum=32767
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	RelayNodePort int32 `json:"relayNodePort,omitempty"`
 	// TLSSecretName overrides the default TLS secret for this node.
 	// When set, the named kubernetes.io/tls Secret is mounted and used for all

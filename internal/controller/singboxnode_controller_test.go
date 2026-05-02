@@ -97,11 +97,18 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-relay-svc", Namespace: "default"}, relaySvc)
 		}, testTimeout, testInterval).Should(Succeed())
 
-		entrySvc := &corev1.Service{}
 		Eventually(func() error {
-			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-vless-entry-svc", Namespace: "default"}, entrySvc)
+			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-deploy", Namespace: "default"}, deploy)
 		}, testTimeout, testInterval).Should(Succeed())
-		Expect(entrySvc.Spec.Ports[0].Port).To(Equal(int32(30443)))
+		containers := deploy.Spec.Template.Spec.Containers
+		Expect(containers).NotTo(BeEmpty())
+		var hostPorts []int32
+		for _, p := range containers[0].Ports {
+			if p.HostPort != 0 {
+				hostPorts = append(hostPorts, p.HostPort)
+			}
+		}
+		Expect(hostPorts).To(ContainElement(int32(30443)))
 	})
 
 	It("should create ConfigMap with socks5 relay inbound for outbound node", func() {

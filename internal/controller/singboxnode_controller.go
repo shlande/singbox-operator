@@ -51,7 +51,6 @@ const (
 	configMapSuffix      = "-config"
 	deploymentSuffix     = "-deploy"
 	relaySvcSuffix       = "-relay-svc"
-	entrySvcSuffix       = "-%s-entry-svc"
 	configHashAnnotation = "singboxoperator.shlande.top/config-hash"
 	singboxImage         = "ghcr.io/sagernet/sing-box:latest"
 	relayContainerPort   = int32(10808)
@@ -372,6 +371,7 @@ func (r *SingBoxNodeReconciler) reconcileDeployment(ctx context.Context, node *p
 							Image:        singboxImage,
 							Args:         []string{"run", "-c", "/etc/sing-box/config.json"},
 							VolumeMounts: volumeMounts,
+							Ports:        buildHostPorts(node),
 						},
 					},
 					Volumes: volumes,
@@ -384,38 +384,29 @@ func (r *SingBoxNodeReconciler) reconcileDeployment(ctx context.Context, node *p
 }
 
 func (r *SingBoxNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.SingBoxNode) (requeue bool, err error) {
-	if requeue, err = r.reconcileNodePortService(ctx, node, node.Name+relaySvcSuffix, "relay", relayContainerPort, node.Spec.RelayNodePort); err != nil {
+	if requeue, err = r.reconcileRelayService(ctx, node); err != nil {
 		return requeue, fmt.Errorf("reconciling relay service: %w", err)
 	}
 	if requeue {
 		return true, nil
 	}
-
-	if hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
-		for _, proto := range node.Spec.SupportedProtocols {
-			svcName := fmt.Sprintf(node.Name+entrySvcSuffix, proto.Protocol)
-			if requeue, err = r.reconcileNodePortService(ctx, node, svcName, proto.Protocol, proto.Port, proto.Port); err != nil {
-				return requeue, fmt.Errorf("reconciling entry service for %s: %w", proto.Protocol, err)
-			}
-			if requeue {
-				return true, nil
-			}
-		}
+	if err = r.deleteOrphanEntryServices(ctx, node); err != nil {
+		return false, fmt.Errorf("deleting orphan entry services: %w", err)
 	}
 	return false, nil
 }
 
-func (r *SingBoxNodeReconciler) reconcileNodePortService(
+func (r *SingBoxNodeReconciler) reconcileRelayService(
 	ctx context.Context,
 	node *proxyv1alpha1.SingBoxNode,
-	svcName, portName string,
-	clusterPort, nodePort int32,
 ) (requeue bool, err error) {
+	nodePort := node.Spec.RelayNodePort
 	desiredNodePort := int32(0)
 	if nodePort >= 30000 && nodePort <= 32767 {
 		desiredNodePort = nodePort
 	}
 
+	svcName := node.Name + relaySvcSuffix
 	existing := &corev1.Service{}
 	getErr := r.Get(ctx, types.NamespacedName{Name: svcName, Namespace: node.Namespace}, existing)
 	if getErr == nil && desiredNodePort != 0 && len(existing.Spec.Ports) > 0 {
@@ -426,7 +417,6 @@ func (r *SingBoxNodeReconciler) reconcileNodePortService(
 			return true, nil
 		}
 	}
-
 	if getErr != nil && !errors.IsNotFound(getErr) {
 		return false, getErr
 	}
@@ -438,31 +428,42 @@ func (r *SingBoxNodeReconciler) reconcileNodePortService(
 		},
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
-		tcpPort := corev1.ServicePort{
-			Name:     portName + "-tcp",
-			Port:     clusterPort,
-			Protocol: corev1.ProtocolTCP,
-		}
-		udpPort := corev1.ServicePort{
-			Name:     portName + "-udp",
-			Port:     clusterPort,
-			Protocol: corev1.ProtocolUDP,
-		}
+		tcpPort := corev1.ServicePort{Name: "relay-tcp", Port: relayContainerPort, Protocol: corev1.ProtocolTCP}
+		udpPort := corev1.ServicePort{Name: "relay-udp", Port: relayContainerPort, Protocol: corev1.ProtocolUDP}
 		if desiredNodePort != 0 {
 			tcpPort.NodePort = desiredNodePort
 			udpPort.NodePort = desiredNodePort
 		}
 		svc.Spec = corev1.ServiceSpec{
-			Type: corev1.ServiceTypeNodePort,
-			Selector: map[string]string{
-				"app":         "singbox",
-				"singboxnode": node.Name,
-			},
-			Ports: []corev1.ServicePort{tcpPort, udpPort},
+			Type:     corev1.ServiceTypeNodePort,
+			Selector: map[string]string{"app": "singbox", "singboxnode": node.Name},
+			Ports:    []corev1.ServicePort{tcpPort, udpPort},
 		}
 		return controllerutil.SetControllerReference(node, svc, r.Scheme)
 	})
 	return false, err
+}
+
+func (r *SingBoxNodeReconciler) deleteOrphanEntryServices(ctx context.Context, node *proxyv1alpha1.SingBoxNode) error {
+	svcList := &corev1.ServiceList{}
+	if err := r.List(ctx, svcList, client.InNamespace(node.Namespace)); err != nil {
+		return err
+	}
+	for i := range svcList.Items {
+		svc := &svcList.Items[i]
+		if svc.Name == node.Name+relaySvcSuffix {
+			continue
+		}
+		for _, ref := range svc.OwnerReferences {
+			if ref.Kind == "SingBoxNode" && ref.Name == node.Name {
+				if err := r.Delete(ctx, svc); err != nil && !errors.IsNotFound(err) {
+					return fmt.Errorf("deleting orphan service %s: %w", svc.Name, err)
+				}
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func (r *SingBoxNodeReconciler) updateStatus(ctx context.Context, node *proxyv1alpha1.SingBoxNode, configHash string) (ctrl.Result, error) {
@@ -584,6 +585,17 @@ func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&proxyv1alpha1.CustomRoute{},
 			handler.EnqueueRequestsFromMapFunc(r.affectedByRouteMapper)).
 		Complete(r)
+}
+
+func buildHostPorts(node *proxyv1alpha1.SingBoxNode) []corev1.ContainerPort {
+	var ports []corev1.ContainerPort
+	for _, proto := range node.Spec.SupportedProtocols {
+		ports = append(ports,
+			corev1.ContainerPort{Name: proto.Protocol + "-tcp", ContainerPort: proto.Port, HostPort: proto.Port, Protocol: corev1.ProtocolTCP},
+			corev1.ContainerPort{Name: proto.Protocol + "-udp", ContainerPort: proto.Port, HostPort: proto.Port, Protocol: corev1.ProtocolUDP},
+		)
+	}
+	return ports
 }
 
 func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool {
