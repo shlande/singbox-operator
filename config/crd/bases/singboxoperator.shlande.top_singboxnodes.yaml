@@ -67,9 +67,9 @@ spec:
                 description: Region is the geographic region label (e.g. "us-west")
                 minLength: 1
                 type: string
-              relayNodePort:
+              relayPort:
                 description: |-
-                  RelayNodePort is the Kubernetes NodePort for inter-node relay connections (30000-32767).
+                  RelayPort is the host port for inter-node relay connections.
                   Required for outbound nodes that receive relay traffic from inbound nodes.
                   When unset, outbound nodes are excluded from generated configs.
                 format: int32

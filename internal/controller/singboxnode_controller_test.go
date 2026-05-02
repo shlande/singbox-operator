@@ -92,11 +92,6 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		}, testTimeout, testInterval).Should(Succeed())
 		Expect(deploy.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/hostname", "k8s-node-1"))
 
-		relaySvc := &corev1.Service{}
-		Eventually(func() error {
-			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-relay-svc", Namespace: "default"}, relaySvc)
-		}, testTimeout, testInterval).Should(Succeed())
-
 		Eventually(func() error {
 			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-deploy", Namespace: "default"}, deploy)
 		}, testTimeout, testInterval).Should(Succeed())
@@ -149,9 +144,9 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		Expect(inbounds).To(HaveLen(1))
 		Expect(inbounds[0].(map[string]interface{})["type"]).To(Equal("socks"))
 
-		relaySvc := &corev1.Service{}
+		outboundDeploy := &appsv1.Deployment{}
 		Eventually(func() error {
-			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-relay-svc", Namespace: "default"}, relaySvc)
+			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-deploy", Namespace: "default"}, outboundDeploy)
 		}, testTimeout, testInterval).Should(Succeed())
 	})
 
@@ -162,11 +157,11 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		outboundNode := &proxyv1alpha1.SingBoxNode{
 			ObjectMeta: metav1.ObjectMeta{Name: outboundName, Namespace: "default"},
 			Spec: proxyv1alpha1.SingBoxNodeSpec{
-				NodeRef:       "k8s-node-3",
-				Address:       "3.4.5.6",
-				Region:        "eu-west",
-				Roles:         []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
-				RelayNodePort: 31963,
+				NodeRef:   "k8s-node-3",
+				Address:   "3.4.5.6",
+				Region:    "eu-west",
+				Roles:     []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
+				RelayPort: 31963,
 			},
 		}
 		Expect(k8sClient.Create(testCtx, outboundNode)).To(Succeed())
@@ -223,11 +218,11 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		outboundNode := &proxyv1alpha1.SingBoxNode{
 			ObjectMeta: metav1.ObjectMeta{Name: outboundName, Namespace: "default"},
 			Spec: proxyv1alpha1.SingBoxNodeSpec{
-				NodeRef:       "k8s-node-5",
-				Address:       "5.6.7.8",
-				Region:        "ap-east",
-				Roles:         []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
-				RelayNodePort: 31964,
+				NodeRef:   "k8s-node-5",
+				Address:   "5.6.7.8",
+				Region:    "ap-east",
+				Roles:     []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
+				RelayPort: 31964,
 			},
 		}
 		Expect(k8sClient.Create(testCtx, outboundNode)).To(Succeed())

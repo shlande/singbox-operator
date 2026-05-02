@@ -19,7 +19,7 @@ func makeNode(name, address, region string, roles []v1alpha1.ProxyRole, protocol
 			Region:             region,
 			Roles:              roles,
 			SupportedProtocols: protocols,
-			RelayNodePort:      relayNodePort,
+			RelayPort:          relayNodePort,
 		},
 	}
 }

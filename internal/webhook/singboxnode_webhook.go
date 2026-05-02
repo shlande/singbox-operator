@@ -58,20 +58,6 @@ func validateSingBoxNode(node *v1alpha1.SingBoxNode) error {
 		}
 	}
 
-	if node.Spec.RelayNodePort != 0 && (node.Spec.RelayNodePort < 30000 || node.Spec.RelayNodePort > 32767) {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "relayNodePort"), node.Spec.RelayNodePort, "relayNodePort must be in the Kubernetes NodePort range (30000-32767)"))
-	}
-
-	for i, proto := range node.Spec.SupportedProtocols {
-		if proto.Port != 0 && (proto.Port < 30000 || proto.Port > 32767) {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "supportedProtocols").Index(i).Child("port"),
-				proto.Port,
-				"port must be in the Kubernetes NodePort range (30000-32767)",
-			))
-		}
-	}
-
 	seenProtocols := make(map[string]bool)
 	for i, proto := range node.Spec.SupportedProtocols {
 		if seenProtocols[proto.Protocol] {

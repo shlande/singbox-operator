@@ -73,54 +73,21 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects relayNodePort outside NodePort range", func(t *testing.T) {
-		node := &v1alpha1.SingBoxNode{
-			Spec: v1alpha1.SingBoxNodeSpec{
-				NodeRef:       "node-1",
-				Address:       "1.2.3.4",
-				Region:        "us-west",
-				Roles:         []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-				RelayNodePort: 1234,
-			},
-		}
-		_, err := w.ValidateCreate(ctx, node)
-		if err == nil {
-			t.Error("Expected error for relayNodePort=1234, got nil")
-		}
-		if err != nil && !strings.Contains(err.Error(), "relayNodePort") {
-			t.Errorf("Expected error to mention 'relayNodePort', got: %v", err)
-		}
-	})
-
-	t.Run("accepts zero relayNodePort (random assignment)", func(t *testing.T) {
-		node := &v1alpha1.SingBoxNode{
-			Spec: v1alpha1.SingBoxNodeSpec{
-				NodeRef:       "node-1",
-				Address:       "1.2.3.4",
-				Region:        "us-west",
-				Roles:         []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-				RelayNodePort: 0,
-			},
-		}
-		_, err := w.ValidateCreate(ctx, node)
-		if err != nil {
-			t.Errorf("Expected no error for relayNodePort=0 (unset), got: %v", err)
-		}
-	})
-
-	t.Run("accepts valid relayNodePort in range", func(t *testing.T) {
-		node := &v1alpha1.SingBoxNode{
-			Spec: v1alpha1.SingBoxNodeSpec{
-				NodeRef:       "node-1",
-				Address:       "1.2.3.4",
-				Region:        "us-west",
-				Roles:         []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
-				RelayNodePort: 31962,
-			},
-		}
-		_, err := w.ValidateCreate(ctx, node)
-		if err != nil {
-			t.Errorf("Expected no error for relayNodePort=31962, got: %v", err)
+	t.Run("accepts any valid relayPort (host port)", func(t *testing.T) {
+		for _, port := range []int32{0, 1234, 10808, 31962} {
+			node := &v1alpha1.SingBoxNode{
+				Spec: v1alpha1.SingBoxNodeSpec{
+					NodeRef:   "node-1",
+					Address:   "1.2.3.4",
+					Region:    "us-west",
+					Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+					RelayPort: port,
+				},
+			}
+			_, err := w.ValidateCreate(ctx, node)
+			if err != nil {
+				t.Errorf("Expected no error for relayPort=%d, got: %v", port, err)
+			}
 		}
 	})
 
@@ -217,42 +184,23 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects supportedProtocols port below NodePort range", func(t *testing.T) {
-		node := &v1alpha1.SingBoxNode{
-			Spec: v1alpha1.SingBoxNodeSpec{
-				NodeRef: "node-1",
-				Address: "1.2.3.4",
-				Region:  "us-west",
-				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 29999},
+	t.Run("accepts supportedProtocols with any valid host port", func(t *testing.T) {
+		for _, port := range []int32{443, 8080, 29999, 30080, 32768, 65535} {
+			node := &v1alpha1.SingBoxNode{
+				Spec: v1alpha1.SingBoxNodeSpec{
+					NodeRef: "node-1",
+					Address: "1.2.3.4",
+					Region:  "us-west",
+					Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+					SupportedProtocols: []v1alpha1.ProtocolConfig{
+						{Protocol: "vless", Port: port},
+					},
 				},
-			},
-		}
-		_, err := w.ValidateCreate(ctx, node)
-		if err == nil {
-			t.Error("Expected error for port below 30000, got nil")
-		}
-		if err != nil && !strings.Contains(err.Error(), "30000") {
-			t.Errorf("Expected error to mention '30000', got: %v", err)
-		}
-	})
-
-	t.Run("rejects supportedProtocols port above NodePort range", func(t *testing.T) {
-		node := &v1alpha1.SingBoxNode{
-			Spec: v1alpha1.SingBoxNodeSpec{
-				NodeRef: "node-1",
-				Address: "1.2.3.4",
-				Region:  "us-west",
-				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
-				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 32768},
-				},
-			},
-		}
-		_, err := w.ValidateCreate(ctx, node)
-		if err == nil {
-			t.Error("Expected error for port above 32767, got nil")
+			}
+			_, err := w.ValidateCreate(ctx, node)
+			if err != nil {
+				t.Errorf("Expected no error for port=%d, got: %v", port, err)
+			}
 		}
 	})
 

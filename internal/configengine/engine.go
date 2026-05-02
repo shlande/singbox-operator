@@ -387,7 +387,7 @@ func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) [
 		if routedNodes[outNode.Name] {
 			continue
 		}
-		if outNode.Spec.RelayNodePort == 0 {
+		if outNode.Spec.RelayPort == 0 {
 			continue
 		}
 		cred := input.NodeCreds[outNode.Name]
@@ -395,7 +395,7 @@ func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) [
 			"type":        "socks",
 			"tag":         fmt.Sprintf("outbound-%s", outNode.Name),
 			"server":      outNode.Spec.Address,
-			"server_port": outNode.Spec.RelayNodePort,
+			"server_port": outNode.Spec.RelayPort,
 			"username":    cred.Username,
 			"password":    cred.Password,
 		})
@@ -410,7 +410,7 @@ func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []interf
 		if !ok {
 			continue
 		}
-		if outNode.Spec.RelayNodePort == 0 {
+		if outNode.Spec.RelayPort == 0 {
 			continue
 		}
 		cred := input.NodeCreds[outNode.Name]
@@ -418,7 +418,7 @@ func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []interf
 			"type":        "socks",
 			"tag":         fmt.Sprintf("outbound-%s", outNode.Name),
 			"server":      outNode.Spec.Address,
-			"server_port": outNode.Spec.RelayNodePort,
+			"server_port": outNode.Spec.RelayPort,
 			"username":    cred.Username,
 			"password":    cred.Password,
 		})

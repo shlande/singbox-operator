@@ -32,7 +32,7 @@ func TestSingBoxNodeDeepCopy(t *testing.T) {
 			SupportedProtocols: []ProtocolConfig{
 				{Protocol: "vless", Port: 30443},
 			},
-			RelayNodePort: 31962,
+			RelayPort: 31962,
 		},
 		Status: SingBoxNodeStatus{
 			Phase:      "Running",

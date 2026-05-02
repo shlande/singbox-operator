@@ -59,13 +59,13 @@ type SingBoxNodeSpec struct {
 	// SupportedProtocols declares inbound protocols (only meaningful for inbound role)
 	// +optional
 	SupportedProtocols []ProtocolConfig `json:"supportedProtocols,omitempty"`
-	// RelayNodePort is the Kubernetes NodePort for inter-node relay connections (30000-32767).
+	// RelayPort is the host port for inter-node relay connections.
 	// Required for outbound nodes that receive relay traffic from inbound nodes.
 	// When unset, outbound nodes are excluded from generated configs.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	RelayNodePort int32 `json:"relayNodePort,omitempty"`
+	RelayPort int32 `json:"relayPort,omitempty"`
 	// TLSSecretName overrides the default TLS secret for this node.
 	// When set, the named kubernetes.io/tls Secret is mounted and used for all
 	// TLS-requiring protocols (e.g. hysteria2). Falls back to the operator-wide
