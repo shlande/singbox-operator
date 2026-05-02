@@ -29,25 +29,28 @@ import (
 )
 
 // SingBoxNodeWebhook handles defaulting and validation for SingBoxNode.
-type SingBoxNodeWebhook struct{}
+type SingBoxNodeWebhook struct {
+	NodePortRangeMin int32
+	NodePortRangeMax int32
+}
 
 func (w *SingBoxNodeWebhook) Default(ctx context.Context, node *v1alpha1.SingBoxNode) error {
 	return nil
 }
 
 func (w *SingBoxNodeWebhook) ValidateCreate(ctx context.Context, node *v1alpha1.SingBoxNode) (admission.Warnings, error) {
-	return nil, validateSingBoxNode(node)
+	return nil, w.validateSingBoxNode(node)
 }
 
 func (w *SingBoxNodeWebhook) ValidateUpdate(ctx context.Context, oldNode, newNode *v1alpha1.SingBoxNode) (admission.Warnings, error) {
-	return nil, validateSingBoxNode(newNode)
+	return nil, w.validateSingBoxNode(newNode)
 }
 
 func (w *SingBoxNodeWebhook) ValidateDelete(ctx context.Context, node *v1alpha1.SingBoxNode) (admission.Warnings, error) {
 	return nil, nil
 }
 
-func validateSingBoxNode(node *v1alpha1.SingBoxNode) error {
+func (w *SingBoxNodeWebhook) validateSingBoxNode(node *v1alpha1.SingBoxNode) error {
 	var allErrs field.ErrorList
 
 	if node.Spec.Address == "" {
@@ -77,7 +80,22 @@ func validateSingBoxNode(node *v1alpha1.SingBoxNode) error {
 				))
 			}
 			usedPorts[proto.Port] = fmt.Sprintf("supportedProtocols[%d].port", i)
+			if w.inNodePortRange(proto.Port) {
+				allErrs = append(allErrs, field.Invalid(
+					field.NewPath("spec", "supportedProtocols").Index(i).Child("port"),
+					proto.Port,
+					fmt.Sprintf("port %d falls within the Kubernetes NodePort range [%d, %d]; hostPort in this range is rejected by Cilium — use a port outside this range", proto.Port, w.NodePortRangeMin, w.NodePortRangeMax),
+				))
+			}
 		}
+	}
+
+	if node.Spec.RelayPort != 0 && w.inNodePortRange(node.Spec.RelayPort) {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "relayPort"),
+			node.Spec.RelayPort,
+			fmt.Sprintf("relayPort %d falls within the Kubernetes NodePort range [%d, %d]; hostPort in this range is rejected by Cilium — use a port outside this range", node.Spec.RelayPort, w.NodePortRangeMin, w.NodePortRangeMax),
+		))
 	}
 
 	if len(node.Spec.Roles) == 0 {
@@ -99,6 +117,13 @@ func validateSingBoxNode(node *v1alpha1.SingBoxNode) error {
 	return nil
 }
 
+func (w *SingBoxNodeWebhook) inNodePortRange(port int32) bool {
+	if w.NodePortRangeMin == 0 && w.NodePortRangeMax == 0 {
+		return false
+	}
+	return port >= w.NodePortRangeMin && port <= w.NodePortRangeMax
+}
+
 func isValidHostname(hostname string) bool {
 	if len(hostname) == 0 || len(hostname) > 253 {
 		return false
@@ -111,9 +136,13 @@ func isValidHostname(hostname string) bool {
 	return true
 }
 
-func SetupSingBoxNodeWebhookWithManager(mgr ctrl.Manager) error {
+func SetupSingBoxNodeWebhookWithManager(mgr ctrl.Manager, nodePortRangeMin, nodePortRangeMax int32) error {
+	wh := &SingBoxNodeWebhook{
+		NodePortRangeMin: nodePortRangeMin,
+		NodePortRangeMax: nodePortRangeMax,
+	}
 	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.SingBoxNode{}).
-		WithDefaulter(&SingBoxNodeWebhook{}).
-		WithValidator(&SingBoxNodeWebhook{}).
+		WithDefaulter(wh).
+		WithValidator(wh).
 		Complete()
 }

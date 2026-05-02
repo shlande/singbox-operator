@@ -3,7 +3,7 @@
 operator:
   image:
     repository: ghcr.io/shlande/singbox-operator
-    tag: "0.2.2"
+    tag: "0.2.3"
     pullPolicy: IfNotPresent
   replicas: 1
   resources:

@@ -12,7 +12,7 @@ import (
 )
 
 func TestSingBoxNodeWebhook_Default(t *testing.T) {
-	w := &webhook.SingBoxNodeWebhook{}
+	w := &webhook.SingBoxNodeWebhook{NodePortRangeMin: 30000, NodePortRangeMax: 32767}
 	ctx := context.Background()
 
 	t.Run("does not override explicitly set protocol port", func(t *testing.T) {
@@ -37,7 +37,7 @@ func TestSingBoxNodeWebhook_Default(t *testing.T) {
 }
 
 func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
-	w := &webhook.SingBoxNodeWebhook{}
+	w := &webhook.SingBoxNodeWebhook{NodePortRangeMin: 30000, NodePortRangeMax: 32767}
 	ctx := context.Background()
 
 	t.Run("rejects empty address", func(t *testing.T) {
@@ -73,8 +73,8 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("accepts any valid relayPort (host port)", func(t *testing.T) {
-		for _, port := range []int32{0, 1234, 10808, 31962} {
+	t.Run("accepts relayPort outside NodePort range", func(t *testing.T) {
+		for _, port := range []int32{0, 1234, 10808, 29999} {
 			node := &v1alpha1.SingBoxNode{
 				Spec: v1alpha1.SingBoxNodeSpec{
 					NodeRef:   "node-1",
@@ -91,6 +91,44 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects relayPort inside NodePort range", func(t *testing.T) {
+		for _, port := range []int32{30000, 31962, 32767} {
+			node := &v1alpha1.SingBoxNode{
+				Spec: v1alpha1.SingBoxNodeSpec{
+					NodeRef:   "node-1",
+					Address:   "1.2.3.4",
+					Region:    "us-west",
+					Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+					RelayPort: port,
+				},
+			}
+			_, err := w.ValidateCreate(ctx, node)
+			if err == nil {
+				t.Errorf("Expected error for relayPort=%d (in NodePort range), got nil", port)
+			}
+		}
+	})
+
+	t.Run("rejects supportedProtocols port inside NodePort range", func(t *testing.T) {
+		for _, port := range []int32{30000, 30080, 32767} {
+			node := &v1alpha1.SingBoxNode{
+				Spec: v1alpha1.SingBoxNodeSpec{
+					NodeRef: "node-1",
+					Address: "1.2.3.4",
+					Region:  "us-west",
+					Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+					SupportedProtocols: []v1alpha1.ProtocolConfig{
+						{Protocol: "vless", Port: port},
+					},
+				},
+			}
+			_, err := w.ValidateCreate(ctx, node)
+			if err == nil {
+				t.Errorf("Expected error for port=%d (in NodePort range), got nil", port)
+			}
+		}
+	})
+
 	t.Run("rejects duplicate protocols", func(t *testing.T) {
 		node := &v1alpha1.SingBoxNode{
 			Spec: v1alpha1.SingBoxNodeSpec{
@@ -99,8 +137,8 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 				Region:  "us-west",
 				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 30443},
-					{Protocol: "vless", Port: 30444},
+					{Protocol: "vless", Port: 8443},
+					{Protocol: "vless", Port: 8444},
 				},
 			},
 		}
@@ -118,8 +156,8 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 				Region:  "us-west",
 				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 30443},
-					{Protocol: "trojan", Port: 30443},
+					{Protocol: "vless", Port: 8443},
+					{Protocol: "trojan", Port: 8443},
 				},
 			},
 		}
@@ -184,8 +222,8 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("accepts supportedProtocols with any valid host port", func(t *testing.T) {
-		for _, port := range []int32{443, 8080, 29999, 30080, 32768, 65535} {
+	t.Run("accepts supportedProtocols port outside NodePort range", func(t *testing.T) {
+		for _, port := range []int32{443, 8080, 29999, 32768, 65535} {
 			node := &v1alpha1.SingBoxNode{
 				Spec: v1alpha1.SingBoxNodeSpec{
 					NodeRef: "node-1",
@@ -212,7 +250,7 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 				Region:  "us-west",
 				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
-					{Protocol: "vless", Port: 30443},
+					{Protocol: "vless", Port: 8443},
 				},
 			},
 		}
@@ -254,7 +292,7 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 }
 
 func TestSingBoxNodeWebhook_ValidateUpdate(t *testing.T) {
-	w := &webhook.SingBoxNodeWebhook{}
+	w := &webhook.SingBoxNodeWebhook{NodePortRangeMin: 30000, NodePortRangeMax: 32767}
 	ctx := context.Background()
 
 	t.Run("validates new object on update", func(t *testing.T) {

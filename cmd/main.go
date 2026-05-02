@@ -67,6 +67,8 @@ func main() {
 	var apiBindAddress string
 	var clientConfigTemplate string
 	var defaultTLSSecret string
+	var nodePortRangeMin int
+	var nodePortRangeMax int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -90,6 +92,10 @@ func main() {
 		"ConfigMap reference for client config template in namespace/name format.")
 	flag.StringVar(&defaultTLSSecret, "default-tls-secret", "sing-box-tls",
 		"Name of the default kubernetes.io/tls Secret used for TLS-requiring protocols (e.g. hysteria2). Can be overridden per SingBoxNode via spec.tlsSecretName.")
+	flag.IntVar(&nodePortRangeMin, "nodeport-range-min", 30000,
+		"Lower bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
+	flag.IntVar(&nodePortRangeMax, "nodeport-range-max", 32767,
+		"Upper bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -211,7 +217,7 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "customroute")
 		os.Exit(1)
 	}
-	if err := proxywebhook.SetupSingBoxNodeWebhookWithManager(mgr); err != nil {
+	if err := proxywebhook.SetupSingBoxNodeWebhookWithManager(mgr, int32(nodePortRangeMin), int32(nodePortRangeMax)); err != nil {
 		setupLog.Error(err, "Failed to create webhook", "webhook", "SingBoxNode")
 		os.Exit(1)
 	}
