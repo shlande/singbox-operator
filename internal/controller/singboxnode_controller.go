@@ -22,6 +22,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -533,10 +534,14 @@ func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func buildHostPorts(node *proxyv1alpha1.SingBoxNode) []corev1.ContainerPort {
 	var ports []corev1.ContainerPort
 	for _, proto := range node.Spec.SupportedProtocols {
-		ports = append(ports,
-			corev1.ContainerPort{Name: proto.Protocol + "-tcp", ContainerPort: proto.Port, HostPort: proto.Port, Protocol: corev1.ProtocolTCP},
-			corev1.ContainerPort{Name: proto.Protocol + "-udp", ContainerPort: proto.Port, HostPort: proto.Port, Protocol: corev1.ProtocolUDP},
-		)
+		for _, netProto := range hostPortProtocols(proto.Protocol) {
+			ports = append(ports, corev1.ContainerPort{
+				Name:          proto.Protocol + "-" + strings.ToLower(string(netProto)),
+				ContainerPort: proto.Port,
+				HostPort:      proto.Port,
+				Protocol:      netProto,
+			})
+		}
 	}
 	if node.Spec.RelayPort > 0 {
 		ports = append(ports,
@@ -545,6 +550,17 @@ func buildHostPorts(node *proxyv1alpha1.SingBoxNode) []corev1.ContainerPort {
 		)
 	}
 	return ports
+}
+
+func hostPortProtocols(protocol string) []corev1.Protocol {
+	switch protocol {
+	case "hysteria2":
+		return []corev1.Protocol{corev1.ProtocolUDP}
+	case "socks5":
+		return []corev1.Protocol{corev1.ProtocolTCP, corev1.ProtocolUDP}
+	default:
+		return []corev1.Protocol{corev1.ProtocolTCP}
+	}
 }
 
 func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool {
