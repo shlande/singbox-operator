@@ -32,6 +32,195 @@ import (
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
+var _ = Describe("NodeReadiness", func() {
+	const (
+		testTimeout  = 10 * time.Second
+		testInterval = 100 * time.Millisecond
+	)
+
+	var (
+		testCtx    context.Context
+		reconciler *SingBoxNodeReconciler
+	)
+
+	BeforeEach(func() {
+		testCtx = context.Background()
+		reconciler = &SingBoxNodeReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
+		}
+	})
+
+	makeSBN := func(name, nodeRef string) *proxyv1alpha1.SingBoxNode {
+		return &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: nodeRef,
+				Address: "1.2.3.4",
+				Region:  "us",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 10443},
+				},
+			},
+		}
+	}
+
+	makeK8sNode := func(name string, ready bool) *corev1.Node {
+		status := corev1.ConditionTrue
+		if !ready {
+			status = corev1.ConditionFalse
+		}
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{
+					{Type: corev1.NodeReady, Status: status},
+				},
+			},
+		}
+	}
+
+	nodeReadyConditionTrue := func(sbnName string) func() bool {
+		return func() bool {
+			sbn := &proxyv1alpha1.SingBoxNode{}
+			if err := k8sClient.Get(testCtx, types.NamespacedName{Name: sbnName, Namespace: "default"}, sbn); err != nil {
+				return false
+			}
+			for _, c := range sbn.Status.Conditions {
+				if c.Type == proxyv1alpha1.NodeReadyConditionType {
+					return c.Status == metav1.ConditionTrue
+				}
+			}
+			return false
+		}
+	}
+
+	nodeReadyConditionFalse := func(sbnName string) func() bool {
+		return func() bool {
+			sbn := &proxyv1alpha1.SingBoxNode{}
+			if err := k8sClient.Get(testCtx, types.NamespacedName{Name: sbnName, Namespace: "default"}, sbn); err != nil {
+				return false
+			}
+			for _, c := range sbn.Status.Conditions {
+				if c.Type == proxyv1alpha1.NodeReadyConditionType {
+					return c.Status == metav1.ConditionFalse
+				}
+			}
+			return false
+		}
+	}
+
+	nodeReadyConditionReason := func(sbnName, reason string) func() bool {
+		return func() bool {
+			sbn := &proxyv1alpha1.SingBoxNode{}
+			if err := k8sClient.Get(testCtx, types.NamespacedName{Name: sbnName, Namespace: "default"}, sbn); err != nil {
+				return false
+			}
+			for _, c := range sbn.Status.Conditions {
+				if c.Type == proxyv1alpha1.NodeReadyConditionType {
+					return c.Status == metav1.ConditionFalse && c.Reason == reason
+				}
+			}
+			return false
+		}
+	}
+
+	reconcile := func(name string) {
+		_, err := reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: name, Namespace: "default"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		// Second reconcile for finalizer / subresource consistency
+		_, err = reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: name, Namespace: "default"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	It("TestNodeReadiness_SetsNodeReadyTrue_WhenNodeIsReady", func() {
+		k8sNode := makeK8sNode("worker-ready", true)
+		Expect(k8sClient.Create(testCtx, k8sNode)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, k8sNode) })
+		Expect(k8sClient.Status().Update(testCtx, k8sNode)).To(Succeed())
+
+		sbn := makeSBN("sbn-ready", "worker-ready")
+		Expect(k8sClient.Create(testCtx, sbn)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, sbn) })
+
+		reconcile("sbn-ready")
+
+		Eventually(nodeReadyConditionTrue("sbn-ready"), testTimeout, testInterval).Should(BeTrue())
+	})
+
+	It("TestNodeReadiness_SetsNodeReadyFalse_WhenNodeIsNotReady", func() {
+		k8sNode := makeK8sNode("worker-notready", false)
+		Expect(k8sClient.Create(testCtx, k8sNode)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, k8sNode) })
+		Expect(k8sClient.Status().Update(testCtx, k8sNode)).To(Succeed())
+
+		sbn := makeSBN("sbn-notready", "worker-notready")
+		Expect(k8sClient.Create(testCtx, sbn)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, sbn) })
+
+		reconcile("sbn-notready")
+
+		Eventually(nodeReadyConditionFalse("sbn-notready"), testTimeout, testInterval).Should(BeTrue())
+	})
+
+	It("TestNodeReadiness_SetsNodeReadyFalse_WhenNodeNotFound", func() {
+		sbn := makeSBN("sbn-no-node", "nonexistent-node")
+		Expect(k8sClient.Create(testCtx, sbn)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, sbn) })
+
+		reconcile("sbn-no-node")
+
+		Eventually(nodeReadyConditionReason("sbn-no-node", "NodeNotFound"), testTimeout, testInterval).Should(BeTrue())
+	})
+
+	It("TestNodeReadiness_TransitionsToFalse_WhenNodeBecomesNotReady", func() {
+		k8sNode := makeK8sNode("worker-transition", true)
+		Expect(k8sClient.Create(testCtx, k8sNode)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, k8sNode) })
+		Expect(k8sClient.Status().Update(testCtx, k8sNode)).To(Succeed())
+
+		sbn := makeSBN("sbn-transition", "worker-transition")
+		Expect(k8sClient.Create(testCtx, sbn)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, sbn) })
+
+		reconcile("sbn-transition")
+		Eventually(nodeReadyConditionTrue("sbn-transition"), testTimeout, testInterval).Should(BeTrue())
+
+		// Make the K8s Node not ready
+		Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: "worker-transition"}, k8sNode)).To(Succeed())
+		k8sNode.Status.Conditions = []corev1.NodeCondition{
+			{Type: corev1.NodeReady, Status: corev1.ConditionFalse},
+		}
+		Expect(k8sClient.Status().Update(testCtx, k8sNode)).To(Succeed())
+
+		reconcile("sbn-transition")
+		Eventually(nodeReadyConditionFalse("sbn-transition"), testTimeout, testInterval).Should(BeTrue())
+	})
+
+	It("TestNodeReadiness_Idempotent_MultipleReconciles", func() {
+		k8sNode := makeK8sNode("worker-idempotent", true)
+		Expect(k8sClient.Create(testCtx, k8sNode)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, k8sNode) })
+		Expect(k8sClient.Status().Update(testCtx, k8sNode)).To(Succeed())
+
+		sbn := makeSBN("sbn-idempotent", "worker-idempotent")
+		Expect(k8sClient.Create(testCtx, sbn)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, sbn) })
+
+		reconcile("sbn-idempotent")
+		Eventually(nodeReadyConditionTrue("sbn-idempotent"), testTimeout, testInterval).Should(BeTrue())
+
+		// Reconcile again — condition must stay True
+		reconcile("sbn-idempotent")
+		Eventually(nodeReadyConditionTrue("sbn-idempotent"), testTimeout, testInterval).Should(BeTrue())
+	})
+})
+
 var _ = Describe("SingBoxNode Reconciler", func() {
 	const (
 		testTimeout  = 10 * time.Second
