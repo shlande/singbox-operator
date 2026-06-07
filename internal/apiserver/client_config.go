@@ -17,6 +17,10 @@ type ClientConfigInput struct {
 	InboundNodes    []*v1alpha1.SingBoxNode
 	RoutesByInbound map[string][]*v1alpha1.CustomRoute
 	OutboundsByName map[string]*v1alpha1.SingBoxNode
+	// OfflineNodeNames contains SingBoxNode names that are currently offline
+	// (NodeReady condition is False or absent). These nodes are excluded from
+	// client config outbounds.
+	OfflineNodeNames map[string]bool
 }
 
 // BuildClientConfig generates the outbounds array for a client sing-box config.
@@ -28,6 +32,9 @@ func BuildClientConfig(input ClientConfigInput) ([]interface{}, error) {
 	var proxyTags []string
 
 	for _, inboundNode := range input.InboundNodes {
+		if input.OfflineNodeNames[inboundNode.Name] {
+			continue
+		}
 		if !supportsProtocol(inboundNode, protocol) {
 			continue
 		}
@@ -108,19 +115,19 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 
 	if inboundNode != nil {
 		for _, n := range input.OutboundsByName {
-			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] {
+			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.OfflineNodeNames[n.Name] {
 				seen[n.Name] = true
 				nodes = append(nodes, n)
 			}
 		}
-		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] {
+		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] {
 			seen[inboundNode.Name] = true
 			nodes = append(nodes, inboundNode)
 		}
 	}
 
 	for _, r := range input.RoutesByInbound[inboundName] {
-		if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] {
+		if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] && !input.OfflineNodeNames[n.Name] {
 			seen[n.Name] = true
 			nodes = append(nodes, n)
 		}

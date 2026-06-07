@@ -111,6 +111,10 @@ func (r *SingBoxNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	if err := r.updateNodeReadyStatus(ctx, node); err != nil {
+		logger.Error(err, "Failed to update NodeReady status")
+	}
+
 	if err := r.ensureCredential(ctx, node); err != nil {
 		logger.Error(err, "Failed to ensure node credential")
 		reconcileErr = err
@@ -410,6 +414,55 @@ func (r *SingBoxNodeReconciler) deleteOrphanServices(ctx context.Context, node *
 	return nil
 }
 
+// updateNodeReadyStatus fetches the K8s Node referenced by spec.nodeRef and updates
+// the SingBoxNode's NodeReady status condition accordingly.
+func (r *SingBoxNodeReconciler) updateNodeReadyStatus(ctx context.Context, node *proxyv1alpha1.SingBoxNode) error {
+	k8sNode := &corev1.Node{}
+	err := r.Get(ctx, types.NamespacedName{Name: node.Spec.NodeRef}, k8sNode)
+
+	latest := &proxyv1alpha1.SingBoxNode{}
+	if getErr := r.Get(ctx, types.NamespacedName{Name: node.Name, Namespace: node.Namespace}, latest); getErr != nil {
+		return getErr
+	}
+
+	var condition metav1.Condition
+	if err != nil {
+		// Node not found — treat as not ready
+		condition = metav1.Condition{
+			Type:               proxyv1alpha1.NodeReadyConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "NodeNotFound",
+			Message:            fmt.Sprintf("Kubernetes Node %q not found", node.Spec.NodeRef),
+			ObservedGeneration: latest.Generation,
+		}
+	} else if !isNodeAvailable(k8sNode) {
+		reason := "NodeNotReady"
+		message := fmt.Sprintf("Kubernetes Node %q is not ready", node.Spec.NodeRef)
+		if isNodeOfflineAnnotated(k8sNode) {
+			reason = "NodeOffline"
+			message = fmt.Sprintf("Kubernetes Node %q is manually taken offline", node.Spec.NodeRef)
+		}
+		condition = metav1.Condition{
+			Type:               proxyv1alpha1.NodeReadyConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             reason,
+			Message:            message,
+			ObservedGeneration: latest.Generation,
+		}
+	} else {
+		condition = metav1.Condition{
+			Type:               proxyv1alpha1.NodeReadyConditionType,
+			Status:             metav1.ConditionTrue,
+			Reason:             "NodeReady",
+			Message:            fmt.Sprintf("Kubernetes Node %q is ready", node.Spec.NodeRef),
+			ObservedGeneration: latest.Generation,
+		}
+	}
+
+	apimeta.SetStatusCondition(&latest.Status.Conditions, condition)
+	return r.Status().Update(ctx, latest)
+}
+
 func (r *SingBoxNodeReconciler) updateStatus(ctx context.Context, node *proxyv1alpha1.SingBoxNode, configHash string) (ctrl.Result, error) {
 	latest := &proxyv1alpha1.SingBoxNode{}
 	if err := r.Get(ctx, types.NamespacedName{Name: node.Name, Namespace: node.Namespace}, latest); err != nil {
@@ -514,6 +567,24 @@ func (r *SingBoxNodeReconciler) affectedByRouteMapper(ctx context.Context, obj c
 	}
 }
 
+func (r *SingBoxNodeReconciler) nodeToSingBoxNodesMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	k8sNode, ok := obj.(*corev1.Node)
+	if !ok {
+		return nil
+	}
+	var sbnList proxyv1alpha1.SingBoxNodeList
+	if err := r.List(ctx, &sbnList, client.MatchingFields{"spec.nodeRef": k8sNode.Name}); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, sbn := range sbnList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: sbn.Name, Namespace: sbn.Namespace},
+		})
+	}
+	return requests
+}
+
 func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&proxyv1alpha1.SingBoxNode{}).
@@ -528,6 +599,12 @@ func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.matchingProtocolNodeMapper)).
 		Watches(&proxyv1alpha1.CustomRoute{},
 			handler.EnqueueRequestsFromMapFunc(r.affectedByRouteMapper)).
+		Watches(&corev1.Node{},
+			handler.EnqueueRequestsFromMapFunc(r.nodeToSingBoxNodesMapper),
+			builder.WithPredicates(predicate.Or(
+				NodeReadyConditionChangedPredicate{},
+				predicate.AnnotationChangedPredicate{},
+			))).
 		Complete(r)
 }
 

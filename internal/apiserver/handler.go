@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -86,6 +87,14 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	offlineNodeNames := make(map[string]bool)
+	for i := range nodeList.Items {
+		node := &nodeList.Items[i]
+		if !isSingBoxNodeReady(node) {
+			offlineNodeNames[node.Name] = true
+		}
+	}
+
 	var routeList proxyv1alpha1.CustomRouteList
 	if err := s.Client.List(ctx, &routeList, client.InNamespace(namespace)); err != nil {
 		logger.Error(err, "Failed to list CustomRoutes", "namespace", namespace)
@@ -100,11 +109,12 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := ClientConfigInput{
-		User:            matchedUser,
-		UserCred:        matchedCred,
-		InboundNodes:    inboundNodes,
-		RoutesByInbound: routesByInbound,
-		OutboundsByName: outboundsByName,
+		User:             matchedUser,
+		UserCred:         matchedCred,
+		InboundNodes:     inboundNodes,
+		RoutesByInbound:  routesByInbound,
+		OutboundsByName:  outboundsByName,
+		OfflineNodeNames: offlineNodeNames,
 	}
 
 	outbounds, err := BuildClientConfig(input)
@@ -145,6 +155,18 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 
 func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool {
 	return slices.Contains(node.Spec.Roles, role)
+}
+
+// isSingBoxNodeReady returns true if the SingBoxNode has a NodeReady condition with Status=True.
+// If the NodeReady condition is absent, the node is considered ready (backward compatible).
+func isSingBoxNodeReady(node *proxyv1alpha1.SingBoxNode) bool {
+	for _, c := range node.Status.Conditions {
+		if c.Type == proxyv1alpha1.NodeReadyConditionType {
+			return c.Status == metav1.ConditionTrue
+		}
+	}
+	// No NodeReady condition means the controller hasn't set it yet — treat as ready
+	return true
 }
 
 func writeInternalError(w http.ResponseWriter) {
