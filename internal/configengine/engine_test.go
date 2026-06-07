@@ -2,6 +2,7 @@ package configengine_test
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,37 +43,37 @@ func makeRoute(name, inboundNode, outboundNode string) *v1alpha1.CustomRoute {
 }
 
 // parseConfig unmarshals the Output.Config into a generic map for inspection
-func parseConfig(t *testing.T, out configengine.Output) map[string]interface{} {
+func parseConfig(t *testing.T, out configengine.Output) map[string]any {
 	t.Helper()
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(out.Config, &result); err != nil {
 		t.Fatalf("failed to parse config JSON: %v", err)
 	}
 	return result
 }
 
-func inboundsOf(t *testing.T, cfg map[string]interface{}) []interface{} {
+func inboundsOf(t *testing.T, cfg map[string]any) []any {
 	t.Helper()
 	v, ok := cfg["inbounds"]
 	if !ok {
 		return nil
 	}
-	arr, _ := v.([]interface{})
+	arr, _ := v.([]any)
 	return arr
 }
 
-func outboundsOf(t *testing.T, cfg map[string]interface{}) []interface{} {
+func outboundsOf(t *testing.T, cfg map[string]any) []any {
 	t.Helper()
 	v, ok := cfg["outbounds"]
 	if !ok {
 		return nil
 	}
-	arr, _ := v.([]interface{})
+	arr, _ := v.([]any)
 	return arr
 }
 
-func routeFinal(cfg map[string]interface{}) string {
-	r, ok := cfg["route"].(map[string]interface{})
+func routeFinal(cfg map[string]any) string {
+	r, ok := cfg["route"].(map[string]any)
 	if !ok {
 		return ""
 	}
@@ -80,42 +81,37 @@ func routeFinal(cfg map[string]interface{}) string {
 	return f
 }
 
-func inboundTags(t *testing.T, cfg map[string]interface{}) []string {
+func inboundTags(t *testing.T, cfg map[string]any) []string {
 	t.Helper()
 	var tags []string
 	for _, ib := range inboundsOf(t, cfg) {
-		m, _ := ib.(map[string]interface{})
+		m, _ := ib.(map[string]any)
 		tags = append(tags, m["tag"].(string))
 	}
 	return tags
 }
 
-func outboundTags(t *testing.T, cfg map[string]interface{}) []string {
+func outboundTags(t *testing.T, cfg map[string]any) []string {
 	t.Helper()
 	var tags []string
 	for _, ob := range outboundsOf(t, cfg) {
-		m, _ := ob.(map[string]interface{})
+		m, _ := ob.(map[string]any)
 		tags = append(tags, m["tag"].(string))
 	}
 	return tags
 }
 
 func containsTag(tags []string, tag string) bool {
-	for _, t := range tags {
-		if t == tag {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(tags, tag)
 }
 
-func routeRulesOf(t *testing.T, cfg map[string]interface{}) []interface{} {
+func routeRulesOf(t *testing.T, cfg map[string]any) []any {
 	t.Helper()
-	r, ok := cfg["route"].(map[string]interface{})
+	r, ok := cfg["route"].(map[string]any)
 	if !ok {
 		return nil
 	}
-	rules, _ := r["rules"].([]interface{})
+	rules, _ := r["rules"].([]any)
 	return rules
 }
 
@@ -167,15 +163,15 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 	}
 
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] == "inbound-vless" {
-			users := m["users"].([]interface{})
+			users := m["users"].([]any)
 			if len(users) != 2 {
 				t.Errorf("expected 2 virtual users in inbound, got %d", len(users))
 			}
 			names := make(map[string]bool)
 			for _, u := range users {
-				um := u.(map[string]interface{})
+				um := u.(map[string]any)
 				names[um["name"].(string)] = true
 			}
 			if !names["user-alice#node-b"] {
@@ -202,17 +198,17 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 	if len(rules) != 1 {
 		t.Fatalf("expected 1 routing rule, got %d", len(rules))
 	}
-	rule := rules[0].(map[string]interface{})
+	rule := rules[0].(map[string]any)
 	if rule["outbound"] != "outbound-node-b" {
 		t.Errorf("expected rule outbound=outbound-node-b, got %v", rule["outbound"])
 	}
-	authUsers, _ := rule["auth_user"].([]interface{})
+	authUsers, _ := rule["auth_user"].([]any)
 	if len(authUsers) != 2 {
 		t.Errorf("expected 2 auth_users in rule, got %d", len(authUsers))
 	}
 
 	for _, ob := range outboundsOf(t, cfg) {
-		m := ob.(map[string]interface{})
+		m := ob.(map[string]any)
 		if m["tag"] == "outbound-node-b" {
 			if m["server"] != "5.6.7.8" {
 				t.Errorf("expected server=5.6.7.8, got %v", m["server"])
@@ -265,7 +261,7 @@ func TestConfigEngine_OutboundNode(t *testing.T) {
 
 	// verify relay inbound port
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] == "relay-socks5" {
 			if m["listen_port"].(float64) != 10808 {
 				t.Errorf("expected listen_port=10808, got %v", m["listen_port"])
@@ -361,13 +357,13 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 	}
 
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] == expectedInboundTag {
-			users := m["users"].([]interface{})
+			users := m["users"].([]any)
 			if len(users) != 1 {
 				t.Errorf("expected 1 user in inbound, got %d", len(users))
 			}
-			u := users[0].(map[string]interface{})
+			u := users[0].(map[string]any)
 			if u["name"] != "user-dave#node-b" {
 				t.Errorf("expected user name=user-dave#node-b, got %v", u["name"])
 			}
@@ -379,7 +375,7 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 	}
 
 	for _, ob := range outboundsOf(t, cfg) {
-		m := ob.(map[string]interface{})
+		m := ob.(map[string]any)
 		if m["tag"] == "outbound-node-b" && m["server"] != "5.6.7.8" {
 			t.Errorf("expected server=5.6.7.8, got %v", m["server"])
 		}
@@ -391,11 +387,11 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 	}
 	found := false
 	for _, rule := range rules {
-		m := rule.(map[string]interface{})
+		m := rule.(map[string]any)
 		if m["outbound"] != "outbound-node-b" {
 			continue
 		}
-		authUsers, _ := m["auth_user"].([]interface{})
+		authUsers, _ := m["auth_user"].([]any)
 		for _, u := range authUsers {
 			if u.(string) == "user-dave#node-b" {
 				found = true
@@ -616,7 +612,7 @@ func TestConfigEngine_Socks5AndHTTPUsers(t *testing.T) {
 	}
 
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] == "inbound-socks5" && m["type"] != "socks" {
 			t.Errorf("expected type=socks, got %v", m["type"])
 		}
@@ -731,16 +727,16 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 
 	var uuidB, uuidC string
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] != "inbound-vless" {
 			continue
 		}
-		users := m["users"].([]interface{})
+		users := m["users"].([]any)
 		if len(users) != 2 {
 			t.Fatalf("expected 2 virtual users in inbound-vless, got %d", len(users))
 		}
 		for _, u := range users {
-			um := u.(map[string]interface{})
+			um := u.(map[string]any)
 			switch um["name"].(string) {
 			case "user-frank#node-b":
 				uuidB = um["uuid"].(string)
@@ -768,9 +764,9 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 
 	ruleOutbounds := make(map[string]bool)
 	for _, rule := range rules {
-		m := rule.(map[string]interface{})
+		m := rule.(map[string]any)
 		ruleOutbounds[m["outbound"].(string)] = true
-		authUsers, _ := m["auth_user"].([]interface{})
+		authUsers, _ := m["auth_user"].([]any)
 		if len(authUsers) == 0 {
 			t.Errorf("rule for %v has no auth_user", m["outbound"])
 		}
@@ -833,17 +829,17 @@ func TestConfigEngine_RegionAutoVirtualUsers(t *testing.T) {
 	}
 
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] != "inbound-vless" {
 			continue
 		}
-		users := m["users"].([]interface{})
+		users := m["users"].([]any)
 		if len(users) != 2 {
 			t.Fatalf("expected 2 virtual users, got %d", len(users))
 		}
 		names := make(map[string]bool)
 		for _, u := range users {
-			um := u.(map[string]interface{})
+			um := u.(map[string]any)
 			names[um["name"].(string)] = true
 		}
 		if !names["user-alice#node-b"] {
@@ -860,9 +856,9 @@ func TestConfigEngine_RegionAutoVirtualUsers(t *testing.T) {
 	}
 	ruleTargets := make(map[string]bool)
 	for _, rule := range rules {
-		rm := rule.(map[string]interface{})
+		rm := rule.(map[string]any)
 		ruleTargets[rm["outbound"].(string)] = true
-		authUsers, _ := rm["auth_user"].([]interface{})
+		authUsers, _ := rm["auth_user"].([]any)
 		if len(authUsers) == 0 {
 			t.Errorf("rule for %v has no auth_user", rm["outbound"])
 		}
@@ -908,24 +904,24 @@ func TestConfigEngine_Hysteria2Inbound(t *testing.T) {
 	}
 
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] != "inbound-hysteria2" {
 			continue
 		}
 		if m["type"] != "hysteria2" {
 			t.Errorf("expected type=hysteria2, got %v", m["type"])
 		}
-		tls, ok := m["tls"].(map[string]interface{})
+		tls, ok := m["tls"].(map[string]any)
 		if !ok {
 			t.Error("expected tls block in hysteria2 inbound")
 		} else if tls["enabled"] != true {
 			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
 		}
-		users, _ := m["users"].([]interface{})
+		users, _ := m["users"].([]any)
 		if len(users) != 1 {
 			t.Fatalf("expected 1 user, got %d", len(users))
 		}
-		u := users[0].(map[string]interface{})
+		u := users[0].(map[string]any)
 		if u["name"] != "user-alice" {
 			t.Errorf("expected name=user-alice, got %v", u["name"])
 		}
@@ -973,15 +969,15 @@ func TestConfigEngine_Hysteria2VirtualUsers(t *testing.T) {
 	cfg := parseConfig(t, out)
 
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] != "inbound-hysteria2" {
 			continue
 		}
-		users, _ := m["users"].([]interface{})
+		users, _ := m["users"].([]any)
 		if len(users) != 1 {
 			t.Fatalf("expected 1 virtual user, got %d", len(users))
 		}
-		u := users[0].(map[string]interface{})
+		u := users[0].(map[string]any)
 		if u["name"] != "user-alice#node-b" {
 			t.Errorf("expected virtual user name=user-alice#node-b, got %v", u["name"])
 		}
@@ -1044,7 +1040,7 @@ func TestConfigEngine_DualRoleNode_SelfDirect(t *testing.T) {
 	}
 
 	for _, ob := range outboundsOf(t, cfg) {
-		m := ob.(map[string]interface{})
+		m := ob.(map[string]any)
 		if m["tag"] == "outbound-node-x" {
 			if m["type"] != "direct" {
 				t.Errorf("expected outbound-node-x to be type=direct, got %v", m["type"])
@@ -1053,15 +1049,15 @@ func TestConfigEngine_DualRoleNode_SelfDirect(t *testing.T) {
 	}
 
 	for _, ib := range inboundsOf(t, cfg) {
-		m := ib.(map[string]interface{})
+		m := ib.(map[string]any)
 		if m["tag"] != "inbound-vless" {
 			continue
 		}
-		users := m["users"].([]interface{})
+		users := m["users"].([]any)
 		if len(users) != 1 {
 			t.Fatalf("expected 1 virtual user in inbound-vless, got %d", len(users))
 		}
-		u := users[0].(map[string]interface{})
+		u := users[0].(map[string]any)
 		if u["name"] != "user-alice#node-x" {
 			t.Errorf("expected virtual user user-alice#node-x, got %v", u["name"])
 		}
@@ -1071,11 +1067,11 @@ func TestConfigEngine_DualRoleNode_SelfDirect(t *testing.T) {
 	if len(rules) != 1 {
 		t.Fatalf("expected 1 routing rule, got %d", len(rules))
 	}
-	rule := rules[0].(map[string]interface{})
+	rule := rules[0].(map[string]any)
 	if rule["outbound"] != "outbound-node-x" {
 		t.Errorf("expected rule outbound=outbound-node-x, got %v", rule["outbound"])
 	}
-	authUsers, _ := rule["auth_user"].([]interface{})
+	authUsers, _ := rule["auth_user"].([]any)
 	if len(authUsers) != 1 || authUsers[0].(string) != "user-alice#node-x" {
 		t.Errorf("expected auth_user=[user-alice#node-x], got %v", authUsers)
 	}
@@ -1127,7 +1123,7 @@ func TestConfigEngine_DualRoleNode_SelfAndPeer(t *testing.T) {
 	}
 
 	for _, ob := range outboundsOf(t, cfg) {
-		m := ob.(map[string]interface{})
+		m := ob.(map[string]any)
 		switch m["tag"] {
 		case "outbound-node-x":
 			if m["type"] != "direct" {
@@ -1146,7 +1142,7 @@ func TestConfigEngine_DualRoleNode_SelfAndPeer(t *testing.T) {
 	}
 	ruleTargets := make(map[string]bool)
 	for _, rule := range rules {
-		rm := rule.(map[string]interface{})
+		rm := rule.(map[string]any)
 		ruleTargets[rm["outbound"].(string)] = true
 	}
 	if !ruleTargets["outbound-node-x"] {

@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
@@ -43,10 +45,10 @@ type Output struct {
 
 // singboxConfig mirrors the top-level sing-box config.json structure.
 type singboxConfig struct {
-	Log       logConfig     `json:"log"`
-	Inbounds  []interface{} `json:"inbounds"`
-	Outbounds []interface{} `json:"outbounds"`
-	Route     routeConfig   `json:"route"`
+	Log       logConfig   `json:"log"`
+	Inbounds  []any       `json:"inbounds"`
+	Outbounds []any       `json:"outbounds"`
+	Route     routeConfig `json:"route"`
 }
 
 type logConfig struct {
@@ -74,8 +76,8 @@ func Compute(input Input) (Output, error) {
 
 	myRoutes := routesForNode(input)
 
-	var inbounds []interface{}
-	var outbounds []interface{}
+	var inbounds []any
+	var outbounds []any
 	var rules []routeRule
 
 	if isInbound {
@@ -90,7 +92,7 @@ func Compute(input Input) (Output, error) {
 		outbounds = append(outbounds, buildOutboundNodeOutbounds(input, myRoutes)...)
 		outbounds = append(outbounds, buildRouteOutbounds(input, myRoutes)...)
 		if isSelfOutbound {
-			outbounds = append(outbounds, map[string]interface{}{
+			outbounds = append(outbounds, map[string]any{
 				"type": "direct",
 				"tag":  fmt.Sprintf("outbound-%s", node.Name),
 			})
@@ -104,7 +106,7 @@ func Compute(input Input) (Output, error) {
 	outbounds = deduplicateByTag(append(outbounds, buildDirectOutbound()))
 
 	if inbounds == nil {
-		inbounds = []interface{}{}
+		inbounds = []any{}
 	}
 
 	var finalOutbound string
@@ -158,12 +160,7 @@ func ExtractNodePorts(node *v1alpha1.SingBoxNode) []int32 {
 // ---------------------------------------------------------------------------
 
 func hasRole(node *v1alpha1.SingBoxNode, role v1alpha1.ProxyRole) bool {
-	for _, r := range node.Spec.Roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(node.Spec.Roles, role)
 }
 
 func findProtocolPort(node *v1alpha1.SingBoxNode, protocol string) int32 {
@@ -191,13 +188,13 @@ func routesForNode(input Input) []*v1alpha1.CustomRoute {
 // DeriveUUID generates a deterministic UUID v5 from a base UUID and a suffix string.
 // It implements the UUID v5 spec using SHA-1 with the base UUID as the namespace.
 func DeriveUUID(baseUUID, suffix string) string {
-	stripped := ""
+	var stripped strings.Builder
 	for _, c := range baseUUID {
 		if c != '-' {
-			stripped += string(c)
+			stripped.WriteString(string(c))
 		}
 	}
-	namespaceBytes, err := hex.DecodeString(stripped)
+	namespaceBytes, err := hex.DecodeString(stripped.String())
 	if err != nil || len(namespaceBytes) != 16 {
 		namespaceBytes = make([]byte, 16)
 	}
@@ -224,23 +221,23 @@ func DerivePassword(baseUUID, suffix string) string {
 
 // DeriveAuth returns the sing-box auth fields for a given protocol, user UUID,
 // and outbound node name. It is the single derivation point for all protocols.
-func DeriveAuth(protocol, uuid, nodeName string) map[string]interface{} {
+func DeriveAuth(protocol, uuid, nodeName string) map[string]any {
 	switch protocol {
 	case "hysteria2", "trojan":
-		return map[string]interface{}{"password": DerivePassword(uuid, nodeName)}
+		return map[string]any{"password": DerivePassword(uuid, nodeName)}
 	case "vless":
-		return map[string]interface{}{"uuid": DeriveUUID(uuid, nodeName)}
+		return map[string]any{"uuid": DeriveUUID(uuid, nodeName)}
 	case "socks5":
-		return map[string]interface{}{"username": uuid, "password": DerivePassword(uuid, nodeName)}
+		return map[string]any{"username": uuid, "password": DerivePassword(uuid, nodeName)}
 	case "http":
-		return map[string]interface{}{"username": uuid, "password": DerivePassword(uuid, nodeName)}
+		return map[string]any{"username": uuid, "password": DerivePassword(uuid, nodeName)}
 	default:
-		return map[string]interface{}{"password": DerivePassword(uuid, nodeName)}
+		return map[string]any{"password": DerivePassword(uuid, nodeName)}
 	}
 }
 
-func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf bool) ([]interface{}, []routeRule) {
-	var inbounds []interface{}
+func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf bool) ([]any, []routeRule) {
+	var inbounds []any
 	var rules []routeRule
 
 	seen := make(map[string]bool)
@@ -266,7 +263,7 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 		tag := fmt.Sprintf("inbound-%s", proto.Protocol)
 		port := proto.Port
 
-		var users []map[string]interface{}
+		var users []map[string]any
 		for _, nodeName := range outboundNames {
 			for _, user := range input.Users {
 				if user.Spec.Protocol != proto.Protocol {
@@ -309,8 +306,8 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 	return inbounds, rules
 }
 
-func buildUsersBlock(input Input, protocol, nodeName string) []map[string]interface{} {
-	var users []map[string]interface{}
+func buildUsersBlock(input Input, protocol, nodeName string) []map[string]any {
+	var users []map[string]any
 	for _, user := range input.Users {
 		if user.Spec.Protocol != protocol {
 			continue
@@ -333,12 +330,12 @@ func collectUserNames(input Input, protocol string) []string {
 	return names
 }
 
-func buildInboundEntry(protocol, tag string, port int32, users []map[string]interface{}) map[string]interface{} {
+func buildInboundEntry(protocol, tag string, port int32, users []map[string]any) map[string]any {
 	typeStr := protocol
 	if protocol == "socks5" {
 		typeStr = "socks"
 	}
-	entry := map[string]interface{}{
+	entry := map[string]any{
 		"type":        typeStr,
 		"tag":         tag,
 		"listen":      "::",
@@ -346,7 +343,7 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]inte
 		"users":       users,
 	}
 	if protocol == "hysteria2" {
-		entry["tls"] = map[string]interface{}{
+		entry["tls"] = map[string]any{
 			"enabled":          true,
 			"certificate_path": "/etc/sing-box/tls/tls.crt",
 			"key_path":         "/etc/sing-box/tls/tls.key",
@@ -355,8 +352,8 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]inte
 	return entry
 }
 
-func buildUserInbounds(input Input) []interface{} {
-	var result []interface{}
+func buildUserInbounds(input Input) []any {
+	var result []any
 	seen := make(map[string]bool)
 
 	for _, user := range input.Users {
@@ -377,24 +374,24 @@ func buildUserInbounds(input Input) []interface{} {
 	return result
 }
 
-func buildRelayInbound(input Input) interface{} {
+func buildRelayInbound(input Input) any {
 	cred := input.NodeCreds[input.Node.Name]
-	return map[string]interface{}{
+	return map[string]any{
 		"type":        "socks",
 		"tag":         "relay-socks5",
 		"listen":      "::",
 		"listen_port": relayContainerPort,
-		"users":       []map[string]interface{}{{"username": cred.Username, "password": cred.Password}},
+		"users":       []map[string]any{{"username": cred.Username, "password": cred.Password}},
 	}
 }
 
-func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []interface{} {
+func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []any {
 	routedNodes := make(map[string]bool, len(myRoutes))
 	for _, r := range myRoutes {
 		routedNodes[r.Spec.OutboundNode] = true
 	}
 
-	var result []interface{}
+	var result []any
 	for _, outNode := range input.OutboundNodes {
 		if routedNodes[outNode.Name] {
 			continue
@@ -403,7 +400,7 @@ func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) [
 			continue
 		}
 		cred := input.NodeCreds[outNode.Name]
-		result = append(result, map[string]interface{}{
+		result = append(result, map[string]any{
 			"type":        "socks",
 			"tag":         fmt.Sprintf("outbound-%s", outNode.Name),
 			"server":      outNode.Spec.Address,
@@ -415,8 +412,8 @@ func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) [
 	return result
 }
 
-func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []interface{} {
-	var result []interface{}
+func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []any {
+	var result []any
 	for _, route := range myRoutes {
 		outNode, ok := input.OutboundNodesByName[route.Spec.OutboundNode]
 		if !ok {
@@ -426,7 +423,7 @@ func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []interf
 			continue
 		}
 		cred := input.NodeCreds[outNode.Name]
-		result = append(result, map[string]interface{}{
+		result = append(result, map[string]any{
 			"type":        "socks",
 			"tag":         fmt.Sprintf("outbound-%s", outNode.Name),
 			"server":      outNode.Spec.Address,
@@ -438,18 +435,18 @@ func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []interf
 	return result
 }
 
-func buildDirectOutbound() interface{} {
-	return map[string]interface{}{
+func buildDirectOutbound() any {
+	return map[string]any{
 		"type": "direct",
 		"tag":  "direct",
 	}
 }
 
-func deduplicateByTag(outbounds []interface{}) []interface{} {
+func deduplicateByTag(outbounds []any) []any {
 	seen := make(map[string]bool)
-	var result []interface{}
+	var result []any
 	for _, ob := range outbounds {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			result = append(result, ob)
 			continue
@@ -463,9 +460,9 @@ func deduplicateByTag(outbounds []interface{}) []interface{} {
 	return result
 }
 
-func routeFinal(outbounds []interface{}) string {
+func routeFinal(outbounds []any) string {
 	for _, ob := range outbounds {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
