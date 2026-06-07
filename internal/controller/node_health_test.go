@@ -137,8 +137,8 @@ func TestIsNodeAvailable(t *testing.T) {
 func TestNodeReadyPredicate(t *testing.T) {
 	tests := []struct {
 		name   string
-		oldObj interface{}
-		newObj interface{}
+		oldObj any
+		newObj any
 		want   bool
 	}{
 		{

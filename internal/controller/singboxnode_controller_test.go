@@ -326,12 +326,12 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-config", Namespace: "default"}, cm)
 		}, testTimeout, testInterval).Should(Succeed())
 
-		var config map[string]interface{}
+		var config map[string]any
 		Expect(json.Unmarshal([]byte(cm.Data["config.json"]), &config)).To(Succeed())
-		inbounds, ok := config["inbounds"].([]interface{})
+		inbounds, ok := config["inbounds"].([]any)
 		Expect(ok).To(BeTrue())
 		Expect(inbounds).To(HaveLen(1))
-		Expect(inbounds[0].(map[string]interface{})["type"]).To(Equal("socks"))
+		Expect(inbounds[0].(map[string]any)["type"]).To(Equal("socks"))
 
 		outboundDeploy := &appsv1.Deployment{}
 		Eventually(func() error {

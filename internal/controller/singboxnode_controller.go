@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -641,12 +642,7 @@ func hostPortProtocols(protocol string) []corev1.Protocol {
 }
 
 func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool {
-	for _, r := range node.Spec.Roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(node.Spec.Roles, role)
 }
 
 func nodeSupportsProtocol(node *proxyv1alpha1.SingBoxNode, protocol string) bool {
