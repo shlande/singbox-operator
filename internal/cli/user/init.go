@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -26,13 +27,7 @@ func NewInitCmd() *cobra.Command {
 			name := args[0]
 
 			validProtocols := []string{"hysteria2", "vless", "trojan", "socks5", "http"}
-			valid := false
-			for _, p := range validProtocols {
-				if protocol == p {
-					valid = true
-					break
-				}
-			}
+			valid := slices.Contains(validProtocols, protocol)
 			if !valid {
 				return fmt.Errorf("invalid protocol %q: must be one of hysteria2|vless|trojan|socks5|http", protocol)
 			}
