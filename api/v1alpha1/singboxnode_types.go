@@ -29,6 +29,15 @@ const (
 	ProxyRoleOutbound ProxyRole = "outbound"
 )
 
+const (
+	// NodeReadyConditionType is the condition type that reflects whether the
+	// underlying Kubernetes Node is ready and not manually taken offline.
+	NodeReadyConditionType = "NodeReady"
+	// OfflineAnnotation is the annotation key on a Kubernetes Node that forces
+	// the associated SingBoxNode offline regardless of the node's Ready condition.
+	OfflineAnnotation = "singboxoperator.shlande.top/offline"
+)
+
 // ProtocolConfig declares a supported inbound protocol and its host port
 type ProtocolConfig struct {
 	// Protocol is the proxy protocol: hysteria2, vless, trojan, socks5, or http

@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -29,6 +30,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -192,6 +194,18 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to start manager")
+		os.Exit(1)
+	}
+
+	// Register field index for spec.nodeRef to enable efficient Node→SingBoxNode lookups.
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &proxyv1alpha1.SingBoxNode{}, "spec.nodeRef", func(rawObj client.Object) []string {
+		sbn := rawObj.(*proxyv1alpha1.SingBoxNode)
+		if sbn.Spec.NodeRef == "" {
+			return nil
+		}
+		return []string{sbn.Spec.NodeRef}
+	}); err != nil {
+		setupLog.Error(err, "Failed to set up field index for spec.nodeRef")
 		os.Exit(1)
 	}
 
