@@ -73,8 +73,8 @@ var DefaultTemplate = []byte(`{
 
 // MergeOutbounds replaces the "outbounds" array in templateJSON with generatedOutbounds.
 // All other fields (inbounds, route, log) are preserved unchanged.
-func MergeOutbounds(templateJSON []byte, generatedOutbounds []interface{}) ([]byte, error) {
-	var m map[string]interface{}
+func MergeOutbounds(templateJSON []byte, generatedOutbounds []any) ([]byte, error) {
+	var m map[string]any
 	if err := json.Unmarshal(templateJSON, &m); err != nil {
 		return nil, err
 	}

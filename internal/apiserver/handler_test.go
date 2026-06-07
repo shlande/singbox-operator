@@ -57,7 +57,7 @@ func TestBuildClientConfig_TwoOutboundNodes(t *testing.T) {
 
 	var selectorOutbounds []string
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -101,7 +101,7 @@ func TestBuildClientConfig_DerivedUUID(t *testing.T) {
 
 	var foundUUID string
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -144,7 +144,7 @@ func TestBuildClientConfig_TrojanPassword(t *testing.T) {
 
 	var foundPassword string
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -184,7 +184,7 @@ func TestBuildClientConfig_EmptyEntryEndpoints(t *testing.T) {
 	}
 
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -235,7 +235,7 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 
 	tags := make(map[string]bool)
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -253,8 +253,8 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 
 func TestMergeOutbounds_ReplaceOutbounds(t *testing.T) {
 	tmpl := []byte(`{"outbounds": [{"type":"direct","tag":"old"}]}`)
-	newOutbounds := []interface{}{
-		map[string]interface{}{"type": "direct", "tag": "new"},
+	newOutbounds := []any{
+		map[string]any{"type": "direct", "tag": "new"},
 	}
 
 	result, err := MergeOutbounds(tmpl, newOutbounds)
@@ -262,25 +262,25 @@ func TestMergeOutbounds_ReplaceOutbounds(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(result, &m); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
 
-	obs, _ := m["outbounds"].([]interface{})
+	obs, _ := m["outbounds"].([]any)
 	if len(obs) != 1 {
 		t.Fatalf("expected 1 outbound, got %d", len(obs))
 	}
 
-	first, _ := obs[0].(map[string]interface{})
+	first, _ := obs[0].(map[string]any)
 	if first["tag"] != "new" {
 		t.Errorf("expected outbound tag 'new', got %v", first["tag"])
 	}
 }
 
 func TestMergeOutbounds_PreserveInbounds(t *testing.T) {
-	newOutbounds := []interface{}{
-		map[string]interface{}{"type": "direct", "tag": "direct"},
+	newOutbounds := []any{
+		map[string]any{"type": "direct", "tag": "direct"},
 	}
 
 	result, err := MergeOutbounds(DefaultTemplate, newOutbounds)
@@ -288,19 +288,19 @@ func TestMergeOutbounds_PreserveInbounds(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(result, &m); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
 
-	inbounds, _ := m["inbounds"].([]interface{})
+	inbounds, _ := m["inbounds"].([]any)
 	if len(inbounds) == 0 {
 		t.Fatal("expected inbounds to be preserved, got empty array")
 	}
 
 	tags := make(map[string]bool)
 	for _, ib := range inbounds {
-		im, _ := ib.(map[string]interface{})
+		im, _ := ib.(map[string]any)
 		tag, _ := im["tag"].(string)
 		tags[tag] = true
 	}
@@ -314,7 +314,7 @@ func TestMergeOutbounds_PreserveInbounds(t *testing.T) {
 }
 
 func TestMergeOutbounds_InvalidTemplate(t *testing.T) {
-	_, err := MergeOutbounds([]byte("not json"), []interface{}{})
+	_, err := MergeOutbounds([]byte("not json"), []any{})
 	if err == nil {
 		t.Error("expected error for invalid template JSON, got nil")
 	}
@@ -407,12 +407,12 @@ func TestHandler_Success(t *testing.T) {
 		t.Errorf("expected Content-Type application/json, got %q", ct)
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &parsed); err != nil {
 		t.Fatalf("response is not valid JSON: %v", err)
 	}
 
-	obs, _ := parsed["outbounds"].([]interface{})
+	obs, _ := parsed["outbounds"].([]any)
 	if len(obs) == 0 {
 		t.Error("expected non-empty outbounds array in response")
 	}
@@ -543,7 +543,7 @@ func TestBuildClientConfig_Socks5Password(t *testing.T) {
 
 	var foundPassword string
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -586,7 +586,7 @@ func TestBuildClientConfig_HTTPPassword(t *testing.T) {
 
 	var foundPassword string
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -711,7 +711,7 @@ func TestHandler_TemplateRef_WithConfigMap(t *testing.T) {
 		t.Fatalf("expected HTTP 200 with custom template, got %d; body: %s", w.Code, w.Body.String())
 	}
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &parsed); err != nil {
 		t.Fatalf("response is not valid JSON: %v", err)
 	}
@@ -919,7 +919,7 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 	tags := make(map[string]bool)
 	var selectorOutbounds []string
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -943,7 +943,7 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 	expectedUUID := configengine.DeriveUUID(baseUUID, "node-x")
 	var foundUUID string
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}

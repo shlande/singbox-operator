@@ -2,6 +2,8 @@ package apiserver
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -25,10 +27,10 @@ type ClientConfigInput struct {
 
 // BuildClientConfig generates the outbounds array for a client sing-box config.
 // Returns: proxy outbounds + selector("proxy") + direct
-func BuildClientConfig(input ClientConfigInput) ([]interface{}, error) {
+func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 	protocol := input.User.Spec.Protocol
 
-	var proxyOutbounds []interface{}
+	var proxyOutbounds []any
 	var proxyTags []string
 
 	for _, inboundNode := range input.InboundNodes {
@@ -59,14 +61,14 @@ func BuildClientConfig(input ClientConfigInput) ([]interface{}, error) {
 		}
 	}
 
-	var result []interface{}
+	var result []any
 	result = append(result, proxyOutbounds...)
-	result = append(result, map[string]interface{}{
+	result = append(result, map[string]any{
 		"type":      "selector",
 		"tag":       "proxy",
 		"outbounds": proxyTags,
 	})
-	result = append(result, map[string]interface{}{
+	result = append(result, map[string]any{
 		"type": "direct",
 		"tag":  "direct",
 	})
@@ -137,30 +139,23 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 }
 
 func hasOutboundRole(node *v1alpha1.SingBoxNode) bool {
-	for _, r := range node.Spec.Roles {
-		if r == v1alpha1.ProxyRoleOutbound {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(node.Spec.Roles, v1alpha1.ProxyRoleOutbound)
 }
 
-func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeName, tlsServerName string, cred credmanager.UserCredential) map[string]interface{} {
+func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeName, tlsServerName string, cred credmanager.UserCredential) map[string]any {
 	typeStr := protocol
 	if protocol == "socks5" {
 		typeStr = "socks"
 	}
-	ob := map[string]interface{}{
+	ob := map[string]any{
 		"type":        typeStr,
 		"tag":         tag,
 		"server":      address,
 		"server_port": port,
 	}
-	for k, v := range configengine.DeriveAuth(protocol, cred.UUID, outboundNodeName) {
-		ob[k] = v
-	}
+	maps.Copy(ob, configengine.DeriveAuth(protocol, cred.UUID, outboundNodeName))
 	if protocol == "hysteria2" {
-		tls := map[string]interface{}{"enabled": true}
+		tls := map[string]any{"enabled": true}
 		if tlsServerName != "" {
 			tls["server_name"] = tlsServerName
 		} else {

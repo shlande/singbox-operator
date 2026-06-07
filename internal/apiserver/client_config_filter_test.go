@@ -8,10 +8,10 @@ import (
 )
 
 // collectTags extracts all tag strings from the result outbounds.
-func collectTags(result []interface{}) map[string]bool {
+func collectTags(result []any) map[string]bool {
 	tags := make(map[string]bool)
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -23,10 +23,10 @@ func collectTags(result []interface{}) map[string]bool {
 }
 
 // countProxyOutbounds returns the number of proxy-type (non-selector, non-direct) outbounds.
-func countProxyOutbounds(result []interface{}) int {
+func countProxyOutbounds(result []any) int {
 	n := 0
 	for _, ob := range result {
-		m, ok := ob.(map[string]interface{})
+		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
