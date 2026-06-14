@@ -7,9 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CollectTarget describes a single sing-box node from which the usage
@@ -43,13 +45,14 @@ type Discoverer interface {
 type K8sDiscoverer struct {
 	client    client.Client
 	namespace string
+	log       logr.Logger
 }
 
-// NewK8sDiscoverer creates a K8sDiscoverer that queries the given namespace.
 func NewK8sDiscoverer(c client.Client, namespace string) *K8sDiscoverer {
 	return &K8sDiscoverer{
 		client:    c,
 		namespace: namespace,
+		log:       log.Log.WithName("usagecollector.discovery"),
 	}
 }
 
@@ -72,6 +75,8 @@ func (d *K8sDiscoverer) Discover(ctx context.Context) ([]CollectTarget, error) {
 			inboundNodes = append(inboundNodes, n)
 		}
 	}
+
+	d.log.Info("Found inbound nodes", "count", len(inboundNodes))
 
 	if len(inboundNodes) == 0 {
 		return []CollectTarget{}, nil
@@ -159,6 +164,14 @@ func (d *K8sDiscoverer) Discover(ctx context.Context) ([]CollectTarget, error) {
 
 		v2rayAddr := d.resolveV2RayAPIAddr(ctx, in)
 
+		d.log.Info("Built collect target",
+			"node", in.Name,
+			"addr", v2rayAddr,
+			"region", in.Spec.Region,
+			"virtualUsers", len(virtualUsers),
+			"outboundNames", sortedOutbound,
+		)
+
 		targets = append(targets, CollectTarget{
 			NodeName:     in.Name,
 			V2RayAPIAddr: v2rayAddr,
@@ -174,15 +187,23 @@ func (d *K8sDiscoverer) resolveV2RayAPIAddr(ctx context.Context, node *proxyv1al
 	if err := d.client.List(ctx, podList,
 		client.InNamespace(node.Namespace),
 		client.MatchingLabels{"app": "singbox", "singboxnode": node.Name},
-	); err == nil {
+	); err != nil {
+		d.log.Error(err, "Failed to list pods for node, falling back to Spec.Address", "node", node.Name)
+	} else {
+		d.log.Info("Found pods for node", "node", node.Name, "count", len(podList.Items))
 		for i := range podList.Items {
 			pod := &podList.Items[i]
+			d.log.Info("Pod candidate", "node", node.Name, "pod", pod.Name, "phase", pod.Status.Phase, "podIP", pod.Status.PodIP)
 			if pod.Status.Phase == corev1.PodRunning && pod.Status.PodIP != "" {
-				return fmt.Sprintf("%s:10085", pod.Status.PodIP)
+				addr := fmt.Sprintf("%s:10085", pod.Status.PodIP)
+				d.log.Info("Resolved v2rayapi addr via pod IP", "node", node.Name, "addr", addr)
+				return addr
 			}
 		}
 	}
-	return fmt.Sprintf("%s:10085", node.Spec.Address)
+	fallback := fmt.Sprintf("%s:10085", node.Spec.Address)
+	d.log.Info("Falling back to Spec.Address for v2rayapi addr", "node", node.Name, "addr", fallback)
+	return fallback
 }
 
 // virtualUserName returns the sing-box virtual user name for a user on a

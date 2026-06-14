@@ -133,7 +133,7 @@ func (c *Collector) pollCycle(ctx context.Context) {
 	c.inPoll.Store(true)
 	defer c.inPoll.Store(false)
 
-	c.log.V(2).Info("Starting poll cycle")
+	c.log.Info("Starting poll cycle")
 
 	// -- Phase 1: Discover targets --
 	targets, err := c.discoverer.Discover(ctx)
@@ -143,11 +143,11 @@ func (c *Collector) pollCycle(ctx context.Context) {
 	}
 
 	if len(targets) == 0 {
-		c.log.V(2).Info("No targets discovered")
+		c.log.Info("No targets discovered, skipping cycle")
 		return
 	}
 
-	c.log.V(2).Info("Discovered targets", "count", len(targets))
+	c.log.Info("Discovered targets", "count", len(targets))
 
 	// -- Phase 2: Poll each target --
 	collectedAt := time.Now()
@@ -161,6 +161,7 @@ func (c *Collector) pollCycle(ctx context.Context) {
 	checkpointDirty := false
 
 	for _, tgt := range targets {
+		c.log.Info("Querying node stats", "node", tgt.NodeName, "addr", tgt.V2RayAPIAddr, "virtualUsers", len(tgt.VirtualUsers))
 		entries, err := c.statsClient.QueryUserStats(ctx, tgt.V2RayAPIAddr)
 		if err != nil {
 			c.log.Error(err, "Failed to query stats, skipping node",
@@ -169,25 +170,28 @@ func (c *Collector) pollCycle(ctx context.Context) {
 			continue
 		}
 
+		c.log.Info("Got stats entries from node", "node", tgt.NodeName, "entries", len(entries))
+
 		for _, entry := range entries {
-			// Filter to user counters only.
-			_, _, _, ok := ParseUserCounterName(entry.Name)
+			user, node, direction, ok := ParseUserCounterName(entry.Name)
 			if !ok {
+				c.log.Info("Skipping non-user counter", "name", entry.Name)
 				continue
 			}
 
-			// Compute delta against checkpoint.
 			delta, updatedCP := ComputeDelta(entry.Name, entry.Value, cp)
 			cp = updatedCP
 			checkpointDirty = true
+
+			c.log.Info("Counter delta", "counter", entry.Name, "user", user, "node", node, "direction", direction, "current", entry.Value, "delta", delta)
 
 			if delta == 0 {
 				continue
 			}
 
-			// Normalize to UsageRecord.
 			record, ok := NormalizeCounterToRecord(entry.Name, delta, collectedAt)
 			if !ok {
+				c.log.Info("Failed to normalize counter, skipping", "name", entry.Name)
 				continue
 			}
 
@@ -195,7 +199,7 @@ func (c *Collector) pollCycle(ctx context.Context) {
 		}
 	}
 
-	c.log.V(2).Info("Poll cycle produced records", "count", len(newRecords))
+	c.log.Info("Poll cycle produced records", "count", len(newRecords))
 
 	// -- Phase 3: Buffer and flush --
 	if len(newRecords) > 0 {
@@ -255,10 +259,8 @@ func (c *Collector) flushBuffer(ctx context.Context) {
 		return
 	}
 
-	c.log.V(2).Info("Flushing records to sink", "count", len(batch))
+	c.log.Info("Flushing records to sink", "count", len(batch))
 
-	// Use a limited context for the flush so a stuck sink doesn't block
-	// shutdown forever.
 	flushCtx, cancel := context.WithTimeout(ctx, c.cfg.ShutdownTimeout)
 	defer cancel()
 
@@ -268,17 +270,19 @@ func (c *Collector) flushBuffer(ctx context.Context) {
 		return
 	}
 
-	// Clear buffer on success.
+	c.log.Info("Sink write succeeded", "count", len(batch))
+
 	c.bufferedMu.Lock()
 	c.buffered = c.buffered[:0]
 	c.bufferedMu.Unlock()
 
-	// Persist checkpoint now that write succeeded.
 	c.checkpointMu.Lock()
 	cp := c.checkpoint
 	c.checkpointMu.Unlock()
 
 	if err := SaveCheckpoint(c.cfg.CheckpointPath, cp); err != nil {
 		c.log.Error(err, "Failed to save checkpoint after successful sink write")
+	} else {
+		c.log.Info("Checkpoint saved", "entries", len(cp.LastSeen))
 	}
 }

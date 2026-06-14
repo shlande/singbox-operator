@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // ---------------------------------------------------------------------------
@@ -95,6 +97,9 @@ func (s *ElasticsearchSink) Write(ctx context.Context, batch UsageBatch) error {
 		}
 	}
 
+	logger := log.FromContext(ctx).WithName("elasticsearch-sink")
+	logger.Info("Sending bulk request to ES", "url", s.bulkURL, "records", len(batch), "bodyBytes", buf.Len(), "hasAPIKey", s.apiKey != "")
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.bulkURL, &buf)
 	if err != nil {
 		return fmt.Errorf("failed to create ES request: %w", err)
@@ -106,6 +111,7 @@ func (s *ElasticsearchSink) Write(ctx context.Context, batch UsageBatch) error {
 
 	resp, err := s.client.Do(req)
 	if err != nil {
+		logger.Error(err, "ES HTTP request failed")
 		return fmt.Errorf("ES bulk request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -115,7 +121,10 @@ func (s *ElasticsearchSink) Write(ctx context.Context, batch UsageBatch) error {
 		return fmt.Errorf("failed to read ES response: %w", err)
 	}
 
+	logger.Info("ES bulk response", "statusCode", resp.StatusCode, "bodyLen", len(body))
+
 	if resp.StatusCode >= 300 {
+		logger.Info("ES returned non-2xx", "status", resp.StatusCode, "body", string(body[:min(len(body), 500)]))
 		return fmt.Errorf("ES returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
