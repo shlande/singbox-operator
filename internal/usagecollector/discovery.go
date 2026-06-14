@@ -277,6 +277,7 @@ func NormalizeCounterToRecord(counterName string, delta int64, collectedAt time.
 		Timestamp:   collectedAt,
 		User:        user,
 		Node:        node,
+		Direction:   direction,
 		CollectedAt: collectedAt,
 	}
 	if direction == "uplink" {
