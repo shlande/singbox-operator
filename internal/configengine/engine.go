@@ -487,7 +487,7 @@ func deduplicateByTag(outbounds []any) []any {
 func buildExperimentalConfig(input Input) *experimentalConfig {
 	listenAddr := input.V2RayAPIListenAddr
 	if listenAddr == "" {
-		listenAddr = "127.0.0.1:10085"
+		listenAddr = "0.0.0.0:10085"
 	}
 
 	seen := make(map[string]bool)

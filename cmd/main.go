@@ -115,7 +115,7 @@ func main() {
 		"Upper bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
 	flag.BoolVar(&usageCollectEnabled, "usage-collect-enabled", false,
 		"Enable the usage collector that polls sing-box node traffic stats and writes to Elasticsearch.")
-	flag.StringVar(&usageV2RayAPIListenAddr, "usage-v2rayapi-listen", "127.0.0.1:10085",
+	flag.StringVar(&usageV2RayAPIListenAddr, "usage-v2rayapi-listen", "0.0.0.0:10085",
 		"Listen address injected into sing-box config for v2ray_api stats. Only used when usage-collect-enabled=true.")
 	flag.DurationVar(&usagePollInterval, "usage-poll-interval", 30*time.Second,
 		"Interval between usage collection poll cycles.")

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -156,7 +157,7 @@ func (d *K8sDiscoverer) Discover(ctx context.Context) ([]CollectTarget, error) {
 		}
 		sort.Strings(virtualUsers)
 
-		v2rayAddr := fmt.Sprintf("%s:10085", in.Spec.Address)
+		v2rayAddr := d.resolveV2RayAPIAddr(ctx, in)
 
 		targets = append(targets, CollectTarget{
 			NodeName:     in.Name,
@@ -166,6 +167,22 @@ func (d *K8sDiscoverer) Discover(ctx context.Context) ([]CollectTarget, error) {
 	}
 
 	return targets, nil
+}
+
+func (d *K8sDiscoverer) resolveV2RayAPIAddr(ctx context.Context, node *proxyv1alpha1.SingBoxNode) string {
+	podList := &corev1.PodList{}
+	if err := d.client.List(ctx, podList,
+		client.InNamespace(node.Namespace),
+		client.MatchingLabels{"app": "singbox", "singboxnode": node.Name},
+	); err == nil {
+		for i := range podList.Items {
+			pod := &podList.Items[i]
+			if pod.Status.Phase == corev1.PodRunning && pod.Status.PodIP != "" {
+				return fmt.Sprintf("%s:10085", pod.Status.PodIP)
+			}
+		}
+	}
+	return fmt.Sprintf("%s:10085", node.Spec.Address)
 }
 
 // virtualUserName returns the sing-box virtual user name for a user on a

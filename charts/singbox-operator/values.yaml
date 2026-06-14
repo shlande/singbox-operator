@@ -68,7 +68,7 @@ usageCollector:
   enabled: false
   pollInterval: "30s"
   nodeTimeout: "10s"
-  v2rayAPIListen: "127.0.0.1:10085"
+  v2rayAPIListen: "0.0.0.0:10085"
   elasticsearch:
     endpoint: ""
     dataStream: "usage-traffic"

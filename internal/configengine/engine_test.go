@@ -1210,8 +1210,8 @@ func TestCompute_UsageCollectionEnabled(t *testing.T) {
 
 	// Verify default listen address
 	listen, _ := v2ray["listen"].(string)
-	if listen != "127.0.0.1:10085" {
-		t.Errorf("expected listen=127.0.0.1:10085, got %q", listen)
+	if listen != "0.0.0.0:10085" {
+		t.Errorf("expected listen=0.0.0.0:10085, got %q", listen)
 	}
 
 	// Verify stats.enabled
