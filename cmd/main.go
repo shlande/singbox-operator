@@ -71,6 +71,7 @@ func main() {
 	var apiBindAddress string
 	var clientConfigTemplate string
 	var defaultTLSSecret string
+	var singboxImage string
 	var nodePortRangeMin int
 	var nodePortRangeMax int
 	var usageCollectEnabled bool
@@ -105,6 +106,8 @@ func main() {
 		"ConfigMap reference for client config template in namespace/name format.")
 	flag.StringVar(&defaultTLSSecret, "default-tls-secret", "sing-box-tls",
 		"Name of the default kubernetes.io/tls Secret used for TLS-requiring protocols (e.g. hysteria2). Can be overridden per SingBoxNode via spec.tlsSecretName.")
+	flag.StringVar(&singboxImage, "singbox-image", "ghcr.io/sagernet/sing-box:latest",
+		"Container image used for sing-box pods. Override to use a build with v2ray_api support.")
 	flag.IntVar(&nodePortRangeMin, "nodeport-range-min", 30000,
 		"Lower bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
 	flag.IntVar(&nodePortRangeMax, "nodeport-range-max", 32767,
@@ -242,6 +245,7 @@ func main() {
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		DefaultTLSSecret: defaultTLSSecret,
+		SingBoxImage:     singboxImage,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "singboxnode")
 		os.Exit(1)

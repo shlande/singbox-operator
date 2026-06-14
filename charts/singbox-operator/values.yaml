@@ -46,6 +46,7 @@ defaults:
 
 # sing-box runtime configuration
 singbox:
+  image: "ghcr.io/sagernet/sing-box:latest"
   # Default TLS Secret name for protocols requiring TLS (e.g. hysteria2).
   # Must be a kubernetes.io/tls Secret in the same namespace as the ProxyNode.
   # Override per-node via spec.tlsSecretName.

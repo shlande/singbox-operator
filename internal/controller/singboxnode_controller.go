@@ -49,12 +49,12 @@ import (
 )
 
 const (
-	singboxNodeFinalizer = "singboxoperator.shlande.top/singboxnode-finalizer"
-	configMapSuffix      = "-config"
-	deploymentSuffix     = "-deploy"
-	configHashAnnotation = "singboxoperator.shlande.top/config-hash"
-	singboxImage         = "ghcr.io/sagernet/sing-box:latest"
-	relayContainerPort   = int32(10808)
+	singboxNodeFinalizer    = "singboxoperator.shlande.top/singboxnode-finalizer"
+	configMapSuffix         = "-config"
+	deploymentSuffix        = "-deploy"
+	configHashAnnotation    = "singboxoperator.shlande.top/config-hash"
+	defaultSingBoxImage     = "ghcr.io/sagernet/sing-box:latest"
+	relayContainerPort      = int32(10808)
 )
 
 // SingBoxNodeReconciler reconciles a SingBoxNode object
@@ -74,6 +74,14 @@ type SingBoxNodeReconciler struct {
 	client.Client
 	Scheme           *runtime.Scheme
 	DefaultTLSSecret string
+	SingBoxImage     string
+}
+
+func (r *SingBoxNodeReconciler) singboxImage() string {
+	if r.SingBoxImage != "" {
+		return r.SingBoxImage
+	}
+	return defaultSingBoxImage
 }
 
 func (r *SingBoxNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -374,7 +382,7 @@ func (r *SingBoxNodeReconciler) reconcileDeployment(ctx context.Context, node *p
 					Containers: []corev1.Container{
 						{
 							Name:         "singbox",
-							Image:        singboxImage,
+							Image:        r.singboxImage(),
 							Args:         []string{"run", "-c", "/etc/sing-box/config.json"},
 							VolumeMounts: volumeMounts,
 							Ports:        buildHostPorts(node),

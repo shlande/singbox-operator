@@ -26,6 +26,7 @@ spec:
         - --metrics-bind-address=:{{ .Values.operator.metricsPort }}
         - --health-probe-bind-address=:{{ .Values.operator.healthProbePort }}
         - --default-tls-secret={{ .Values.singbox.defaultTLSSecret }}
+        - --singbox-image={{ .Values.singbox.image }}
         {{- if .Values.usageCollector.enabled }}
         - --usage-collect-enabled=true
         - --usage-poll-interval={{ .Values.usageCollector.pollInterval }}
