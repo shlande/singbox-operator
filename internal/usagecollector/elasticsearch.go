@@ -3,6 +3,7 @@ package usagecollector
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,8 +48,11 @@ func NewElasticsearchSink(cfg CollectorConfig) (*ElasticsearchSink, error) {
 		return nil, fmt.Errorf("failed to build ES bulk URL: %w", err)
 	}
 
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // ECK self-signed cert, cluster-internal only
+	}
 	return &ElasticsearchSink{
-		client:  &http.Client{Timeout: cfg.ShutdownTimeout},
+		client:  &http.Client{Timeout: cfg.ShutdownTimeout, Transport: transport},
 		bulkURL: bulkURL,
 		apiKey:  cfg.ESAPIKey,
 	}, nil
