@@ -1,0 +1,147 @@
+name: Build sing-box with v2ray_api
+
+on:
+  workflow_dispatch:
+    inputs:
+      singbox_version:
+        description: 'sing-box version to build (e.g. v1.12.0). Leave empty to use the latest stable release.'
+        required: false
+        default: ''
+
+permissions: {}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/sing-box
+
+jobs:
+  resolve-version:
+    name: Resolve sing-box version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Resolve version
+        id: resolve
+        run: |
+          INPUT="${{ github.event.inputs.singbox_version }}"
+          if [ -n "${INPUT}" ]; then
+            TAG="${INPUT}"
+          else
+            TAG="$(curl -fsSL https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r '.tag_name')"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved sing-box tag: ${TAG}"
+
+  build-amd64:
+    name: Build sing-box image (amd64)
+    runs-on: ubuntu-latest
+    needs: resolve-version
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build-push.outputs.digest }}
+    steps:
+      - name: Check out sing-box source
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: SagerNet/sing-box
+          ref: ${{ needs.resolve-version.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.10.0
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add with_v2ray_api to build tags
+        run: echo -n ",with_v2ray_api" >> release/DEFAULT_BUILD_TAGS_OTHERS
+
+      - name: Build and push (amd64)
+        id: build-push
+        uses: docker/build-push-action@v6.16.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.resolve-version.outputs.version }}-with_v2ray_api-amd64
+          cache-from: type=gha,scope=singbox-amd64
+          cache-to: type=gha,mode=max,scope=singbox-amd64
+
+  build-arm64:
+    name: Build sing-box image (arm64)
+    runs-on: ubuntu-24.04-arm
+    needs: resolve-version
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build-push.outputs.digest }}
+    steps:
+      - name: Check out sing-box source
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: SagerNet/sing-box
+          ref: ${{ needs.resolve-version.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.10.0
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add with_v2ray_api to build tags
+        run: echo -n ",with_v2ray_api" >> release/DEFAULT_BUILD_TAGS_OTHERS
+
+      - name: Build and push (arm64)
+        id: build-push
+        uses: docker/build-push-action@v6.16.0
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.resolve-version.outputs.version }}-with_v2ray_api-arm64
+          cache-from: type=gha,scope=singbox-arm64
+          cache-to: type=gha,mode=max,scope=singbox-arm64
+
+  manifest:
+    name: Create multi-arch manifest
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-version
+      - build-amd64
+      - build-arm64
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifest
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          VERSION="${{ needs.resolve-version.outputs.version }}"
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${VERSION}-with_v2ray_api" \
+            "${IMAGE}:${VERSION}-with_v2ray_api-amd64" \
+            "${IMAGE}:${VERSION}-with_v2ray_api-arm64"
+          echo "Pushed: ${IMAGE}:${VERSION}-with_v2ray_api"
