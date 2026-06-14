@@ -94,7 +94,7 @@ spec:
       {{- end }}
       {{- if .Values.usageCollector.enabled }}
       - name: usage-checkpoint
-        {{- if .Values.usageCollector.checkpointVolume.existingClaim }}
+        {{- if and (hasKey .Values.usageCollector.checkpointVolume "existingClaim") .Values.usageCollector.checkpointVolume.existingClaim }}
         persistentVolumeClaim:
           claimName: {{ .Values.usageCollector.checkpointVolume.existingClaim }}
         {{- else }}
