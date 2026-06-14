@@ -160,9 +160,8 @@ func TestCollector_FullPollCycle(t *testing.T) {
 		t.Fatalf("Run returned error on clean shutdown: %v", err)
 	}
 
-	// Verify sink received records
-	if sink.totalRecords() < 2 {
-		t.Fatalf("expected at least 2 records in sink, got %d", sink.totalRecords())
+	if sink.totalRecords() < 1 {
+		t.Fatalf("expected at least 1 record in sink, got %d", sink.totalRecords())
 	}
 
 	// Verify checkpoint was written

@@ -129,54 +129,22 @@ func TestUsageCollectorEndToEnd(t *testing.T) {
 		}
 	}
 
-	if len(allDocs) != 2 {
-		t.Fatalf("expected 2 document records in ES bulk requests, got %d: %+v", len(allDocs), allDocs)
+	if len(allDocs) != 1 {
+		t.Fatalf("expected 1 merged document record in ES bulk requests, got %d: %+v", len(allDocs), allDocs)
 	}
 
-	// Verify record contents
-	type docSummary struct {
-		user string
-		node string
-		up   float64
-		down float64
+	doc := allDocs[0]
+	if doc["user"] != "alice" {
+		t.Errorf("unexpected user: %q", doc["user"])
 	}
-	summaries := make([]docSummary, 0, len(allDocs))
-	for _, doc := range allDocs {
-		s := docSummary{
-			user: doc["user"].(string),
-			node: doc["node"].(string),
-		}
-		if v, ok := doc["uplink_bytes"].(float64); ok {
-			s.up = v
-		}
-		if v, ok := doc["downlink_bytes"].(float64); ok {
-			s.down = v
-		}
-		summaries = append(summaries, s)
+	if doc["node"] != "node-a" {
+		t.Errorf("unexpected node: %q", doc["node"])
 	}
-
-	// We expect one record with uplink=1000, downlink=0 and one with uplink=0, downlink=800
-	foundUp := false
-	foundDown := false
-	for _, s := range summaries {
-		if s.user != "alice" {
-			t.Errorf("unexpected user: %q", s.user)
-		}
-		if s.node != "node-a" {
-			t.Errorf("unexpected node: %q", s.node)
-		}
-		if s.up == 1000 && s.down == 0 {
-			foundUp = true
-		}
-		if s.up == 0 && s.down == 800 {
-			foundDown = true
-		}
+	if v, _ := doc["uplink_bytes"].(float64); v != 1000 {
+		t.Errorf("uplink_bytes = %v, want 1000", v)
 	}
-	if !foundUp {
-		t.Error("missing record with uplink_bytes=1000, downlink_bytes=0")
-	}
-	if !foundDown {
-		t.Error("missing record with downlink_bytes=800, uplink_bytes=0")
+	if v, _ := doc["downlink_bytes"].(float64); v != 800 {
+		t.Errorf("downlink_bytes = %v, want 800", v)
 	}
 
 	// ── 7. Assert: checkpoint file was written and contains expected values ──

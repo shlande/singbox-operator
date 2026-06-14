@@ -157,7 +157,9 @@ func (c *Collector) pollCycle(ctx context.Context) {
 	cp := c.checkpoint
 	c.checkpointMu.Unlock()
 
-	var newRecords UsageBatch
+	// recordIndex merges uplink and downlink counters for the same
+	// (user, node) pair into a single UsageRecord per poll cycle.
+	recordIndex := make(map[string]*UsageRecord)
 	checkpointDirty := false
 
 	for _, tgt := range targets {
@@ -189,14 +191,28 @@ func (c *Collector) pollCycle(ctx context.Context) {
 				continue
 			}
 
-			record, ok := NormalizeCounterToRecord(entry.Name, delta, collectedAt)
-			if !ok {
-				c.log.Info("Failed to normalize counter, skipping", "name", entry.Name)
-				continue
+			key := user + "\x00" + node
+			rec, exists := recordIndex[key]
+			if !exists {
+				recordIndex[key] = &UsageRecord{
+					Timestamp:   collectedAt,
+					User:        user,
+					Node:        node,
+					CollectedAt: collectedAt,
+				}
+				rec = recordIndex[key]
 			}
-
-			newRecords = append(newRecords, record)
+			if direction == "uplink" {
+				rec.UplinkBytes += delta
+			} else {
+				rec.DownlinkBytes += delta
+			}
 		}
+	}
+
+	var newRecords UsageBatch
+	for _, rec := range recordIndex {
+		newRecords = append(newRecords, *rec)
 	}
 
 	c.log.Info("Poll cycle produced records", "count", len(newRecords))
