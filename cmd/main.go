@@ -81,7 +81,6 @@ func main() {
 	var usageESEndpoint string
 	var usageESAPIKey string
 	var usageESDataStream string
-	var usageCheckpointPath string
 	var usageMaxBufferSize int
 	var usageShutdownTimeout time.Duration
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
@@ -127,8 +126,6 @@ func main() {
 		"Elasticsearch API key for the usage collector sink.")
 	flag.StringVar(&usageESDataStream, "usage-es-data-stream", "usage-traffic",
 		"Elasticsearch data stream name for usage records.")
-	flag.StringVar(&usageCheckpointPath, "usage-checkpoint-path", "/tmp/usage-collector-checkpoint.json",
-		"Filesystem path for the usage collector checkpoint file.")
 	flag.IntVar(&usageMaxBufferSize, "usage-max-buffer-size", 10000,
 		"Maximum number of usage records to buffer before flushing.")
 	flag.DurationVar(&usageShutdownTimeout, "usage-shutdown-timeout", 30*time.Second,
@@ -299,7 +296,6 @@ func main() {
 			ESEndpoint:      usageESEndpoint,
 			ESAPIKey:        usageESAPIKey,
 			ESDataStream:    usageESDataStream,
-			CheckpointPath:  usageCheckpointPath,
 			MaxBufferSize:   usageMaxBufferSize,
 			ShutdownTimeout: usageShutdownTimeout,
 		}

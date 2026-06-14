@@ -33,12 +33,6 @@ type CollectorConfig struct {
 	// Required when Enabled is true.
 	ESDataStream string
 
-	// CheckpointPath is the filesystem path for the checkpoint file that
-	// persists the last-seen counter deltas across collector restarts.
-	CheckpointPath string
-
-	// MaxBufferSize is the maximum number of traffic records buffered
-	// before a flush is forced. Must be > 0 when Enabled is true.
 	MaxBufferSize int
 
 	// ShutdownTimeout is the maximum duration the collector waits for
@@ -53,7 +47,6 @@ func DefaultCollectorConfig() CollectorConfig {
 		Enabled:         false,
 		PollInterval:    30 * time.Second,
 		NodeTimeout:     10 * time.Second,
-		CheckpointPath:  "/tmp/usage-collector-checkpoint.json",
 		MaxBufferSize:   10000,
 		ShutdownTimeout: 30 * time.Second,
 	}

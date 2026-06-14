@@ -58,7 +58,7 @@ func (c *GRPCStatsClient) QueryUserStats(ctx context.Context, addr string) ([]Ra
 
 	resp, err := statsClient.QueryStats(callCtx, &v2rayapi.QueryStatsRequest{
 		Patterns: []string{"user>>>"},
-		Reset_:   false,
+		Reset_:   true,
 		Regexp:   false,
 	})
 	if err != nil {

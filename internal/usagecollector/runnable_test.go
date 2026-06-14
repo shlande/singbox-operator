@@ -36,8 +36,6 @@ func TestCollectorRunnable_NeedLeaderElection_ReturnsTrue(t *testing.T) {
 // TestCollectorRunnable_Start_Cancellation tests that Start returns nil
 // when the context is cancelled (the normal shutdown path).
 func TestCollectorRunnable_Start_ReturnsOnCancel(t *testing.T) {
-	dir := t.TempDir()
-	cpPath := filepath.Join(dir, "checkpoint.json")
 
 	discoverer := &fakeDiscoverer{targets: []CollectTarget{}}
 	statsClient := newFakeStatsClient()
@@ -47,7 +45,6 @@ func TestCollectorRunnable_Start_ReturnsOnCancel(t *testing.T) {
 	cfg.Enabled = true
 	cfg.PollInterval = 10 * time.Millisecond
 	cfg.NodeTimeout = 5 * time.Millisecond
-	cfg.CheckpointPath = cpPath
 	cfg.MaxBufferSize = 100
 	cfg.ShutdownTimeout = 5 * time.Second
 
@@ -69,8 +66,6 @@ func TestCollectorRunnable_Start_ReturnsOnCancel(t *testing.T) {
 // TestCollectorRunnable_Start_CollectsRecords tests end-to-end that the
 // collector actually processes records through the runnable wrapper.
 func TestCollectorRunnable_Start_CollectsRecords(t *testing.T) {
-	dir := t.TempDir()
-	cpPath := filepath.Join(dir, "checkpoint.json")
 
 	discoverer := &fakeDiscoverer{
 		targets: []CollectTarget{
@@ -88,7 +83,6 @@ func TestCollectorRunnable_Start_CollectsRecords(t *testing.T) {
 	cfg.Enabled = true
 	cfg.PollInterval = 10 * time.Millisecond
 	cfg.NodeTimeout = 5 * time.Second
-	cfg.CheckpointPath = cpPath
 	cfg.MaxBufferSize = 10000
 	cfg.ShutdownTimeout = 5 * time.Second
 
@@ -161,8 +155,6 @@ Rationale:
 // ---------------------------------------------------------------------------
 
 func BenchmarkCollectorRunnable_StartStop(b *testing.B) {
-	dir := b.TempDir()
-	cpPath := filepath.Join(dir, "checkpoint.json")
 
 	discoverer := &fakeDiscoverer{}
 	statsClient := newFakeStatsClient()
@@ -172,7 +164,6 @@ func BenchmarkCollectorRunnable_StartStop(b *testing.B) {
 	cfg.Enabled = true
 	cfg.PollInterval = 1 * time.Second
 	cfg.NodeTimeout = 100 * time.Millisecond
-	cfg.CheckpointPath = cpPath
 	cfg.MaxBufferSize = 100
 	cfg.ShutdownTimeout = 100 * time.Millisecond
 

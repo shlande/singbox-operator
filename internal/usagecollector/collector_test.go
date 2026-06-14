@@ -3,8 +3,6 @@ package usagecollector
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -106,19 +104,12 @@ func (f *fakeSink) totalRecords() int {
 // test helpers
 // ---------------------------------------------------------------------------
 
-// makeCheckpointPath returns a path in t.TempDir() for the test checkpoint file.
-func makeCheckpointPath(t *testing.T) string {
-	t.Helper()
-	return filepath.Join(t.TempDir(), "checkpoint.json")
-}
-
 // newTestCollector constructs a Collector with fake dependencies for testing.
-func newTestCollector(d Discoverer, sc StatsClient, sink UsageSink, cpPath string) *Collector {
+func newTestCollector(d Discoverer, sc StatsClient, sink UsageSink) *Collector {
 	cfg := CollectorConfig{
 		Enabled:         true,
 		PollInterval:    50 * time.Millisecond,
 		NodeTimeout:     2 * time.Second,
-		CheckpointPath:  cpPath,
 		MaxBufferSize:   1000,
 		ShutdownTimeout: 2 * time.Second,
 	}
@@ -128,11 +119,9 @@ func newTestCollector(d Discoverer, sc StatsClient, sink UsageSink, cpPath strin
 // ---------------------------------------------------------------------------
 // Scenario 1: Full poll cycle
 // Fake discoverer returns 1 target, fake stats client returns 2 user
-// counters → sink receives 2 records, checkpoint advances.
 // ---------------------------------------------------------------------------
 
 func TestCollector_FullPollCycle(t *testing.T) {
-	cpPath := makeCheckpointPath(t)
 
 	// Prepare fake dependencies
 	target := CollectTarget{
@@ -149,7 +138,7 @@ func TestCollector_FullPollCycle(t *testing.T) {
 
 	sink := newFakeSink()
 
-	col := newTestCollector(disc, statsClient, sink, cpPath)
+	col := newTestCollector(disc, statsClient, sink)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
@@ -164,12 +153,6 @@ func TestCollector_FullPollCycle(t *testing.T) {
 		t.Fatalf("expected at least 1 record in sink, got %d", sink.totalRecords())
 	}
 
-	// Verify checkpoint was written
-	if _, statErr := os.Stat(cpPath); os.IsNotExist(statErr) {
-		t.Fatal("checkpoint file was not created after successful sink write")
-	}
-
-	// Check queued addrs
 	statsClient.mu.Lock()
 	addrs := statsClient.callLog
 	statsClient.mu.Unlock()
@@ -181,53 +164,6 @@ func TestCollector_FullPollCycle(t *testing.T) {
 			t.Fatalf("unexpected queried addr: %q", addr)
 		}
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Scenario 2: Checkpoint advances ONLY after successful sink write
-// (not before). This is the at-least-once semantics test.
-// ---------------------------------------------------------------------------
-
-func TestCollector_CheckpointOnlyAfterSinkSuccess(t *testing.T) {
-	cpPath := makeCheckpointPath(t)
-
-	target := CollectTarget{
-		NodeName:     "node-a",
-		V2RayAPIAddr: "10.0.0.1:10085",
-	}
-	disc := &fakeDiscoverer{targets: []CollectTarget{target}}
-
-	statsClient := newFakeStatsClient()
-	statsClient.setEntries("10.0.0.1:10085", []RawStatEntry{
-		{Name: "user>>>alice#node-b>>>traffic>>>uplink", Value: 500},
-	})
-
-	sink := newFakeSink()
-	// Make the first write fail, second succeed
-	callCount := int32(0)
-	sink.setWriteErr(nil) // default nil, we'll use a custom sink
-
-	// Replace sink with one that fails first write
-	customSink := &fakeSinkWithFailures{
-		fakeSink:    newFakeSink(),
-		failOnCalls: map[int32]error{1: fmt.Errorf("simulated ES failure")},
-	}
-
-	col := newTestCollector(disc, statsClient, customSink, cpPath)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
-	defer cancel()
-
-	_ = col.Run(ctx) // may error on first cycle, but should retry
-
-	// After first write failure, checkpoint should NOT exist if sink never
-	// succeeded. But if one write succeeded, checkpoint should exist.
-	if customSink.fakeSink.totalRecords() > 0 {
-		if _, statErr := os.Stat(cpPath); os.IsNotExist(statErr) {
-			t.Fatal("checkpoint missing even though some records were written successfully")
-		}
-	}
-	_ = callCount // used in closure above
 }
 
 // fakeSinkWithFailures fails Write on specific call numbers.
@@ -245,45 +181,7 @@ func (f *fakeSinkWithFailures) Write(ctx context.Context, batch UsageBatch) erro
 	return f.fakeSink.Write(ctx, batch)
 }
 
-// ---------------------------------------------------------------------------
-// Scenario 3: Sink failure → checkpoint NOT updated, next cycle retries
-// ---------------------------------------------------------------------------
 
-func TestCollector_SinkFailureNoCheckpointUpdate(t *testing.T) {
-	cpPath := makeCheckpointPath(t)
-
-	target := CollectTarget{
-		NodeName:     "node-a",
-		V2RayAPIAddr: "10.0.0.1:10085",
-	}
-	disc := &fakeDiscoverer{targets: []CollectTarget{target}}
-
-	statsClient := newFakeStatsClient()
-	// Each poll the counter value is 1000 (firehose)
-	statsClient.setEntries("10.0.0.1:10085", []RawStatEntry{
-		{Name: "user>>>alice#node-b>>>traffic>>>uplink", Value: 1000},
-	})
-
-	sink := newFakeSink()
-	sink.setWriteErr(fmt.Errorf("persistent sink failure"))
-
-	col := newTestCollector(disc, statsClient, sink, cpPath)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
-	defer cancel()
-
-	_ = col.Run(ctx)
-
-	// Checkpoint should NOT exist because no write ever succeeded
-	if _, statErr := os.Stat(cpPath); !os.IsNotExist(statErr) {
-		t.Fatal("checkpoint file exists even though sink never succeeded — at-least-once violated")
-	}
-
-	// Sink should have 0 records
-	if sink.totalRecords() != 0 {
-		t.Fatalf("expected 0 records in sink, got %d", sink.totalRecords())
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Scenario 4: Shutdown flush
@@ -291,7 +189,6 @@ func TestCollector_SinkFailureNoCheckpointUpdate(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCollector_ShutdownFlush(t *testing.T) {
-	cpPath := makeCheckpointPath(t)
 
 	target := CollectTarget{
 		NodeName:     "node-a",
@@ -307,7 +204,7 @@ func TestCollector_ShutdownFlush(t *testing.T) {
 
 	sink := newFakeSink()
 
-	col := newTestCollector(disc, statsClient, sink, cpPath)
+	col := newTestCollector(disc, statsClient, sink)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -335,11 +232,6 @@ func TestCollector_ShutdownFlush(t *testing.T) {
 	if sink.totalRecords() == 0 {
 		t.Fatal("no records in sink after shutdown — final flush may have been skipped")
 	}
-
-	// Checkpoint should exist after flush
-	if _, statErr := os.Stat(cpPath); os.IsNotExist(statErr) {
-		t.Fatal("checkpoint not saved after shutdown flush")
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -348,7 +240,6 @@ func TestCollector_ShutdownFlush(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCollector_AntiReentrance(t *testing.T) {
-	cpPath := makeCheckpointPath(t)
 
 	target := CollectTarget{
 		NodeName:     "node-a",
@@ -373,7 +264,6 @@ func TestCollector_AntiReentrance(t *testing.T) {
 		Enabled:         true,
 		PollInterval:    20 * time.Millisecond,
 		NodeTimeout:     5 * time.Second,
-		CheckpointPath:  cpPath,
 		MaxBufferSize:   1000,
 		ShutdownTimeout: 2 * time.Second,
 	}
@@ -485,14 +375,13 @@ func (s *blockingStatsClient) enteredCalls() int {
 // ---------------------------------------------------------------------------
 
 func TestCollector_EmptyDiscovery(t *testing.T) {
-	cpPath := makeCheckpointPath(t)
 
 	disc := &fakeDiscoverer{targets: []CollectTarget{}} // empty
 
 	statsClient := newFakeStatsClient()
 	sink := newFakeSink()
 
-	col := newTestCollector(disc, statsClient, sink, cpPath)
+	col := newTestCollector(disc, statsClient, sink)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
@@ -514,11 +403,6 @@ func TestCollector_EmptyDiscovery(t *testing.T) {
 	if sink.totalRecords() != 0 {
 		t.Fatalf("expected 0 sink records, got %d", sink.totalRecords())
 	}
-
-	// No checkpoint written (nothing to checkpoint)
-	if _, statErr := os.Stat(cpPath); !os.IsNotExist(statErr) {
-		t.Fatal("checkpoint file created despite empty discovery and no writes")
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -527,7 +411,6 @@ func TestCollector_EmptyDiscovery(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCollector_BackpressureBufferDrop(t *testing.T) {
-	cpPath := makeCheckpointPath(t)
 
 	target := CollectTarget{
 		NodeName:     "node-a",
@@ -553,7 +436,6 @@ func TestCollector_BackpressureBufferDrop(t *testing.T) {
 		Enabled:         true,
 		PollInterval:    50 * time.Millisecond,
 		NodeTimeout:     2 * time.Second,
-		CheckpointPath:  cpPath,
 		MaxBufferSize:   50,
 		ShutdownTimeout: 2 * time.Second,
 	}
@@ -586,13 +468,12 @@ func TestCollector_BackpressureBufferDrop(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCollector_DiscoverErrorDoesNotCrash(t *testing.T) {
-	cpPath := makeCheckpointPath(t)
 
 	disc := &fakeDiscoverer{err: fmt.Errorf("K8s API unavailable")}
 	statsClient := newFakeStatsClient()
 	sink := newFakeSink()
 
-	col := newTestCollector(disc, statsClient, sink, cpPath)
+	col := newTestCollector(disc, statsClient, sink)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()

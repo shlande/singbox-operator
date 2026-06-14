@@ -15,6 +15,7 @@ import (
 type UsageRecord struct {
 	Timestamp     time.Time `json:"@timestamp"`
 	User          string    `json:"user"`
+	InboundNode   string    `json:"inbound_node"`
 	Node          string    `json:"node"`
 	UplinkBytes   int64     `json:"uplink_bytes"`
 	DownlinkBytes int64     `json:"downlink_bytes"`
@@ -36,9 +37,7 @@ func ValidateRecord(r UsageRecord) error {
 	return nil
 }
 
-// DocumentKey returns a stable, deterministic key for deduplication.
-// Same (user, node, collectedAt) always produces the same ID.
 func DocumentKey(r UsageRecord) string {
-	h := sha256.Sum256([]byte(r.User + "\x00" + r.Node + "\x00" + fmt.Sprint(r.CollectedAt.UnixNano())))
+	h := sha256.Sum256([]byte(r.User + "\x00" + r.InboundNode + "\x00" + r.Node + "\x00" + fmt.Sprint(r.CollectedAt.UnixNano())))
 	return fmt.Sprintf("%x", h)
 }

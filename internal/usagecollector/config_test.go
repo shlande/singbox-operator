@@ -27,9 +27,6 @@ func TestCollectorConfig_Defaults(t *testing.T) {
 	if c.ESDataStream != "" {
 		t.Errorf("DefaultCollectorConfig().ESDataStream = %q, want empty", c.ESDataStream)
 	}
-	if c.CheckpointPath != "/tmp/usage-collector-checkpoint.json" {
-		t.Errorf("DefaultCollectorConfig().CheckpointPath = %q, want /tmp/usage-collector-checkpoint.json", c.CheckpointPath)
-	}
 	if c.MaxBufferSize != 10000 {
 		t.Errorf("DefaultCollectorConfig().MaxBufferSize = %d, want 10000", c.MaxBufferSize)
 	}
@@ -66,7 +63,6 @@ func TestCollectorConfig_Validate_EnabledValid(t *testing.T) {
 		NodeTimeout:     10 * time.Second,
 		ESEndpoint:      "http://elasticsearch:9200",
 		ESDataStream:    "usage-traffic",
-		CheckpointPath:  "/tmp/checkpoint.json",
 		MaxBufferSize:   5000,
 		ShutdownTimeout: 30 * time.Second,
 	}
@@ -118,7 +114,6 @@ func TestCollectorConfig_Validate_InvalidPollInterval(t *testing.T) {
 				NodeTimeout:     10 * time.Second,
 				ESEndpoint:      "http://es:9200",
 				ESDataStream:    "usage-traffic",
-				CheckpointPath:  "/tmp/cp.json",
 				MaxBufferSize:   1000,
 				ShutdownTimeout: 30 * time.Second,
 			}
@@ -146,7 +141,6 @@ func TestCollectorConfig_Validate_InvalidNodeTimeout(t *testing.T) {
 				NodeTimeout:     tt.timeout,
 				ESEndpoint:      "http://es:9200",
 				ESDataStream:    "usage-traffic",
-				CheckpointPath:  "/tmp/cp.json",
 				MaxBufferSize:   1000,
 				ShutdownTimeout: 30 * time.Second,
 			}
@@ -165,7 +159,6 @@ func TestCollectorConfig_Validate_InvalidMaxBufferSize(t *testing.T) {
 		NodeTimeout:     10 * time.Second,
 		ESEndpoint:      "http://es:9200",
 		ESDataStream:    "usage-traffic",
-		CheckpointPath:  "/tmp/cp.json",
 		MaxBufferSize:   0,
 		ShutdownTimeout: 30 * time.Second,
 	}
@@ -182,7 +175,6 @@ func TestCollectorConfig_Validate_InvalidShutdownTimeout(t *testing.T) {
 		NodeTimeout:     10 * time.Second,
 		ESEndpoint:      "http://es:9200",
 		ESDataStream:    "usage-traffic",
-		CheckpointPath:  "/tmp/cp.json",
 		MaxBufferSize:   1000,
 		ShutdownTimeout: 0,
 	}

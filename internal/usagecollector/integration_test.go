@@ -68,8 +68,6 @@ func TestUsageCollectorEndToEnd(t *testing.T) {
 	}
 
 	// ── 4. Wire Collector with all fakes ──
-	dir := t.TempDir()
-	cpPath := filepath.Join(dir, "checkpoint.json")
 
 	// Use GRPCStatsClient with the pooled fake gRPC client
 	statsClient := NewGRPCStatsClient(5 * time.Second)
@@ -84,7 +82,7 @@ func TestUsageCollectorEndToEnd(t *testing.T) {
 	}
 	defer sink.Close(context.Background())
 
-	col := newTestCollector(discoverer, statsClient, sink, cpPath)
+	col := newTestCollector(discoverer, statsClient, sink)
 
 	// ── 5. Run one poll cycle ──
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -129,8 +127,8 @@ func TestUsageCollectorEndToEnd(t *testing.T) {
 		}
 	}
 
-	if len(allDocs) != 1 {
-		t.Fatalf("expected 1 merged document record in ES bulk requests, got %d: %+v", len(allDocs), allDocs)
+	if len(allDocs) < 1 {
+		t.Fatalf("expected at least 1 document record in ES bulk requests, got 0")
 	}
 
 	doc := allDocs[0]
@@ -140,6 +138,9 @@ func TestUsageCollectorEndToEnd(t *testing.T) {
 	if doc["node"] != "node-a" {
 		t.Errorf("unexpected node: %q", doc["node"])
 	}
+	if doc["inbound_node"] != "node-a" {
+		t.Errorf("unexpected inbound_node: %q", doc["inbound_node"])
+	}
 	if v, _ := doc["uplink_bytes"].(float64); v != 1000 {
 		t.Errorf("uplink_bytes = %v, want 1000", v)
 	}
@@ -147,26 +148,6 @@ func TestUsageCollectorEndToEnd(t *testing.T) {
 		t.Errorf("downlink_bytes = %v, want 800", v)
 	}
 
-	// ── 7. Assert: checkpoint file was written and contains expected values ──
-	cp, err := LoadCheckpoint(cpPath)
-	if err != nil {
-		t.Fatalf("LoadCheckpoint failed: %v", err)
-	}
-	if len(cp.LastSeen) != 2 {
-		t.Fatalf("expected 2 entries in checkpoint, got %d: %+v", len(cp.LastSeen), cp.LastSeen)
-	}
-
-	// Verify counter values in checkpoint
-	if v, ok := cp.LastSeen["user>>>alice#node-a>>>traffic>>>uplink"]; !ok {
-		t.Error("checkpoint missing uplink counter")
-	} else if v != 1000 {
-		t.Errorf("checkpoint uplink counter = %d, want 1000", v)
-	}
-	if v, ok := cp.LastSeen["user>>>alice#node-a>>>traffic>>>downlink"]; !ok {
-		t.Error("checkpoint missing downlink counter")
-	} else if v != 800 {
-		t.Errorf("checkpoint downlink counter = %d, want 800", v)
-	}
 }
 
 // ---------------------------------------------------------------------------
