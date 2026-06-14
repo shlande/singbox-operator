@@ -137,7 +137,7 @@ func (s *ElasticsearchSink) Write(ctx context.Context, batch UsageBatch) error {
 		return fmt.Errorf("failed to parse ES bulk response: %w", err)
 	}
 
-	return s.evaluateBulkResponse(bulkResp)
+	return s.evaluateBulkResponse(ctx, bulkResp)
 }
 
 // evaluateBulkResponse inspects every item in the bulk response.
@@ -146,7 +146,8 @@ func (s *ElasticsearchSink) Write(ctx context.Context, batch UsageBatch) error {
 //
 // When all items succeeded, nil is returned. Otherwise a
 // *BulkPartialFailureError is returned with counts and failed _id values.
-func (s *ElasticsearchSink) evaluateBulkResponse(resp bulkResponse) error {
+func (s *ElasticsearchSink) evaluateBulkResponse(ctx context.Context, resp bulkResponse) error {
+	logger := log.FromContext(ctx).WithName("elasticsearch-sink")
 	var failedIDs []string
 	succeeded := 0
 	failed := 0
@@ -160,6 +161,14 @@ func (s *ElasticsearchSink) evaluateBulkResponse(resp bulkResponse) error {
 			failed++
 			if id != "" {
 				failedIDs = append(failedIDs, id)
+			}
+			if item.Create.Error != nil {
+				logger.Error(nil, "ES bulk item failed",
+					"id", id,
+					"status", status,
+					"errorType", item.Create.Error.Type,
+					"errorReason", item.Create.Error.Reason,
+				)
 			}
 		}
 	}

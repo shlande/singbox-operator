@@ -9,7 +9,11 @@ import (
 // UsageRecord represents a single traffic usage data point collected from
 // sing-box. Each record captures the uplink/downlink bytes for a specific
 // user-node pair at a specific collection time.
+//
+// The Timestamp field is serialized as "@timestamp" so that Elasticsearch
+// data streams (which require this field) accept the document.
 type UsageRecord struct {
+	Timestamp     time.Time `json:"@timestamp"`
 	User          string    `json:"user"`
 	Node          string    `json:"node"`
 	UplinkBytes   int64     `json:"uplink_bytes"`

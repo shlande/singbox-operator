@@ -32,6 +32,7 @@ func newTestES(handler http.HandlerFunc) (*httptest.Server, *ElasticsearchSink) 
 // testRecord returns a UsageRecord with fixed fields.
 func testRecord(user, node string, t time.Time) UsageRecord {
 	return UsageRecord{
+		Timestamp:     t,
 		User:          user,
 		Node:          node,
 		UplinkBytes:   100,
@@ -729,8 +730,7 @@ func TestElasticsearchSink_Write_Structure(t *testing.T) {
 	if !strings.HasPrefix(lines[0], `{"create"`) {
 		t.Errorf("line 0 should be action metadata, got %q", lines[0])
 	}
-	// Line 1 must be the document
-	if !strings.HasPrefix(lines[1], `{"user"`) {
+	if !strings.HasPrefix(lines[1], `{"@timestamp"`) {
 		t.Errorf("line 1 should be document body, got %q", lines[1])
 	}
 

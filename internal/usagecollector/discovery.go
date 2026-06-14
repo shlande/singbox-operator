@@ -274,6 +274,7 @@ func NormalizeCounterToRecord(counterName string, delta int64, collectedAt time.
 	}
 
 	record := UsageRecord{
+		Timestamp:   collectedAt,
 		User:        user,
 		Node:        node,
 		CollectedAt: collectedAt,
