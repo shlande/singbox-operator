@@ -1,0 +1,6 @@
+=== RUN   TestUsageCollectorEndToEnd
+--- PASS: TestUsageCollectorEndToEnd (0.50s)
+=== RUN   TestUsageCollectorFeatureDisabled
+--- PASS: TestUsageCollectorFeatureDisabled (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	1.104s

@@ -1,0 +1,18 @@
+=== RUN   TestComputeDelta
+=== RUN   TestComputeDelta/normal-increment
+=== RUN   TestComputeDelta/counter-reset
+=== RUN   TestComputeDelta/zero-delta
+=== RUN   TestComputeDelta/first-ever-no-lastseen
+=== RUN   TestComputeDelta/first-ever-for-this-counter
+=== RUN   TestComputeDelta/never-negative-from-reset
+=== RUN   TestComputeDelta/large-normal-increment
+--- PASS: TestComputeDelta (0.00s)
+    --- PASS: TestComputeDelta/normal-increment (0.00s)
+    --- PASS: TestComputeDelta/counter-reset (0.00s)
+    --- PASS: TestComputeDelta/zero-delta (0.00s)
+    --- PASS: TestComputeDelta/first-ever-no-lastseen (0.00s)
+    --- PASS: TestComputeDelta/first-ever-for-this-counter (0.00s)
+    --- PASS: TestComputeDelta/never-negative-from-reset (0.00s)
+    --- PASS: TestComputeDelta/large-normal-increment (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	(cached)

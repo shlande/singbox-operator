@@ -1,0 +1,22 @@
+=== RUN   TestUsageRecord
+=== RUN   TestUsageRecord/ValidateRecord/missing-user
+=== RUN   TestUsageRecord/ValidateRecord/missing-node
+=== RUN   TestUsageRecord/ValidateRecord/valid
+--- PASS: TestUsageRecord (0.00s)
+    --- PASS: TestUsageRecord/ValidateRecord/missing-user (0.00s)
+    --- PASS: TestUsageRecord/ValidateRecord/missing-node (0.00s)
+    --- PASS: TestUsageRecord/ValidateRecord/valid (0.00s)
+=== RUN   TestDocumentKey
+=== RUN   TestDocumentKey/same-inputs-same-key
+=== RUN   TestDocumentKey/different-user-different-key
+=== RUN   TestDocumentKey/different-node-different-key
+=== RUN   TestDocumentKey/different-time-different-key
+=== RUN   TestDocumentKey/key-is-hex-string
+--- PASS: TestDocumentKey (0.00s)
+    --- PASS: TestDocumentKey/same-inputs-same-key (0.00s)
+    --- PASS: TestDocumentKey/different-user-different-key (0.00s)
+    --- PASS: TestDocumentKey/different-node-different-key (0.00s)
+    --- PASS: TestDocumentKey/different-time-different-key (0.00s)
+    --- PASS: TestDocumentKey/key-is-hex-string (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.319s

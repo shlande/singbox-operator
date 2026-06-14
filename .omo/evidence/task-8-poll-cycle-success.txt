@@ -1,0 +1,4 @@
+=== RUN   TestCollector_FullPollCycle
+--- PASS: TestCollector_FullPollCycle (0.50s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	1.034s

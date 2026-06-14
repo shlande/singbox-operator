@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -40,6 +41,7 @@ import (
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
 	"github.com/shlande/singbox-operator/internal/apiserver"
 	"github.com/shlande/singbox-operator/internal/controller"
+	"github.com/shlande/singbox-operator/internal/usagecollector"
 	proxywebhook "github.com/shlande/singbox-operator/internal/webhook"
 	// +kubebuilder:scaffold:imports
 )
@@ -71,6 +73,15 @@ func main() {
 	var defaultTLSSecret string
 	var nodePortRangeMin int
 	var nodePortRangeMax int
+	var usageCollectEnabled bool
+	var usagePollInterval time.Duration
+	var usageNodeTimeout time.Duration
+	var usageESEndpoint string
+	var usageESAPIKey string
+	var usageESDataStream string
+	var usageCheckpointPath string
+	var usageMaxBufferSize int
+	var usageShutdownTimeout time.Duration
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -98,6 +109,24 @@ func main() {
 		"Lower bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
 	flag.IntVar(&nodePortRangeMax, "nodeport-range-max", 32767,
 		"Upper bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
+	flag.BoolVar(&usageCollectEnabled, "usage-collect-enabled", false,
+		"Enable the usage collector that polls sing-box node traffic stats and writes to Elasticsearch.")
+	flag.DurationVar(&usagePollInterval, "usage-poll-interval", 30*time.Second,
+		"Interval between usage collection poll cycles.")
+	flag.DurationVar(&usageNodeTimeout, "usage-node-timeout", 10*time.Second,
+		"Timeout for gRPC queries to individual sing-box nodes.")
+	flag.StringVar(&usageESEndpoint, "usage-es-endpoint", "",
+		"Elasticsearch endpoint URL for the usage collector sink.")
+	flag.StringVar(&usageESAPIKey, "usage-es-api-key", "",
+		"Elasticsearch API key for the usage collector sink.")
+	flag.StringVar(&usageESDataStream, "usage-es-data-stream", "usage-traffic",
+		"Elasticsearch data stream name for usage records.")
+	flag.StringVar(&usageCheckpointPath, "usage-checkpoint-path", "/tmp/usage-collector-checkpoint.json",
+		"Filesystem path for the usage collector checkpoint file.")
+	flag.IntVar(&usageMaxBufferSize, "usage-max-buffer-size", 10000,
+		"Maximum number of usage records to buffer before flushing.")
+	flag.DurationVar(&usageShutdownTimeout, "usage-shutdown-timeout", 30*time.Second,
+		"Maximum time to wait for in-flight usage data flush during shutdown.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -252,6 +281,40 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	if usageCollectEnabled {
+		usageCfg := usagecollector.CollectorConfig{
+			Enabled:         true,
+			PollInterval:    usagePollInterval,
+			NodeTimeout:     usageNodeTimeout,
+			ESEndpoint:      usageESEndpoint,
+			ESAPIKey:        usageESAPIKey,
+			ESDataStream:    usageESDataStream,
+			CheckpointPath:  usageCheckpointPath,
+			MaxBufferSize:   usageMaxBufferSize,
+			ShutdownTimeout: usageShutdownTimeout,
+		}
+		if err := usageCfg.Validate(); err != nil {
+			setupLog.Error(err, "Invalid usage collector configuration")
+			os.Exit(1)
+		}
+
+		watchNamespace := os.Getenv("WATCH_NAMESPACE")
+		discoverer := usagecollector.NewK8sDiscoverer(mgr.GetClient(), watchNamespace)
+		statsClient := usagecollector.NewGRPCStatsClient(usageCfg.NodeTimeout)
+		esSink, err := usagecollector.NewElasticsearchSink(usageCfg)
+		if err != nil {
+			setupLog.Error(err, "Failed to create Elasticsearch sink")
+			os.Exit(1)
+		}
+		collector := usagecollector.NewCollector(usageCfg, discoverer, statsClient, esSink)
+
+		if err := mgr.Add(&usagecollector.CollectorRunnable{Collector: collector}); err != nil {
+			setupLog.Error(err, "Failed to register usage collector")
+			os.Exit(1)
+		}
+		setupLog.Info("Usage collector enabled and registered with leader election")
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "Failed to set up health check")

@@ -1,0 +1,4 @@
+=== RUN   TestCollectorConfig_Defaults
+--- PASS: TestCollectorConfig_Defaults (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.330s

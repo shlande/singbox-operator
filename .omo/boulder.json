@@ -1,0 +1,165 @@
+{
+  "active_plan": "/Users/shlande/workspace/sing-box-operator/.omo/plans/singbox-traffic-collection.md",
+  "started_at": "2026-06-14T11:33:55.879Z",
+  "session_ids": [
+    "opencode:ses_13a76cb82ffeHyuhpHjPDeBV1p"
+  ],
+  "session_origins": {
+    "opencode:ses_13a76cb82ffeHyuhpHjPDeBV1p": "direct"
+  },
+  "plan_name": "singbox-traffic-collection",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Define usage record and sink contracts",
+      "session_id": "opencode:ses_13a1512aeffe3Jg02mMysXjzlo",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-14T11:41:33.378Z",
+      "started_at": "2026-06-14T11:37:36.967Z",
+      "status": "completed",
+      "ended_at": "2026-06-14T11:41:33.378Z",
+      "elapsed_ms": 236411
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Build checkpoint and idempotency foundation",
+      "session_id": "opencode:ses_13a0f1740ffeYE6t84ivBZrNku",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-06-14T11:44:49.684Z",
+      "started_at": "2026-06-14T11:44:33.084Z",
+      "status": "completed",
+      "ended_at": "2026-06-14T11:44:49.684Z",
+      "elapsed_ms": 16600
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Implement v2rayapi source client and stats parsing",
+      "session_id": "opencode:ses_13a0c5707ffe7v1m7RPJVOqtg5",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-06-14T11:57:34.793Z",
+      "started_at": "2026-06-14T11:57:06.504Z",
+      "status": "completed",
+      "ended_at": "2026-06-14T11:57:34.793Z",
+      "elapsed_ms": 28289
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Implement collector orchestration loop",
+      "session_id": "opencode:ses_13a0071acffe9gCxoigT1pQrxQ",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-06-14T12:05:11.047Z",
+      "started_at": "2026-06-14T12:04:47.302Z",
+      "status": "completed",
+      "ended_at": "2026-06-14T12:05:11.047Z",
+      "elapsed_ms": 23745
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "Wire collector into manager lifecycle with single-active behavior",
+      "session_id": "opencode:ses_139f9bd30ffeEJ5pHB65mdxwW2",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-14T12:10:35.606Z",
+      "started_at": "2026-06-14T12:10:09.162Z",
+      "status": "completed",
+      "ended_at": "2026-06-14T12:10:35.606Z",
+      "elapsed_ms": 26444
+    }
+  },
+  "schema_version": 2,
+  "active_work_id": "singbox-traffic-collection",
+  "works": {
+    "singbox-traffic-collection": {
+      "work_id": "singbox-traffic-collection",
+      "active_plan": "/Users/shlande/workspace/sing-box-operator/.omo/plans/singbox-traffic-collection.md",
+      "plan_name": "singbox-traffic-collection",
+      "started_at": "2026-06-14T11:33:55.879Z",
+      "session_ids": [
+        "opencode:ses_13a76cb82ffeHyuhpHjPDeBV1p"
+      ],
+      "session_origins": {
+        "opencode:ses_13a76cb82ffeHyuhpHjPDeBV1p": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "Define usage record and sink contracts",
+          "session_id": "opencode:ses_13a1512aeffe3Jg02mMysXjzlo",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-06-14T11:41:33.378Z",
+          "started_at": "2026-06-14T11:37:36.967Z",
+          "status": "completed",
+          "ended_at": "2026-06-14T11:41:33.378Z",
+          "elapsed_ms": 236411
+        },
+        "todo:4": {
+          "task_key": "todo:4",
+          "task_label": "4",
+          "task_title": "Build checkpoint and idempotency foundation",
+          "session_id": "opencode:ses_13a0f1740ffeYE6t84ivBZrNku",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-06-14T11:44:49.684Z",
+          "started_at": "2026-06-14T11:44:33.084Z",
+          "status": "completed",
+          "ended_at": "2026-06-14T11:44:49.684Z",
+          "elapsed_ms": 16600
+        },
+        "todo:5": {
+          "task_key": "todo:5",
+          "task_label": "5",
+          "task_title": "Implement v2rayapi source client and stats parsing",
+          "session_id": "opencode:ses_13a0c5707ffe7v1m7RPJVOqtg5",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "updated_at": "2026-06-14T11:57:34.793Z",
+          "started_at": "2026-06-14T11:57:06.504Z",
+          "status": "completed",
+          "ended_at": "2026-06-14T11:57:34.793Z",
+          "elapsed_ms": 28289
+        },
+        "todo:8": {
+          "task_key": "todo:8",
+          "task_label": "8",
+          "task_title": "Implement collector orchestration loop",
+          "session_id": "opencode:ses_13a0071acffe9gCxoigT1pQrxQ",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-06-14T12:05:11.047Z",
+          "started_at": "2026-06-14T12:04:47.302Z",
+          "status": "completed",
+          "ended_at": "2026-06-14T12:05:11.047Z",
+          "elapsed_ms": 23745
+        },
+        "todo:9": {
+          "task_key": "todo:9",
+          "task_label": "9",
+          "task_title": "Wire collector into manager lifecycle with single-active behavior",
+          "session_id": "opencode:ses_139f9bd30ffeEJ5pHB65mdxwW2",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-06-14T12:10:35.606Z",
+          "started_at": "2026-06-14T12:10:09.162Z",
+          "status": "completed",
+          "ended_at": "2026-06-14T12:10:35.606Z",
+          "elapsed_ms": 26444
+        }
+      },
+      "updated_at": "2026-06-14T12:10:35.606Z"
+    }
+  },
+  "updated_at": "2026-06-14T12:10:35.606Z"
+}

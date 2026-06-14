@@ -1,0 +1,6 @@
+=== RUN   TestDiscoverExcludesDeletedNode
+--- PASS: TestDiscoverExcludesDeletedNode (0.03s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.542s
+?   	github.com/shlande/singbox-operator/internal/usagecollector/v2rayapi	[no test files]
+EXIT: 0

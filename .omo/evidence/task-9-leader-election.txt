@@ -1,0 +1,9 @@
+=== Task 9: CollectorRunnable Leader Election ===
+NeedLeaderElection() returns: true
+
+Rationale:
+- Single-active collector prevents duplicate ES writes
+- Only the leader replica polls sing-box and writes to Elasticsearch
+- Non-leader replicas do not start the collector at all
+- This is implemented by returning true from NeedLeaderElection()
+  and relying on controller-runtime's leader election machinery

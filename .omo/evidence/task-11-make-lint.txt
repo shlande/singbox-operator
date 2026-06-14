@@ -1,0 +1,251 @@
+Downloading github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+Building custom golangci-lint with plugins...
+"/Users/shlande/workspace/sing-box-operator/bin/golangci-lint" run
+internal/controller/customroute_controller_test.go:70:41: Error return value of `k8sClient.Delete` is not checked (errcheck)
+		DeferCleanup(func() { k8sClient.Delete(ctx, inboundNode) })
+		                                      ^
+internal/controller/customroute_controller_test.go:82:41: Error return value of `k8sClient.Delete` is not checked (errcheck)
+		DeferCleanup(func() { k8sClient.Delete(ctx, outboundNode) })
+		                                      ^
+internal/controller/customroute_controller_test.go:93:41: Error return value of `k8sClient.Delete` is not checked (errcheck)
+		DeferCleanup(func() { k8sClient.Delete(ctx, route) })
+		                                      ^
+internal/controller/customroute_controller_test.go:102:17: Error return value of `k8sClient.Get` is not checked (errcheck)
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			             ^
+internal/controller/customroute_controller_test.go:127:17: Error return value of `k8sClient.Get` is not checked (errcheck)
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			             ^
+internal/controller/customroute_controller_test.go:180:17: Error return value of `k8sClient.Get` is not checked (errcheck)
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			             ^
+internal/usagecollector/elasticsearch.go:111:23: Error return value of `resp.Body.Close` is not checked (errcheck)
+	defer resp.Body.Close()
+	                     ^
+internal/usagecollector/elasticsearch_test.go:58:17: Error return value of `json.Unmarshal` is not checked (errcheck)
+		json.Unmarshal([]byte(lines[i]), &act)
+		              ^
+internal/usagecollector/elasticsearch_test.go:62:18: Error return value of `json.Unmarshal` is not checked (errcheck)
+			json.Unmarshal([]byte(lines[i+1]), &doc)
+			              ^
+internal/usagecollector/elasticsearch_test.go:80:14: Error return value of `r.Body.Read` is not checked (errcheck)
+		r.Body.Read(buf)
+		           ^
+internal/usagecollector/elasticsearch_test.go:85:10: Error return value of `w.Write` is not checked (errcheck)
+		w.Write([]byte(`{"errors":false,"items":[{"create":{"status":201}},{"create":{"status":201}}]}`))
+		       ^
+internal/usagecollector/elasticsearch_test.go:90:18: Error return value of `sink.Close` is not checked (errcheck)
+	defer sink.Close(context.Background())
+	                ^
+internal/usagecollector/elasticsearch_test.go:150:14: Error return value of `r.Body.Read` is not checked (errcheck)
+		r.Body.Read(buf)
+		           ^
+internal/usagecollector/elasticsearch_test.go:165:11: Error return value of `w.Write` is not checked (errcheck)
+			w.Write([]byte(`{"errors":false,"items":[{"create":{"status":201}}]}`))
+			       ^
+internal/usagecollector/elasticsearch_test.go:167:11: Error return value of `w.Write` is not checked (errcheck)
+			w.Write([]byte(`{"errors":false,"items":[{"create":{"status":409}}]}`))
+			       ^
+internal/usagecollector/elasticsearch_test.go:173:18: Error return value of `sink.Close` is not checked (errcheck)
+	defer sink.Close(context.Background())
+	                ^
+internal/usagecollector/elasticsearch_test.go:222:18: Error return value of `sink.Close` is not checked (errcheck)
+	defer sink.Close(context.Background())
+	                ^
+internal/usagecollector/elasticsearch_test.go:321:19: Error return value of `sink2.Close` is not checked (errcheck)
+	defer sink2.Close(context.Background())
+	                 ^
+internal/usagecollector/elasticsearch_test.go:518:14: Error return value of `r.Body.Read` is not checked (errcheck)
+		r.Body.Read(buf)
+		           ^
+internal/usagecollector/v2rayclient.go:55:32: Error return value of `conn.Close` is not checked (errcheck)
+		cleanup = func() { conn.Close() }
+		                             ^
+internal/usagecollector/v2rayclient_test.go:247:13: Error return value of `conn.Close` is not checked (errcheck)
+		conn.Close()
+		          ^
+internal/apiserver/handler_test.go:64:19: string `selector` has 3 occurrences, make it a constant (goconst)
+		if m["type"] == "selector" {
+		                ^
+internal/configengine/engine.go:132:19: string `direct` has 3 occurrences, make it a constant (goconst)
+		finalOutbound = "direct"
+		                ^
+internal/configengine/engine_test.go:167:18: string `inbound-vless` has 7 occurrences, make it a constant (goconst)
+		if m["tag"] == "inbound-vless" {
+		               ^
+internal/configengine/engine_test.go:193:24: string `direct` has 5 occurrences, make it a constant (goconst)
+	if routeFinal(cfg) != "direct" {
+	                      ^
+internal/configengine/engine_test.go:202:25: string `outbound-node-b` has 5 occurrences, make it a constant (goconst)
+	if rule["outbound"] != "outbound-node-b" {
+	                       ^
+internal/configengine/engine_test.go:1044:18: string `outbound-node-x` has 3 occurrences, make it a constant (goconst)
+		if m["tag"] == "outbound-node-x" {
+		               ^
+internal/controller/customroute_controller.go:53:13: string `success` has 3 occurrences, make it a constant (goconst)
+		result := "success"
+		          ^
+internal/controller/customroute_controller.go:55:13: string `error` has 3 occurrences, make it a constant (goconst)
+			result = "error"
+			         ^
+internal/controller/customroute_controller_test.go:129:18: string `Degraded` has 4 occurrences, make it a constant (goconst)
+				if c.Type == "Degraded" && c.Status == metav1.ConditionTrue {
+				             ^
+internal/usagecollector/discovery.go:219:18: string `uplink` has 3 occurrences, make it a constant (goconst)
+	if direction != "uplink" && direction != "downlink" {
+	                ^
+internal/usagecollector/discovery_test.go:141:20: string `node-a` has 3 occurrences, make it a constant (goconst)
+	if ct.NodeName != "node-a" {
+	                  ^
+internal/usagecollector/discovery_test.go:236:20: string `alice` has 3 occurrences, make it a constant (goconst)
+	if record.User != "alice" {
+	                  ^
+internal/usagecollector/elasticsearch_test.go:104:21: string `/usage-traffic/_bulk` has 3 occurrences, make it a constant (goconst)
+	if receivedPath != "/usage-traffic/_bulk" {
+	                   ^
+cmd/main.go:107:1: The line is 158 characters long, which exceeds the maximum of 120 characters. (lll)
+		"Name of the default kubernetes.io/tls Secret used for TLS-requiring protocols (e.g. hysteria2). Can be overridden per SingBoxNode via spec.tlsSecretName.")
+^
+cmd/main.go:109:1: The line is 124 characters long, which exceeds the maximum of 120 characters. (lll)
+		"Lower bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
+^
+cmd/main.go:111:1: The line is 124 characters long, which exceeds the maximum of 120 characters. (lll)
+		"Upper bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
+^
+cmd/main.go:230:1: The line is 149 characters long, which exceeds the maximum of 120 characters. (lll)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &proxyv1alpha1.SingBoxNode{}, "spec.nodeRef", func(rawObj client.Object) []string {
+^
+cmd/main.go:263:1: The line is 127 characters long, which exceeds the maximum of 120 characters. (lll)
+	if err := proxywebhook.SetupSingBoxNodeWebhookWithManager(mgr, int32(nodePortRangeMin), int32(nodePortRangeMax)); err != nil {
+^
+test/helpers/helpers.go:33:1: The line is 199 characters long, which exceeds the maximum of 120 characters. (lll)
+func CreateSingBoxNode(ctx context.Context, c client.Client, name, namespace, region, address string, roles []v1alpha1.ProxyRole, protocols []v1alpha1.ProtocolConfig) (*v1alpha1.SingBoxNode, error) {
+^
+test/helpers/helpers.go:53:1: The line is 125 characters long, which exceeds the maximum of 120 characters. (lll)
+func CreateUser(ctx context.Context, c client.Client, name, namespace, protocol, secretName string) (*v1alpha1.User, error) {
+^
+internal/usagecollector/checkpoint_test.go:179:6: mapsloop: Replace m[k]=v loop with maps.Copy (modernize)
+					cp.LastSeen[k] = v
+					^
+internal/usagecollector/collector_test.go:67:2: atomic: var writeCount int32 may be simplified using atomic.Int32 (modernize)
+	writeCount int32 // atomic counter of Write calls
+	^
+internal/usagecollector/collector_test.go:237:2: atomic: var callCount int32 may be simplified using atomic.Int32 (modernize)
+	callCount   int32
+	^
+internal/usagecollector/collector_test.go:455:6: rangeint: for loop can be modernized using range over int (modernize)
+	for i := 0; i < 100; i++ {
+	    ^
+internal/usagecollector/collector_test.go:541:6: rangeint: for loop can be modernized using range over int (modernize)
+	for i := 0; i < 200; i++ {
+	    ^
+internal/usagecollector/discovery.go:180:2: slicescontains: Loop can be simplified using slices.Contains (modernize)
+	for _, r := range node.Spec.Roles {
+	^
+internal/usagecollector/discovery_test.go:156:3: slicescontains: Loop can be simplified using slices.Contains (modernize)
+		for _, got := range ct.VirtualUsers {
+		^
+internal/usagecollector/v2rayapi/stats.pb.go:524:19: reflecttypefor: reflect.TypeOf call can be simplified using TypeFor (modernize)
+			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+			               ^
+internal/usagecollector/v2rayapi/stats_grpc.go:71:26: any: interface{} can be replaced by any (modernize)
+func handlerGetStats(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
+                         ^
+internal/usagecollector/v2rayapi/stats_grpc.go:80:28: any: interface{} can be replaced by any (modernize)
+func handlerQueryStats(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
+                           ^
+internal/usagecollector/v2rayapi/stats_grpc.go:89:29: any: interface{} can be replaced by any (modernize)
+func handlerGetSysStats(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
+                            ^
+internal/usagecollector/v2rayclient.go:105:13: stringscut: strings.Index can be simplified using strings.Cut (modernize)
+	hashIdx := strings.Index(virtualUserName, "#")
+	           ^
+internal/usagecollector/v2rayclient_test.go:377:3: slicescontains: Loop can be simplified using slices.Contains (modernize)
+		for _, p := range capturedPatterns {
+		^
+internal/apiserver/client_config.go:64:6: Consider preallocating result with capacity len(proxyOutbounds) + 1 + 1 (prealloc)
+	var result []any
+	    ^
+internal/configengine/engine.go:527:6: Consider preallocating statsUsers with capacity len(userSet) (prealloc)
+	var statsUsers []string
+	    ^
+internal/configengine/engine_test.go:86:6: Consider preallocating tags (prealloc)
+	var tags []string
+	    ^
+internal/configengine/engine_test.go:96:6: Consider preallocating tags (prealloc)
+	var tags []string
+	    ^
+internal/usagecollector/elasticsearch_test.go:154:7: Consider preallocating reqIDs with capacity len(actions) (prealloc)
+		var reqIDs []string
+		    ^
+cmd/cli/main.go:47:52: SA1029: should not use built-in type string as key for value; define your own type to avoid collisions (staticcheck)
+			cmd.SetContext(context.WithValue(cmd.Context(), "k8s-client", k8sClient))
+			                                                ^
+internal/usagecollector/collector_test.go:226:16: QF1008: could remove embedded field "fakeSink" from selector (staticcheck)
+	if customSink.fakeSink.totalRecords() > 0 {
+	              ^
+internal/usagecollector/collector_test.go:442:2: S1000: should use a simple channel send/receive instead of select with a single case (staticcheck)
+	select {
+	^
+internal/usagecollector/v2rayclient.go:47:19: SA1019: grpc.DialContext is deprecated: use NewClient instead.  Will be supported throughout 1.x. (staticcheck)
+		conn, dialErr = grpc.DialContext(dialCtx, addr,
+		                ^
+internal/usagecollector/v2rayclient.go:49:4: SA1019: grpc.WithBlock is deprecated: this DialOption is not supported by NewClient. Will be supported throughout 1.x. (staticcheck)
+			grpc.WithBlock(),
+			^
+internal/usagecollector/v2rayclient_test.go:228:3: SA9003: empty branch (staticcheck)
+		if err := s.Serve(lis); err != nil {
+		^
+internal/usagecollector/elasticsearch_test.go:24:43: unnecessary conversion (unconvert)
+	ts := httptest.NewServer(http.HandlerFunc(handler))
+	                                         ^
+internal/apiserver/handler_test.go:421:22: makeInboundNode - name always receives "node-a" (unparam)
+func makeInboundNode(name, region, address string, protocols []proxyv1alpha1.ProtocolConfig) *proxyv1alpha1.SingBoxNode {
+                     ^
+internal/apiserver/handler_test.go:437:29: makeOutboundNode - region always receives "us" (unparam)
+func makeOutboundNode(name, region string) *proxyv1alpha1.SingBoxNode {
+                            ^
+internal/apiserver/handler_test.go:484:21: makeUserSecret - namespace always receives namespace ("default") (unparam)
+func makeUserSecret(namespace, name, uuid, password string) *corev1.Secret {
+                    ^
+internal/configengine/engine_test.go:35:22: makeRoute - inboundNode always receives "node-a" (unparam)
+func makeRoute(name, inboundNode, outboundNode string) *v1alpha1.CustomRoute {
+                     ^
+internal/controller/customroute_controller.go:115:130: (*CustomRouteReconciler).setDegradedRoute - result 0 (sigs.k8s.io/controller-runtime.Result) is always nil (unparam)
+func (r *CustomRouteReconciler) setDegradedRoute(ctx context.Context, route *proxyv1alpha1.CustomRoute, reason, message string) (ctrl.Result, error) {
+                                                                                                                                 ^
+internal/controller/customroute_controller.go:140:149: (*CustomRouteReconciler).updateRouteStatus - result 0 (sigs.k8s.io/controller-runtime.Result) is always nil (unparam)
+func (r *CustomRouteReconciler) updateRouteStatus(ctx context.Context, route *proxyv1alpha1.CustomRoute, resolvedInbound, resolvedOutbound string) (ctrl.Result, error) {
+                                                                                                                                                    ^
+internal/controller/singboxnode_controller.go:162:103: (*SingBoxNodeReconciler).handleDeletion - result 0 (sigs.k8s.io/controller-runtime.Result) is always nil (unparam)
+func (r *SingBoxNodeReconciler) handleDeletion(ctx context.Context, node *proxyv1alpha1.SingBoxNode) (ctrl.Result, error) {
+                                                                                                      ^
+internal/controller/singboxnode_controller.go:392:106: (*SingBoxNodeReconciler).reconcileServices - result requeue is always false (unparam)
+func (r *SingBoxNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.SingBoxNode) (requeue bool, err error) {
+                                                                                                         ^
+internal/controller/singboxnode_controller.go:467:120: (*SingBoxNodeReconciler).updateStatus - result 0 (sigs.k8s.io/controller-runtime.Result) is always nil (unparam)
+func (r *SingBoxNodeReconciler) updateStatus(ctx context.Context, node *proxyv1alpha1.SingBoxNode, configHash string) (ctrl.Result, error) {
+                                                                                                                       ^
+internal/controller/singboxnode_controller.go:502:124: (*SingBoxNodeReconciler).setDegraded - result 0 (sigs.k8s.io/controller-runtime.Result) is always nil (unparam)
+func (r *SingBoxNodeReconciler) setDegraded(ctx context.Context, node *proxyv1alpha1.SingBoxNode, reason, message string) (ctrl.Result, error) {
+                                                                                                                           ^
+internal/controller/user_controller.go:114:122: (*UserReconciler).updateStatus - result 0 (sigs.k8s.io/controller-runtime.Result) is always nil (unparam)
+func (r *UserReconciler) updateStatus(ctx context.Context, user *proxyv1alpha1.User, nodes []proxyv1alpha1.SingBoxNode) (ctrl.Result, error) {
+                                                                                                                         ^
+internal/configengine/engine.go:347:6: func collectUserNames is unused (unused)
+func collectUserNames(input Input, protocol string) []string {
+     ^
+internal/usagecollector/collector_test.go:46:27: func (*fakeStatsClient).setError is unused (unused)
+func (f *fakeStatsClient) setError(err error) {
+                          ^
+79 issues:
+* errcheck: 21
+* goconst: 13
+* lll: 7
+* modernize: 13
+* prealloc: 5
+* staticcheck: 6
+* unconvert: 1
+* unparam: 11
+* unused: 2
+make: *** [lint] Error 1

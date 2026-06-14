@@ -1,0 +1,4 @@
+=== RUN   TestCollector_ShutdownFlush
+--- PASS: TestCollector_ShutdownFlush (0.15s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.684s

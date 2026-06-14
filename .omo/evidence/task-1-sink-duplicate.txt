@@ -1,0 +1,10 @@
+=== RUN   TestUsageSinkContract
+=== RUN   TestUsageSinkContract/write-and-read-back
+=== RUN   TestUsageSinkContract/close-prevents-write
+=== RUN   TestUsageSinkContract/multiple-writes-accumulate
+--- PASS: TestUsageSinkContract (0.00s)
+    --- PASS: TestUsageSinkContract/write-and-read-back (0.00s)
+    --- PASS: TestUsageSinkContract/close-prevents-write (0.00s)
+    --- PASS: TestUsageSinkContract/multiple-writes-accumulate (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.313s

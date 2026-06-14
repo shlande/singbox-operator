@@ -1,0 +1,13 @@
+=== RUN   TestQueryUserStats
+=== RUN   TestQueryUserStats/returns-correct-raw-stat-entries
+=== RUN   TestQueryUserStats/empty-server-returns-empty-slice
+=== RUN   TestQueryUserStats/per-node-timeout-hung-server
+=== RUN   TestQueryUserStats/uses-user-pattern-in-query
+--- PASS: TestQueryUserStats (0.20s)
+    --- PASS: TestQueryUserStats/returns-correct-raw-stat-entries (0.00s)
+    --- PASS: TestQueryUserStats/empty-server-returns-empty-slice (0.00s)
+    --- PASS: TestQueryUserStats/per-node-timeout-hung-server (0.20s)
+    --- PASS: TestQueryUserStats/uses-user-pattern-in-query (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.730s
+?   	github.com/shlande/singbox-operator/internal/usagecollector/v2rayapi	[no test files]

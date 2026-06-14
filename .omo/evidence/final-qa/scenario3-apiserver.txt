@@ -1,0 +1,51 @@
+=== RUN   TestBuildClientConfig_TwoOutboundNodes
+--- PASS: TestBuildClientConfig_TwoOutboundNodes (0.00s)
+=== RUN   TestBuildClientConfig_DerivedUUID
+--- PASS: TestBuildClientConfig_DerivedUUID (0.00s)
+=== RUN   TestBuildClientConfig_TrojanPassword
+--- PASS: TestBuildClientConfig_TrojanPassword (0.00s)
+=== RUN   TestBuildClientConfig_EmptyEntryEndpoints
+--- PASS: TestBuildClientConfig_EmptyEntryEndpoints (0.00s)
+=== RUN   TestBuildClientConfig_ExplicitRoutes
+--- PASS: TestBuildClientConfig_ExplicitRoutes (0.00s)
+=== RUN   TestMergeOutbounds_ReplaceOutbounds
+--- PASS: TestMergeOutbounds_ReplaceOutbounds (0.00s)
+=== RUN   TestMergeOutbounds_PreserveInbounds
+--- PASS: TestMergeOutbounds_PreserveInbounds (0.00s)
+=== RUN   TestMergeOutbounds_InvalidTemplate
+--- PASS: TestMergeOutbounds_InvalidTemplate (0.00s)
+=== RUN   TestHandler_InvalidUUID
+--- PASS: TestHandler_InvalidUUID (0.39s)
+=== RUN   TestHandler_MissingPath
+--- PASS: TestHandler_MissingPath (0.01s)
+=== RUN   TestHandler_UUIDNotFound
+--- PASS: TestHandler_UUIDNotFound (0.01s)
+=== RUN   TestHandler_Success
+--- PASS: TestHandler_Success (0.01s)
+=== RUN   TestBuildClientConfig_Socks5Password
+--- PASS: TestBuildClientConfig_Socks5Password (0.00s)
+=== RUN   TestBuildClientConfig_HTTPPassword
+--- PASS: TestBuildClientConfig_HTTPPassword (0.00s)
+=== RUN   TestHandler_TemplateRef_InvalidFormat
+--- PASS: TestHandler_TemplateRef_InvalidFormat (0.01s)
+=== RUN   TestHandler_TemplateRef_MissingConfigMap
+--- PASS: TestHandler_TemplateRef_MissingConfigMap (0.01s)
+=== RUN   TestHandler_TemplateRef_WithConfigMap
+--- PASS: TestHandler_TemplateRef_WithConfigMap (0.01s)
+=== RUN   TestBuildClientConfig_UnsupportedProtocol
+--- PASS: TestBuildClientConfig_UnsupportedProtocol (0.00s)
+=== RUN   TestBuildClientConfig_BadEndpointFormat
+--- PASS: TestBuildClientConfig_BadEndpointFormat (0.00s)
+=== RUN   TestBuildClientConfig_NullInboundInResolve
+--- PASS: TestBuildClientConfig_NullInboundInResolve (0.00s)
+=== RUN   TestHandler_TemplateRef_ConfigMapMissingKey
+--- PASS: TestHandler_TemplateRef_ConfigMapMissingKey (0.01s)
+=== RUN   TestWriteInternalError
+--- PASS: TestWriteInternalError (0.00s)
+=== RUN   TestBuildClientConfig_RouteWithMissingOutbound
+--- PASS: TestBuildClientConfig_RouteWithMissingOutbound (0.00s)
+=== RUN   TestHandler_MultipleUsersMatchUUID
+--- PASS: TestHandler_MultipleUsersMatchUUID (0.01s)
+PASS
+coverage: 80.9% of statements
+ok  	github.com/shlande/singbox-operator/internal/apiserver	(cached)	coverage: 80.9% of statements

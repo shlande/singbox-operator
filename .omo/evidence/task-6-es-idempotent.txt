@@ -1,0 +1,7 @@
+=== RUN   TestElasticsearchSink_Write_BatchOfTwoRecords
+--- PASS: TestElasticsearchSink_Write_BatchOfTwoRecords (0.00s)
+=== RUN   TestElasticsearchSink_Write_IdempotentSameID
+--- PASS: TestElasticsearchSink_Write_IdempotentSameID (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.512s
+?   	github.com/shlande/singbox-operator/internal/usagecollector/v2rayapi	[no test files]

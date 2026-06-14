@@ -1,0 +1,28 @@
+=== Task 10: Kustomize Build Verification ===
+Timestamp: 2026-06-14
+
+Binary: bin/kustomize — NOT FOUND
+Binary: kustomize (PATH) — NOT FOUND
+Binary: kubectl kustomize — available but fails on pre-existing missing CRD:
+  proxy.proxy.io_proxynodes.yaml does not exist in config/crd/bases/
+
+The failure is pre-existing and unrelated to the deployment manifest changes.
+Only config/manager/manager.yaml was modified (see git diff below).
+
+=== git diff config/ ===
+ config/manager/manager.yaml | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
+
+=== YAML structure validation ===
+Documents: 2 (Namespace + Deployment)
+Deployment:
+  terminationGracePeriodSeconds: 60  ✓ (was 10)
+  volumes: [checkpoint]               ✓ (emptyDir)
+  volumeMounts: [('checkpoint', '/var/lib/usage-collector/')] ✓
+  readOnlyRootFilesystem: true        ✓ (preserved, emptyDir is writable)
+  args count: 2 (--leader-elect, --health-probe-bind-address=:8081)
+  Commented collector args present     ✓
+
+No ES credentials hardcoded                ✓
+make manifests exit 0                      ✓
+go build ./... exit 0                      ✓

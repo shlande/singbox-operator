@@ -1,0 +1,7 @@
+=== RUN   TestElasticsearchSink_Write_PartialFailure
+--- PASS: TestElasticsearchSink_Write_PartialFailure (0.00s)
+=== RUN   TestElasticsearchSink_Write_AllFailed
+--- PASS: TestElasticsearchSink_Write_AllFailed (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.510s
+?   	github.com/shlande/singbox-operator/internal/usagecollector/v2rayapi	[no test files]

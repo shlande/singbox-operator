@@ -1,0 +1,5 @@
+$ go build -o bin/sbctl ./cmd/cli/ 2>&1; echo "exit:$?"
+exit:0
+
+$ ls -la bin/sbctl
+-rwxr-xr-x@ 1 shlande  staff  49124546 May  3 01:05 bin/sbctl

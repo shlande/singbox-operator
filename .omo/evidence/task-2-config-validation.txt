@@ -1,0 +1,28 @@
+=== RUN   TestCollectorConfig_Validate_Disabled
+--- PASS: TestCollectorConfig_Validate_Disabled (0.00s)
+=== RUN   TestCollectorConfig_Validate_DisabledWithMissingES
+--- PASS: TestCollectorConfig_Validate_DisabledWithMissingES (0.00s)
+=== RUN   TestCollectorConfig_Validate_EnabledValid
+--- PASS: TestCollectorConfig_Validate_EnabledValid (0.00s)
+=== RUN   TestCollectorConfig_Validate_EnabledNoEndpoint
+--- PASS: TestCollectorConfig_Validate_EnabledNoEndpoint (0.00s)
+=== RUN   TestCollectorConfig_Validate_EnabledNoDataStream
+--- PASS: TestCollectorConfig_Validate_EnabledNoDataStream (0.00s)
+=== RUN   TestCollectorConfig_Validate_InvalidPollInterval
+=== RUN   TestCollectorConfig_Validate_InvalidPollInterval/zero
+=== RUN   TestCollectorConfig_Validate_InvalidPollInterval/negative
+--- PASS: TestCollectorConfig_Validate_InvalidPollInterval (0.00s)
+    --- PASS: TestCollectorConfig_Validate_InvalidPollInterval/zero (0.00s)
+    --- PASS: TestCollectorConfig_Validate_InvalidPollInterval/negative (0.00s)
+=== RUN   TestCollectorConfig_Validate_InvalidNodeTimeout
+=== RUN   TestCollectorConfig_Validate_InvalidNodeTimeout/zero
+=== RUN   TestCollectorConfig_Validate_InvalidNodeTimeout/negative
+--- PASS: TestCollectorConfig_Validate_InvalidNodeTimeout (0.00s)
+    --- PASS: TestCollectorConfig_Validate_InvalidNodeTimeout/zero (0.00s)
+    --- PASS: TestCollectorConfig_Validate_InvalidNodeTimeout/negative (0.00s)
+=== RUN   TestCollectorConfig_Validate_InvalidMaxBufferSize
+--- PASS: TestCollectorConfig_Validate_InvalidMaxBufferSize (0.00s)
+=== RUN   TestCollectorConfig_Validate_InvalidShutdownTimeout
+--- PASS: TestCollectorConfig_Validate_InvalidShutdownTimeout (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.317s

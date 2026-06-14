@@ -1,0 +1,10 @@
+=== Task 11: Feature Disabled Test ===
+Test: TestUsageCollectorFeatureDisabled
+Package: internal/usagecollector/
+
+Verified:
+  1. CollectorConfig{Enabled: false} → Validate() returns nil
+  2. configengine.Compute(UsageCollectionEnabled=false) → no experimental block
+  3. Backward compatibility: log/inbounds/outbounds/route keys present
+
+All assertions passed.

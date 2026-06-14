@@ -1,0 +1,4 @@
+=== RUN   TestCompute_UsageCollectionDisabled
+--- PASS: TestCompute_UsageCollectionDisabled (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/configengine	0.359s

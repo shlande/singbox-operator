@@ -35,6 +35,9 @@ type Input struct {
 	Routes              []*v1alpha1.CustomRoute
 	NodeCreds           map[string]NodeCredential
 	OutboundNodesByName map[string]*v1alpha1.SingBoxNode
+
+	UsageCollectionEnabled bool
+	V2RayAPIListenAddr     string
 }
 
 // Output contains the computed sing-box config.
@@ -45,10 +48,25 @@ type Output struct {
 
 // singboxConfig mirrors the top-level sing-box config.json structure.
 type singboxConfig struct {
-	Log       logConfig   `json:"log"`
-	Inbounds  []any       `json:"inbounds"`
-	Outbounds []any       `json:"outbounds"`
-	Route     routeConfig `json:"route"`
+	Log          logConfig           `json:"log"`
+	Inbounds     []any               `json:"inbounds"`
+	Outbounds    []any               `json:"outbounds"`
+	Route        routeConfig         `json:"route"`
+	Experimental *experimentalConfig `json:"experimental,omitempty"`
+}
+
+type experimentalConfig struct {
+	V2RayAPI *v2rayAPIConfig `json:"v2ray_api,omitempty"`
+}
+
+type v2rayAPIConfig struct {
+	Listen string           `json:"listen"`
+	Stats  v2rayStatsConfig `json:"stats"`
+}
+
+type v2rayStatsConfig struct {
+	Enabled bool     `json:"enabled"`
+	Users   []string `json:"users"`
 }
 
 type logConfig struct {
@@ -116,6 +134,11 @@ func Compute(input Input) (Output, error) {
 		finalOutbound = routeFinal(outbounds)
 	}
 
+	var experimental *experimentalConfig
+	if input.UsageCollectionEnabled {
+		experimental = buildExperimentalConfig(input)
+	}
+
 	cfg := singboxConfig{
 		Log:       logConfig{Level: "info"},
 		Inbounds:  inbounds,
@@ -124,6 +147,7 @@ func Compute(input Input) (Output, error) {
 			Rules: rules,
 			Final: finalOutbound,
 		},
+		Experimental: experimental,
 	}
 
 	data, err := json.Marshal(cfg)
@@ -458,6 +482,63 @@ func deduplicateByTag(outbounds []any) []any {
 		}
 	}
 	return result
+}
+
+func buildExperimentalConfig(input Input) *experimentalConfig {
+	listenAddr := input.V2RayAPIListenAddr
+	if listenAddr == "" {
+		listenAddr = "127.0.0.1:10085"
+	}
+
+	seen := make(map[string]bool)
+	var outboundNames []string
+	for _, n := range input.OutboundNodes {
+		if !seen[n.Name] {
+			seen[n.Name] = true
+			outboundNames = append(outboundNames, n.Name)
+		}
+	}
+	for _, r := range routesForNode(input) {
+		if !seen[r.Spec.OutboundNode] {
+			seen[r.Spec.OutboundNode] = true
+			outboundNames = append(outboundNames, r.Spec.OutboundNode)
+		}
+	}
+	isInbound := hasRole(input.Node, v1alpha1.ProxyRoleInbound)
+	isOutbound := hasRole(input.Node, v1alpha1.ProxyRoleOutbound)
+	if isInbound && isOutbound && !seen[input.Node.Name] {
+		seen[input.Node.Name] = true
+		outboundNames = append(outboundNames, input.Node.Name)
+	}
+
+	var userSet = make(map[string]bool)
+	for _, nodeName := range outboundNames {
+		for _, user := range input.Users {
+			for _, proto := range input.Node.Spec.SupportedProtocols {
+				if user.Spec.Protocol == proto.Protocol {
+					vName := virtualUserName(user.Name, nodeName)
+					userSet[vName] = true
+					break
+				}
+			}
+		}
+	}
+
+	var statsUsers []string
+	for name := range userSet {
+		statsUsers = append(statsUsers, name)
+	}
+	sort.Strings(statsUsers)
+
+	return &experimentalConfig{
+		V2RayAPI: &v2rayAPIConfig{
+			Listen: listenAddr,
+			Stats: v2rayStatsConfig{
+				Enabled: true,
+				Users:   statsUsers,
+			},
+		},
+	}
 }
 
 func routeFinal(outbounds []any) string {

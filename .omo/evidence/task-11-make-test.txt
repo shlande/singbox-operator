@@ -1,0 +1,31 @@
+"/Users/shlande/workspace/sing-box-operator/bin/controller-gen" rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+"/Users/shlande/workspace/sing-box-operator/bin/controller-gen" object:headerFile="hack/boilerplate.go.txt",year=2026 paths="./..."
+go fmt ./...
+internal/configengine/engine.go
+internal/usagecollector/checkpoint.go
+internal/usagecollector/collector.go
+internal/usagecollector/collector_test.go
+internal/usagecollector/config.go
+internal/usagecollector/config_test.go
+internal/usagecollector/discovery.go
+internal/usagecollector/elasticsearch.go
+internal/usagecollector/integration_test.go
+internal/usagecollector/runnable.go
+internal/usagecollector/v2rayclient_test.go
+go vet ./...
+Setting up envtest binaries for Kubernetes version 1.35...
+/Users/shlande/workspace/sing-box-operator/bin/k8s/1.35.0-darwin-arm64KUBEBUILDER_ASSETS="/Users/shlande/workspace/sing-box-operator/bin/k8s/1.35.0-darwin-arm64" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out
+ok  	github.com/shlande/singbox-operator/api/v1alpha1	0.700s	coverage: 32.9% of statements
+	github.com/shlande/singbox-operator/cmd		coverage: 0.0% of statements
+	github.com/shlande/singbox-operator/cmd/cli		coverage: 0.0% of statements
+ok  	github.com/shlande/singbox-operator/internal/apiserver	1.238s	coverage: 77.2% of statements
+	github.com/shlande/singbox-operator/internal/cli/user		coverage: 0.0% of statements
+ok  	github.com/shlande/singbox-operator/internal/configengine	1.619s	coverage: 90.4% of statements
+ok  	github.com/shlande/singbox-operator/internal/controller	10.318s	coverage: 59.8% of statements
+ok  	github.com/shlande/singbox-operator/internal/credmanager	18.491s	coverage: 80.0% of statements
+	github.com/shlande/singbox-operator/internal/metrics		coverage: 0.0% of statements
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	5.982s	coverage: 89.0% of statements
+	github.com/shlande/singbox-operator/internal/usagecollector/v2rayapi		coverage: 0.0% of statements
+ok  	github.com/shlande/singbox-operator/internal/webhook	2.947s	coverage: 88.7% of statements
+	github.com/shlande/singbox-operator/test/helpers		coverage: 0.0% of statements
+	github.com/shlande/singbox-operator/test/utils		coverage: 0.0% of statements

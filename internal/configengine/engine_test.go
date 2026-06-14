@@ -1154,6 +1154,162 @@ func TestConfigEngine_DualRoleNode_SelfAndPeer(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Test V2ray: UsageCollectionEnabled=true — config must contain experimental.v2ray_api
+// ---------------------------------------------------------------------------
+func TestCompute_UsageCollectionEnabled(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
+	)
+	alice := makeUser("user-alice", "vless")
+	bob := makeUser("user-bob", "vless")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.User{alice, bob},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "aaaa-1111"},
+			"user-bob":   {UUID: "bbbb-2222"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB, nodeC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+			"node-c": {Username: "uc", Password: "pc"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+		UsageCollectionEnabled: true,
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+
+	// Verify experimental block exists
+	exp, ok := cfg["experimental"].(map[string]any)
+	if !ok {
+		t.Fatal("expected experimental key in config when UsageCollectionEnabled=true")
+	}
+
+	v2ray, ok := exp["v2ray_api"].(map[string]any)
+	if !ok {
+		t.Fatal("expected experimental.v2ray_api key")
+	}
+
+	// Verify default listen address
+	listen, _ := v2ray["listen"].(string)
+	if listen != "127.0.0.1:10085" {
+		t.Errorf("expected listen=127.0.0.1:10085, got %q", listen)
+	}
+
+	// Verify stats.enabled
+	stats, ok := v2ray["stats"].(map[string]any)
+	if !ok {
+		t.Fatal("expected experimental.v2ray_api.stats key")
+	}
+	enabled, _ := stats["enabled"].(bool)
+	if !enabled {
+		t.Error("expected stats.enabled=true")
+	}
+
+	// Verify stats.users contains all virtual user names
+	rawUsers, _ := stats["users"].([]any)
+	if len(rawUsers) != 4 {
+		t.Fatalf("expected 4 stats users, got %d: %v", len(rawUsers), rawUsers)
+	}
+	userSet := make(map[string]bool)
+	for _, u := range rawUsers {
+		userSet[u.(string)] = true
+	}
+	expectedUsers := []string{
+		"user-alice#node-b",
+		"user-alice#node-c",
+		"user-bob#node-b",
+		"user-bob#node-c",
+	}
+	for _, expected := range expectedUsers {
+		if !userSet[expected] {
+			t.Errorf("missing stats user %q, got %v", expected, userSet)
+		}
+	}
+
+	// Custom listen address should override the default
+	input.V2RayAPIListenAddr = "127.0.0.1:9999"
+	out2, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error on custom listen: %v", err)
+	}
+	cfg2 := parseConfig(t, out2)
+	exp2 := cfg2["experimental"].(map[string]any)
+	v2ray2 := exp2["v2ray_api"].(map[string]any)
+	listen2, _ := v2ray2["listen"].(string)
+	if listen2 != "127.0.0.1:9999" {
+		t.Errorf("expected custom listen=127.0.0.1:9999, got %q", listen2)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test V2ray: UsageCollectionEnabled=false — config must NOT contain experimental key
+// ---------------------------------------------------------------------------
+func TestCompute_UsageCollectionDisabled(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	alice := makeUser("user-alice", "vless")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.User{alice},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "aaaa-1111"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-b": nodeB,
+		},
+		UsageCollectionEnabled: false,
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+
+	if _, ok := cfg["experimental"]; ok {
+		t.Error("config must NOT contain experimental key when UsageCollectionEnabled=false")
+	}
+
+	// Backward compatibility: log/inbounds/outbounds/route must still exist
+	for _, key := range []string{"log", "inbounds", "outbounds", "route"} {
+		if _, ok := cfg[key]; !ok {
+			t.Errorf("config must contain %q key (backward compatibility)", key)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Test 12: DeriveUUID — determinism and uniqueness
 // ---------------------------------------------------------------------------
 func TestDeriveUUID(t *testing.T) {

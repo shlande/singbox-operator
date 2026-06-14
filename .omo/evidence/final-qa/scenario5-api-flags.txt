@@ -1,0 +1,2 @@
+86:	flag.StringVar(&apiBindAddress, "api-bind-address", ":8082",
+88:	flag.StringVar(&clientConfigTemplate, "client-config-template", "",

@@ -63,6 +63,14 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
+          # To enable usage collection, add these args:
+          # - --usage-collect-enabled=true
+          # - --usage-collect-es-endpoint=http://elasticsearch:9200
+          # - --usage-collect-es-data-stream=usage-traffic
+          # - --usage-collect-checkpoint-path=/var/lib/usage-collector/checkpoint.json
+          # ES API key should be injected via a Kubernetes Secret (env var), not hardcoded here.
+          # Example:
+          # - --usage-collect-es-api-key=$(ES_API_KEY)
         image: controller:latest
         name: manager
         ports:
@@ -96,7 +104,11 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-        volumeMounts: []
-      volumes: []
+        volumeMounts:
+        - mountPath: /var/lib/usage-collector/
+          name: checkpoint
+      volumes:
+      - name: checkpoint
+        emptyDir: {}
       serviceAccountName: controller-manager
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 60

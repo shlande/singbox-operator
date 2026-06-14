@@ -1,0 +1,36 @@
+=== Task 10: Security & Runtime Verification ===
+Timestamp: 2026-06-14
+
+Security Context (container level):
+  readOnlyRootFilesystem: true        ✓ preserved
+  allowPrivilegeEscalation: false     ✓ preserved
+  capabilities.drop: ["ALL"]          ✓ preserved
+
+Security Context (pod level):
+  runAsNonRoot: true                  ✓ preserved
+  seccompProfile: RuntimeDefault      ✓ preserved
+
+Runtime additions:
+  volumeMount: /var/lib/usage-collector/ → checkpoint (emptyDir)
+  volume: checkpoint (emptyDir {})
+    → Writable even with readOnlyRootFilesystem=true
+    → Ephemeral per-pod, lost on pod restart (acceptable — checkpoint is restart recovery, not HA)
+
+  terminationGracePeriodSeconds: 60
+    → Allows 30s ShutdownTimeout + 30s buffer for graceful flush
+    → Previously 10s — collector would be SIGKILL'd mid-flush
+
+No hardcoded credentials:
+  grep 'usage-collect-es-api-key' → only in comment (# - --usage-collect-es-api-key=$(ES_API_KEY))
+  No ES endpoint, data stream, or API key hardcoded in args
+
+Collector enablement guide (in comments):
+  Uncomment args block to enable:
+    --usage-collect-enabled=true
+    --usage-collect-es-endpoint=http://elasticsearch:9200
+    --usage-collect-es-data-stream=usage-traffic
+    --usage-collect-checkpoint-path=/var/lib/usage-collector/checkpoint.json
+  ES API key via env var: --usage-collect-es-api-key=$(ES_API_KEY)
+
+make manifests: exit 0, no CRD/RBAC regeneration
+go build ./...: exit 0, no code changes

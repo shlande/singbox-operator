@@ -1,0 +1,14 @@
+=== RUN   TestCheckpointSaveLoad
+=== RUN   TestCheckpointSaveLoad/save
+=== RUN   TestCheckpointSaveLoad/load
+--- PASS: TestCheckpointSaveLoad (0.00s)
+    --- PASS: TestCheckpointSaveLoad/save (0.00s)
+    --- PASS: TestCheckpointSaveLoad/load (0.00s)
+=== RUN   TestCheckpointLoadMissing
+--- PASS: TestCheckpointLoadMissing (0.00s)
+=== RUN   TestCheckpointLoadCorrupted
+--- PASS: TestCheckpointLoadCorrupted (0.00s)
+=== RUN   TestCheckpointSaveOverwrite
+--- PASS: TestCheckpointSaveOverwrite (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.318s

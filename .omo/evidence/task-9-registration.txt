@@ -1,0 +1,6 @@
+=== Task 9: CollectorRunnable Registration ===
+File: internal/usagecollector/runnable.go
+- CollectorRunnable struct created wrapping *Collector
+- Start(ctx) delegates to Collector.Run(ctx)
+- NeedLeaderElection() returns true (single-active)
+- Compile-time interface check: var _ Runnable = (*CollectorRunnable)(nil)

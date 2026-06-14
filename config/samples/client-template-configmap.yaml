@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: client-template
+  namespace: sing-box-operator
+data:
+  config.json: |
+    {
+      "dns": {
+        "final": "proxy-dns",
+        "client_subnet": "117.64.0.0/13",
+        "independent_cache": true,
+        "rules": [
+          {
+            "domain": [
+              "kyanch.icu",
+              "kclocal.icu",
+              "lan",
+              "ctn"
+            ],
+            "server": "local"
+          },
+          {
+            "rule_set": "geosite-cn",
+            "server": "local"
+          }
+        ],
+        "servers": [
+          {
+            "server": "1.1.1.1",
+            "tag": "proxy-dns",
+            "type": "https"
+          },
+          {
+            "path": [],
+            "predefined": {},
+            "tag": "block",
+            "type": "hosts"
+          },
+          {
+            "tag": "local",
+            "type": "local"
+          }
+        ],
+        "strategy": "ipv4_only"
+      },
+      "inbounds": [
+        {
+          "listen": "0.0.0.0",
+          "listen_port": 7890,
+          "tag": "socks-in",
+          "type": "socks"
+        },
+        {
+          "listen": "0.0.0.0",
+          "listen_port": 7891,
+          "tag": "http-in",
+          "type": "http"
+        },
+        {
+          "type": "tproxy",
+          "tag": "tproxy-in",
+          "listen": "::",
+          "listen_port": 12345,
+          "tcp_fast_open": true,
+          "udp_fragment": true
+        }
+      ],
+      "log": {
+        "level": "info"
+      },
+      "outbounds": [],
+      "route": {
+        "auto_detect_interface": true,
+        "default_domain_resolver": "local",
+        "final": "proxy",
+        "default_mark": 255,
+        "rule_set": [
+          {
+            "download_detour": "direct",
+            "format": "binary",
+            "tag": "geosite-cn",
+            "type": "remote",
+            "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs"
+          },
+          {
+            "download_detour": "direct",
+            "format": "binary",
+            "tag": "category-ads-all",
+            "type": "remote",
+            "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-category-ads-all.srs"
+          },
+          {
+            "tag": "apple",
+            "type": "inline",
+            "rules": [
+              {
+                "domain:": [
+                  "apple.comscoreresearch.com"
+                ],
+                "domain_suffix": [
+                  "aaplimg.com",
+                  "akadns.net",
+                  "apple-cloudkit.com",
+                  "apple-dns.net",
+                  "apple-mapkit.com",
+                  "apple.co",
+                  "apple.com",
+                  "apple.com.cn",
+                  "apple.news",
+                  "appstore.com",
+                  "cdn-apple.com",
+                  "crashlytics.com",
+                  "icloud-content.com",
+                  "icloud.com",
+                  "icloud.com.cn",
+                  "itunes.com",
+                  "me.com",
+                  "mzstatic.com"
+                ],
+                "ip_cider": [
+                  "17.0.0.0/8",
+                  "63.92.224.0/19",
+                  "65.199.22.0/23",
+                  "139.178.128.0/18",
+                  "144.178.0.0/19",
+                  "144.178.36.0/22",
+                  "144.178.48.0/20",
+                  "192.35.50.0/24",
+                  "198.183.17.0/24",
+                  "205.180.175.0/24"
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "action": "sniff"
+          },
+          {
+            "action": "hijack-dns",
+            "protocol": "dns"
+          },
+          {
+            "clash_mode": "Direct",
+            "outbound": "direct"
+          },
+          {
+            "clash_mode": "Proxy",
+            "outbound": "proxy"
+          },
+          {
+            "outbound": "direct",
+            "rule_set": [
+              "geosite-cn",
+              "apple"
+            ]
+          },
+          {
+            "ip_is_private": true,
+            "outbound": "direct"
+          },
+          {
+            "action": "reject",
+            "rule_set": [
+              "category-ads-all"
+            ]
+          }
+        ]
+      }
+    }

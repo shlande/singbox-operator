@@ -1,0 +1,14 @@
+$ ./bin/sbctl user init testuser --protocol invalid 2>&1; echo "exit:$?"
+Error: invalid protocol "invalid": must be one of hysteria2|vless|trojan|socks5|http
+Usage:
+  sbctl user init <name> [flags]
+
+Flags:
+  -h, --help               help for init
+  -n, --namespace string   Kubernetes namespace (default "default")
+      --protocol string    Proxy protocol (hysteria2|vless|trojan|socks5|http) (default "hysteria2")
+
+Global Flags:
+      --kubeconfig string   Path to kubeconfig file (default: ~/.kube/config)
+
+exit:1

@@ -1,0 +1,27 @@
+=== RUN   TestParseUserCounterName
+=== RUN   TestParseUserCounterName/valid-user-counter-with-virtual-user-has-hash
+=== RUN   TestParseUserCounterName/valid-user-counter-without-hash-single-node
+=== RUN   TestParseUserCounterName/valid-user-counter-downlink
+=== RUN   TestParseUserCounterName/non-user-counter-inbound
+=== RUN   TestParseUserCounterName/non-user-counter-outbound
+=== RUN   TestParseUserCounterName/malformed-too-few-parts
+=== RUN   TestParseUserCounterName/malformed-wrong-direction
+=== RUN   TestParseUserCounterName/malformed-empty-user-name
+=== RUN   TestParseUserCounterName/user-with-hash-empty-node
+=== RUN   TestParseUserCounterName/user-with-hash-only-hash-empty-user
+=== RUN   TestParseUserCounterName/user-name-contains-hash-in-value
+--- PASS: TestParseUserCounterName (0.00s)
+    --- PASS: TestParseUserCounterName/valid-user-counter-with-virtual-user-has-hash (0.00s)
+    --- PASS: TestParseUserCounterName/valid-user-counter-without-hash-single-node (0.00s)
+    --- PASS: TestParseUserCounterName/valid-user-counter-downlink (0.00s)
+    --- PASS: TestParseUserCounterName/non-user-counter-inbound (0.00s)
+    --- PASS: TestParseUserCounterName/non-user-counter-outbound (0.00s)
+    --- PASS: TestParseUserCounterName/malformed-too-few-parts (0.00s)
+    --- PASS: TestParseUserCounterName/malformed-wrong-direction (0.00s)
+    --- PASS: TestParseUserCounterName/malformed-empty-user-name (0.00s)
+    --- PASS: TestParseUserCounterName/user-with-hash-empty-node (0.00s)
+    --- PASS: TestParseUserCounterName/user-with-hash-only-hash-empty-user (0.00s)
+    --- PASS: TestParseUserCounterName/user-name-contains-hash-in-value (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	0.526s
+?   	github.com/shlande/singbox-operator/internal/usagecollector/v2rayapi	[no test files]
