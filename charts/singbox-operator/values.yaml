@@ -61,3 +61,26 @@ serviceAccount:
 
 nameOverride: ""
 fullnameOverride: ""
+
+# Usage collector — polls sing-box v2rayapi and writes traffic records to Elasticsearch
+usageCollector:
+  enabled: false
+  pollInterval: "30s"
+  nodeTimeout: "10s"
+  elasticsearch:
+    endpoint: ""
+    dataStream: "usage-traffic"
+    # API key — reference a Secret instead of inlining the value.
+    # Set existingSecret to use a pre-existing Secret, or apiKey for a plain-text value (not recommended for production).
+    apiKey: ""
+    existingSecret: ""          # name of an existing Secret
+    existingSecretKey: "api-key" # key inside the Secret
+  checkpointPath: "/var/lib/usage-collector/checkpoint.json"
+  maxBufferSize: 10000
+  shutdownTimeout: "30s"
+  # Storage for the checkpoint file. Must be writable (not subject to readOnlyRootFilesystem).
+  checkpointVolume:
+    enabled: true
+    # emptyDir is the default. Override with a PVC name for persistence across pod restarts.
+    emptyDir: {}
+    # existingClaim: ""

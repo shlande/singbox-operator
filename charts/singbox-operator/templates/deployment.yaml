@@ -15,6 +15,7 @@ spec:
       labels:
         {{- include "singbox-operator.selectorLabels" . | nindent 8 }}
     spec:
+      terminationGracePeriodSeconds: 60
       serviceAccountName: {{ include "singbox-operator.serviceAccountName" . }}
       containers:
       - name: manager
@@ -25,6 +26,21 @@ spec:
         - --metrics-bind-address=:{{ .Values.operator.metricsPort }}
         - --health-probe-bind-address=:{{ .Values.operator.healthProbePort }}
         - --default-tls-secret={{ .Values.singbox.defaultTLSSecret }}
+        {{- if .Values.usageCollector.enabled }}
+        - --usage-collect-enabled=true
+        - --usage-poll-interval={{ .Values.usageCollector.pollInterval }}
+        - --usage-node-timeout={{ .Values.usageCollector.nodeTimeout }}
+        - --usage-es-endpoint={{ .Values.usageCollector.elasticsearch.endpoint }}
+        - --usage-es-data-stream={{ .Values.usageCollector.elasticsearch.dataStream }}
+        - --usage-checkpoint-path={{ .Values.usageCollector.checkpointPath }}
+        - --usage-max-buffer-size={{ .Values.usageCollector.maxBufferSize }}
+        - --usage-shutdown-timeout={{ .Values.usageCollector.shutdownTimeout }}
+        {{- if .Values.usageCollector.elasticsearch.apiKey }}
+        - --usage-es-api-key={{ .Values.usageCollector.elasticsearch.apiKey }}
+        {{- else if .Values.usageCollector.elasticsearch.existingSecret }}
+        - --usage-es-api-key=$(USAGE_ES_API_KEY)
+        {{- end }}
+        {{- end }}
         ports:
         - name: metrics
           containerPort: {{ .Values.operator.metricsPort }}
@@ -51,15 +67,36 @@ spec:
           periodSeconds: 10
         resources:
           {{- toYaml .Values.operator.resources | nindent 10 }}
-        {{- if .Values.webhook.enabled }}
+        {{- if and .Values.usageCollector.enabled .Values.usageCollector.elasticsearch.existingSecret }}
+        env:
+        - name: USAGE_ES_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.usageCollector.elasticsearch.existingSecret }}
+              key: {{ .Values.usageCollector.elasticsearch.existingSecretKey }}
+        {{- end }}
         volumeMounts:
+        {{- if .Values.webhook.enabled }}
         - name: webhook-certs
           mountPath: /tmp/k8s-webhook-server/serving-certs
           readOnly: true
         {{- end }}
-      {{- if .Values.webhook.enabled }}
+        {{- if .Values.usageCollector.enabled }}
+        - name: usage-checkpoint
+          mountPath: /var/lib/usage-collector
+        {{- end }}
       volumes:
+      {{- if .Values.webhook.enabled }}
       - name: webhook-certs
         secret:
           secretName: {{ include "singbox-operator.fullname" . }}-webhook-server-cert
+      {{- end }}
+      {{- if .Values.usageCollector.enabled }}
+      - name: usage-checkpoint
+        {{- if .Values.usageCollector.checkpointVolume.existingClaim }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.usageCollector.checkpointVolume.existingClaim }}
+        {{- else }}
+        emptyDir: {{ toYaml .Values.usageCollector.checkpointVolume.emptyDir | nindent 10 }}
+        {{- end }}
       {{- end }}
