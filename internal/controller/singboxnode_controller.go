@@ -72,9 +72,11 @@ const (
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 type SingBoxNodeReconciler struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	DefaultTLSSecret string
-	SingBoxImage     string
+	Scheme                  *runtime.Scheme
+	DefaultTLSSecret        string
+	SingBoxImage            string
+	UsageCollectionEnabled  bool
+	V2RayAPIListenAddr      string
 }
 
 func (r *SingBoxNodeReconciler) singboxImage() string {
@@ -187,10 +189,12 @@ func (r *SingBoxNodeReconciler) ensureCredential(ctx context.Context, node *prox
 
 func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1alpha1.SingBoxNode) (configengine.Input, error) {
 	input := configengine.Input{
-		Node:                node,
-		UserCreds:           make(map[string]configengine.UserCredential),
-		NodeCreds:           make(map[string]configengine.NodeCredential),
-		OutboundNodesByName: make(map[string]*proxyv1alpha1.SingBoxNode),
+		Node:                   node,
+		UserCreds:              make(map[string]configengine.UserCredential),
+		NodeCreds:              make(map[string]configengine.NodeCredential),
+		OutboundNodesByName:    make(map[string]*proxyv1alpha1.SingBoxNode),
+		UsageCollectionEnabled: r.UsageCollectionEnabled,
+		V2RayAPIListenAddr:     r.V2RayAPIListenAddr,
 	}
 
 	allNodes := &proxyv1alpha1.SingBoxNodeList{}

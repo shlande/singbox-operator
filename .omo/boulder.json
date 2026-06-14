@@ -208,8 +208,14 @@
           "elapsed_ms": 317464
         }
       },
-      "updated_at": "2026-06-14T12:24:35.185Z"
+      "updated_at": "2026-06-14T12:25:31.576Z",
+      "ended_at": "2026-06-14T12:25:31.576Z",
+      "elapsed_ms": 3095697,
+      "status": "completed"
     }
   },
-  "updated_at": "2026-06-14T12:24:35.185Z"
+  "updated_at": "2026-06-14T12:25:31.576Z",
+  "status": "completed",
+  "ended_at": "2026-06-14T12:25:31.576Z",
+  "elapsed_ms": 3095697
 }

@@ -29,6 +29,7 @@ spec:
         - --singbox-image={{ .Values.singbox.image }}
         {{- if .Values.usageCollector.enabled }}
         - --usage-collect-enabled=true
+        - --usage-v2rayapi-listen={{ .Values.usageCollector.v2rayAPIListen }}
         - --usage-poll-interval={{ .Values.usageCollector.pollInterval }}
         - --usage-node-timeout={{ .Values.usageCollector.nodeTimeout }}
         - --usage-es-endpoint={{ .Values.usageCollector.elasticsearch.endpoint }}

@@ -75,6 +75,7 @@ func main() {
 	var nodePortRangeMin int
 	var nodePortRangeMax int
 	var usageCollectEnabled bool
+	var usageV2RayAPIListenAddr string
 	var usagePollInterval time.Duration
 	var usageNodeTimeout time.Duration
 	var usageESEndpoint string
@@ -114,6 +115,8 @@ func main() {
 		"Upper bound of the Kubernetes NodePort range. hostPort values in [nodeport-range-min, nodeport-range-max] are rejected.")
 	flag.BoolVar(&usageCollectEnabled, "usage-collect-enabled", false,
 		"Enable the usage collector that polls sing-box node traffic stats and writes to Elasticsearch.")
+	flag.StringVar(&usageV2RayAPIListenAddr, "usage-v2rayapi-listen", "127.0.0.1:10085",
+		"Listen address injected into sing-box config for v2ray_api stats. Only used when usage-collect-enabled=true.")
 	flag.DurationVar(&usagePollInterval, "usage-poll-interval", 30*time.Second,
 		"Interval between usage collection poll cycles.")
 	flag.DurationVar(&usageNodeTimeout, "usage-node-timeout", 10*time.Second,
@@ -242,10 +245,12 @@ func main() {
 	}
 
 	if err := (&controller.SingBoxNodeReconciler{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		DefaultTLSSecret: defaultTLSSecret,
-		SingBoxImage:     singboxImage,
+		Client:                 mgr.GetClient(),
+		Scheme:                 mgr.GetScheme(),
+		DefaultTLSSecret:       defaultTLSSecret,
+		SingBoxImage:           singboxImage,
+		UsageCollectionEnabled: usageCollectEnabled,
+		V2RayAPIListenAddr:     usageV2RayAPIListenAddr,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "singboxnode")
 		os.Exit(1)
