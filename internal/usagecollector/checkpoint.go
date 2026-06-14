@@ -3,6 +3,7 @@ package usagecollector
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 )
 
@@ -51,7 +52,7 @@ func LoadCheckpoint(path string) (Checkpoint, error) {
 		if errors.Is(err, os.ErrNotExist) {
 			return emptyCheckpoint(), nil
 		}
-		return emptyCheckpoint(), nil
+		return emptyCheckpoint(), fmt.Errorf("reading checkpoint file %s: %w", path, err)
 	}
 
 	var cp Checkpoint

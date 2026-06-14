@@ -834,7 +834,7 @@ Max Concurrent: 4
 
   **Commit**: NO
 
-- [ ] 11. Build end-to-end regression and integration verification suite
+- [x] 11. Build end-to-end regression and integration verification suite
 
   **What to do**:
   - 把 configengine、source client、sink、checkpoint、orchestration、manager wiring 串起来，形成端到端 integration/regression suite。
@@ -911,19 +911,19 @@ Max Concurrent: 4
 
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit okay before completing.
 
-- [ ] F1. Plan Compliance Audit
+- [x] F1. Plan Compliance Audit
   Read the final implementation against this plan. Verify the collector is a `manager.Runnable`, not embedded in `SingBoxNodeReconciler`; ES is the only concrete sink; checkpoints/idempotency/backpressure/shutdown semantics are all represented; evidence files exist for task QA scenarios.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. Code Quality Review
+- [x] F2. Code Quality Review
   Run `make lint` and inspect changed files for weak typing, hidden ES coupling in collector core, silent error swallowing, unbounded retries, and poor logging.
   Output: `Build [PASS/FAIL] | Lint [PASS/FAIL] | Tests [PASS/FAIL] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. Real QA Execution
+- [x] F3. Real QA Execution
   Execute every task QA scenario and the full regression gate. Confirm fake source/fake sink integration, config generation assertions, manager wiring behavior, and shutdown flush path all produce expected evidence.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. Scope Fidelity Check
+- [x] F4. Scope Fidelity Check
   Compare actual diff to scope boundaries. Ensure there is no MySQL sink, no Kibana/dashboarding, no quota enforcement, and no collector logic buried in existing reconciler flows. Flag any unplanned CRD additions.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 

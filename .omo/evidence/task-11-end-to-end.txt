@@ -1,6 +1,12 @@
-=== RUN   TestUsageCollectorEndToEnd
---- PASS: TestUsageCollectorEndToEnd (0.50s)
-=== RUN   TestUsageCollectorFeatureDisabled
---- PASS: TestUsageCollectorFeatureDisabled (0.00s)
-PASS
-ok  	github.com/shlande/singbox-operator/internal/usagecollector	1.104s
+=== Task 11: End-to-End Integration Test ===
+Test: TestUsageCollectorEndToEnd
+Package: internal/usagecollector/
+
+Pipeline verified:
+  1. Fake gRPC stats server → 2 user counters (uplink + downlink) for 1 node
+  2. Collector polls via fake discoverer → queries gRPC → computes deltas
+  3. Normalized UsageRecords flushed to fake ES HTTP server
+  4. ES received exactly 2 records (NDJSON bulk with correct user/node/bytes)
+  5. Checkpoint file written with expected counter values
+
+All assertions passed. No real external services used.

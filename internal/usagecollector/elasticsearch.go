@@ -46,7 +46,7 @@ func NewElasticsearchSink(cfg CollectorConfig) (*ElasticsearchSink, error) {
 	}
 
 	return &ElasticsearchSink{
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: cfg.ShutdownTimeout},
 		bulkURL: bulkURL,
 		apiKey:  cfg.ESAPIKey,
 	}, nil

@@ -74,6 +74,31 @@
       "status": "completed",
       "ended_at": "2026-06-14T12:10:35.606Z",
       "elapsed_ms": 26444
+    },
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "Build end-to-end regression and integration verification suite",
+      "session_id": "opencode:ses_139f4ca35ffeKgYYZ4YN8KcCiI",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-06-14T12:17:36.025Z",
+      "started_at": "2026-06-14T12:17:16.990Z",
+      "status": "completed",
+      "ended_at": "2026-06-14T12:17:36.025Z",
+      "elapsed_ms": 19035
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Plan Compliance Audit",
+      "session_id": "opencode:ses_139e94d66ffeh6Mj7mGpjoCJTT",
+      "agent": "oracle",
+      "started_at": "2026-06-14T12:19:17.721Z",
+      "status": "completed",
+      "updated_at": "2026-06-14T12:24:35.185Z",
+      "ended_at": "2026-06-14T12:24:35.185Z",
+      "elapsed_ms": 317464
     }
   },
   "schema_version": 2,
@@ -156,10 +181,35 @@
           "status": "completed",
           "ended_at": "2026-06-14T12:10:35.606Z",
           "elapsed_ms": 26444
+        },
+        "todo:11": {
+          "task_key": "todo:11",
+          "task_label": "11",
+          "task_title": "Build end-to-end regression and integration verification suite",
+          "session_id": "opencode:ses_139f4ca35ffeKgYYZ4YN8KcCiI",
+          "agent": "Sisyphus-Junior",
+          "category": "deep",
+          "updated_at": "2026-06-14T12:17:36.025Z",
+          "started_at": "2026-06-14T12:17:16.990Z",
+          "status": "completed",
+          "ended_at": "2026-06-14T12:17:36.025Z",
+          "elapsed_ms": 19035
+        },
+        "final-wave:f1": {
+          "task_key": "final-wave:f1",
+          "task_label": "F1",
+          "task_title": "Plan Compliance Audit",
+          "session_id": "opencode:ses_139e94d66ffeh6Mj7mGpjoCJTT",
+          "agent": "oracle",
+          "started_at": "2026-06-14T12:19:17.721Z",
+          "status": "completed",
+          "updated_at": "2026-06-14T12:24:35.185Z",
+          "ended_at": "2026-06-14T12:24:35.185Z",
+          "elapsed_ms": 317464
         }
       },
-      "updated_at": "2026-06-14T12:10:35.606Z"
+      "updated_at": "2026-06-14T12:24:35.185Z"
     }
   },
-  "updated_at": "2026-06-14T12:10:35.606Z"
+  "updated_at": "2026-06-14T12:24:35.185Z"
 }

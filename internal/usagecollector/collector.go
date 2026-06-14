@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Collector orchestrates the usage data collection pipeline:
@@ -74,6 +75,9 @@ func NewCollector(cfg CollectorConfig, discoverer Discoverer, statsClient StatsC
 // failure on startup, or final-flush failure during shutdown that
 // loses data).
 func (c *Collector) Run(ctx context.Context) error {
+	// Pick up the manager-injected logger from context; fall back to Discard if not present.
+	c.log = log.FromContext(ctx)
+
 	// 1. Load checkpoint from disk (best-effort).
 	cp, err := LoadCheckpoint(c.cfg.CheckpointPath)
 	if err != nil {
