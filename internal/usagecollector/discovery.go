@@ -44,13 +44,15 @@ type Discoverer interface {
 // client.Client.
 type K8sDiscoverer struct {
 	client    client.Client
+	reader    client.Reader
 	namespace string
 	log       logr.Logger
 }
 
-func NewK8sDiscoverer(c client.Client, namespace string) *K8sDiscoverer {
+func NewK8sDiscoverer(c client.Client, reader client.Reader, namespace string) *K8sDiscoverer {
 	return &K8sDiscoverer{
 		client:    c,
+		reader:    reader,
 		namespace: namespace,
 		log:       log.Log.WithName("usagecollector.discovery"),
 	}
@@ -184,7 +186,7 @@ func (d *K8sDiscoverer) Discover(ctx context.Context) ([]CollectTarget, error) {
 
 func (d *K8sDiscoverer) resolveV2RayAPIAddr(ctx context.Context, node *proxyv1alpha1.SingBoxNode) string {
 	podList := &corev1.PodList{}
-	if err := d.client.List(ctx, podList,
+	if err := d.reader.List(ctx, podList,
 		client.InNamespace(node.Namespace),
 		client.MatchingLabels{"app": "singbox", "singboxnode": node.Name},
 	); err != nil {

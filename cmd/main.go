@@ -309,7 +309,7 @@ func main() {
 		}
 
 		watchNamespace := os.Getenv("WATCH_NAMESPACE")
-		discoverer := usagecollector.NewK8sDiscoverer(mgr.GetClient(), watchNamespace)
+		discoverer := usagecollector.NewK8sDiscoverer(mgr.GetClient(), mgr.GetAPIReader(), watchNamespace)
 		statsClient := usagecollector.NewGRPCStatsClient(usageCfg.NodeTimeout)
 		esSink, err := usagecollector.NewElasticsearchSink(usageCfg)
 		if err != nil {

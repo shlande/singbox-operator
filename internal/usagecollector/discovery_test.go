@@ -30,7 +30,7 @@ func TestDiscoverEmptyCluster(t *testing.T) {
 		WithScheme(fakeDiscovererScheme()).
 		Build()
 
-	d := NewK8sDiscoverer(fakeClient, "default")
+	d := NewK8sDiscoverer(fakeClient, fakeClient, "default")
 	targets, err := d.Discover(context.Background())
 	if err != nil {
 		t.Fatalf("Discover on empty cluster returned error: %v", err)
@@ -127,7 +127,7 @@ func TestDiscoverOneInboundNodeWithUsers(t *testing.T) {
 	// Set status on inbound (not critical for discovery, but realistic)
 	_ = fakeClient.Status().Update(context.Background(), inbound)
 
-	d := NewK8sDiscoverer(fakeClient, "default")
+	d := NewK8sDiscoverer(fakeClient, fakeClient, "default")
 	targets, err := d.Discover(context.Background())
 	if err != nil {
 		t.Fatalf("Discover failed: %v", err)
@@ -192,7 +192,7 @@ func TestDiscoverExcludesDeletedNode(t *testing.T) {
 		WithObjects(inbound1, inbound2).
 		Build()
 
-	d := NewK8sDiscoverer(fakeClient, "default")
+	d := NewK8sDiscoverer(fakeClient, fakeClient, "default")
 
 	// First discovery: 2 nodes
 	targets1, err := d.Discover(context.Background())
