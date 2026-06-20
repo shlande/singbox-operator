@@ -7,13 +7,13 @@ metadata:
     {{- include "singbox-operator.labels" . | nindent 4 }}
 rules:
 - apiGroups: ["singboxoperator.shlande.top"]
-  resources: ["singboxnodes", "users", "customroutes"]
+  resources: ["singboxnodes", "users", "customroutes", "usergroups"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["singboxoperator.shlande.top"]
-  resources: ["singboxnodes/status", "users/status", "customroutes/status"]
+  resources: ["singboxnodes/status", "users/status", "customroutes/status", "usergroups/status"]
   verbs: ["get", "update", "patch"]
 - apiGroups: ["singboxoperator.shlande.top"]
-  resources: ["singboxnodes/finalizers", "users/finalizers", "customroutes/finalizers"]
+  resources: ["singboxnodes/finalizers", "users/finalizers", "customroutes/finalizers", "usergroups/finalizers"]
   verbs: ["update"]
 - apiGroups: ["apps"]
   resources: ["deployments"]
