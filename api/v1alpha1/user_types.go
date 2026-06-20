@@ -23,12 +23,6 @@ import (
 
 // UserSpec defines the desired state of User
 type UserSpec struct {
-	// Protocol is the inbound proxy protocol (must match a SingBoxNode's supportedProtocols).
-	// Defaults to hysteria2 when omitted.
-	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http
-	// +kubebuilder:default=hysteria2
-	// +optional
-	Protocol string `json:"protocol,omitempty"`
 	// AuthSecret references the Secret containing authentication credentials
 	// (e.g., password for hysteria2/trojan, uuid for vless)
 	AuthSecret corev1.SecretReference `json:"authSecret"`
@@ -61,7 +55,6 @@ type UserStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=u
-// +kubebuilder:printcolumn:name="Protocol",type=string,JSONPath=`.spec.protocol`
 // +kubebuilder:printcolumn:name="ActiveNodes",type=integer,JSONPath=`.status.activeNodeCount`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 

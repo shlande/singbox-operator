@@ -17,9 +17,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.protocol
-      name: Protocol
-      type: string
     - jsonPath: .status.activeNodeCount
       name: ActiveNodes
       type: integer
@@ -66,18 +63,6 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
-              protocol:
-                default: hysteria2
-                description: |-
-                  Protocol is the inbound proxy protocol (must match a SingBoxNode's supportedProtocols).
-                  Defaults to hysteria2 when omitted.
-                enum:
-                - hysteria2
-                - vless
-                - trojan
-                - socks5
-                - http
-                type: string
               userGroupRef:
                 description: |-
                   UserGroupRef is the name of the UserGroup in the same namespace.

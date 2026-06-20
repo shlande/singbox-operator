@@ -68,6 +68,13 @@ type SingBoxNodeSpec struct {
 	// SupportedProtocols declares inbound protocols (only meaningful for inbound role)
 	// +optional
 	SupportedProtocols []ProtocolConfig `json:"supportedProtocols,omitempty"`
+	// InboundProtocol forces this inbound node to use a specific protocol for all users.
+	// When set, only this protocol is used for inbound connections, regardless of SupportedProtocols.
+	// When empty, defaults to "hysteria2".
+	// Only meaningful for nodes with the inbound role.
+	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http
+	// +optional
+	InboundProtocol string `json:"inboundProtocol,omitempty"`
 	// RelayPort is the host port for inter-node relay connections.
 	// Required for outbound nodes that receive relay traffic from inbound nodes.
 	// When unset, outbound nodes are excluded from generated configs.

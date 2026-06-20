@@ -58,6 +58,19 @@ spec:
                 description: Address is the public IP or hostname of the host machine.
                 minLength: 1
                 type: string
+              inboundProtocol:
+                description: |-
+                  InboundProtocol forces this inbound node to use a specific protocol for all users.
+                  When set, only this protocol is used for inbound connections, regardless of SupportedProtocols.
+                  When empty, defaults to "hysteria2".
+                  Only meaningful for nodes with the inbound role.
+                enum:
+                - hysteria2
+                - vless
+                - trojan
+                - socks5
+                - http
+                type: string
               nodeRef:
                 description: NodeRef is the name of the Kubernetes Node this proxy
                   runs on
