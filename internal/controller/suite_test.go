@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -90,8 +91,10 @@ var _ = BeforeSuite(func() {
 	// The UserGroup controller uses client.MatchingFields{"spec.userGroupRef": ...} for lookups,
 	// which requires a field index registered on the manager's field indexer.
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",
+		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.GetFieldIndexer().IndexField(ctx, &proxyv1alpha1.User{}, "spec.userGroupRef", func(rawObj client.Object) []string {
