@@ -28,6 +28,7 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -84,6 +85,24 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	// Register field index for spec.userGroupRef on User objects.
+	// The UserGroup controller uses client.MatchingFields{"spec.userGroupRef": ...} for lookups,
+	// which requires a field index registered on the manager's field indexer.
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme.Scheme,
+		MetricsBindAddress: "0",
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(mgr.GetFieldIndexer().IndexField(ctx, &proxyv1alpha1.User{}, "spec.userGroupRef", func(rawObj client.Object) []string {
+		user := rawObj.(*proxyv1alpha1.User)
+		if user.Spec.UserGroupRef == "" {
+			return nil
+		}
+		return []string{user.Spec.UserGroupRef}
+	})).To(Succeed())
+	// Use the manager's client which has field indexes available.
+	k8sClient = mgr.GetClient()
 })
 
 var _ = AfterSuite(func() {
