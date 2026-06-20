@@ -221,6 +221,16 @@ func findProtocolPort(node *v1alpha1.SingBoxNode, protocol string) int32 {
 	return 0
 }
 
+// effectiveInboundProtocol returns the protocol this inbound node uses for all users.
+// If InboundProtocol is explicitly set, that protocol is used.
+// Otherwise, defaults to "hysteria2".
+func effectiveInboundProtocol(node *v1alpha1.SingBoxNode) string {
+	if node.Spec.InboundProtocol != "" {
+		return node.Spec.InboundProtocol
+	}
+	return "hysteria2"
+}
+
 func routesForNode(input Input) []*v1alpha1.CustomRoute {
 	var result []*v1alpha1.CustomRoute
 	for _, r := range input.Routes {
@@ -308,32 +318,28 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 		outboundNames = append(outboundNames, input.Node.Name)
 	}
 
-	for _, proto := range input.Node.Spec.SupportedProtocols {
-		tag := fmt.Sprintf("inbound-%s", proto.Protocol)
-		port := proto.Port
+	proto := effectiveInboundProtocol(input.Node)
+	port := findProtocolPort(input.Node, proto)
+	if port != 0 {
+		tag := fmt.Sprintf("inbound-%s", proto)
 
 		var users []map[string]any
 		for _, nodeName := range outboundNames {
 			for _, user := range input.Users {
-				if user.Spec.Protocol != proto.Protocol {
-					continue
-				}
 				if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
 					continue
 				}
 				cred := input.UserCreds[user.Name]
 				vName := virtualUserName(user.Name, nodeName)
-				auth := DeriveAuth(proto.Protocol, cred.UUID, nodeName)
+				auth := DeriveAuth(proto, cred.UUID, nodeName)
 				auth["name"] = vName
 				users = append(users, auth)
 			}
 		}
 
-		if len(users) == 0 {
-			continue
+		if len(users) > 0 {
+			inbounds = append(inbounds, buildInboundEntry(proto, tag, port, users))
 		}
-
-		inbounds = append(inbounds, buildInboundEntry(proto.Protocol, tag, port, users))
 	}
 
 	for _, nodeName := range outboundNames {
@@ -343,12 +349,7 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 			if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
 				continue
 			}
-			for _, proto := range input.Node.Spec.SupportedProtocols {
-				if user.Spec.Protocol == proto.Protocol {
-					authUsers = append(authUsers, virtualUserName(user.Name, nodeName))
-					break
-				}
-			}
+			authUsers = append(authUsers, virtualUserName(user.Name, nodeName))
 		}
 		if len(authUsers) > 0 {
 			rules = append(rules, routeRule{
@@ -364,9 +365,6 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 func buildUsersBlock(input Input, protocol, nodeName string) []map[string]any {
 	var users []map[string]any
 	for _, user := range input.Users {
-		if user.Spec.Protocol != protocol {
-			continue
-		}
 		// Defensive: skip users denied from the current inbound node.
 		// Normally pre-filtered by the controller, but guard here as well.
 		if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
@@ -403,25 +401,17 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]any)
 }
 
 func buildUserInbounds(input Input) []any {
-	var result []any
-	seen := make(map[string]bool)
-
-	for _, user := range input.Users {
-		proto := user.Spec.Protocol
-		if seen[proto] {
-			continue
-		}
-		seen[proto] = true
-
-		port := findProtocolPort(input.Node, proto)
-		tag := fmt.Sprintf("inbound-%s", proto)
-		users := buildUsersBlock(input, proto, input.Node.Name)
-		if len(users) == 0 {
-			continue
-		}
-		result = append(result, buildInboundEntry(proto, tag, port, users))
+	proto := effectiveInboundProtocol(input.Node)
+	port := findProtocolPort(input.Node, proto)
+	if port == 0 {
+		return nil
 	}
-	return result
+	tag := fmt.Sprintf("inbound-%s", proto)
+	users := buildUsersBlock(input, proto, input.Node.Name)
+	if len(users) == 0 {
+		return nil
+	}
+	return []any{buildInboundEntry(proto, tag, port, users)}
 }
 
 func buildRelayInbound(input Input) any {
@@ -553,13 +543,8 @@ func buildExperimentalConfig(input Input) *experimentalConfig {
 	var userSet = make(map[string]bool)
 	for _, nodeName := range outboundNames {
 		for _, user := range input.Users {
-			for _, proto := range input.Node.Spec.SupportedProtocols {
-				if user.Spec.Protocol == proto.Protocol {
-					vName := virtualUserName(user.Name, nodeName)
-					userSet[vName] = true
-					break
-				}
-			}
+			vName := virtualUserName(user.Name, nodeName)
+			userSet[vName] = true
 		}
 	}
 

@@ -3,7 +3,6 @@ package user
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -15,7 +14,6 @@ import (
 )
 
 func NewInitCmd() *cobra.Command {
-	var protocol string
 	var namespace string
 
 	cmd := &cobra.Command{
@@ -25,12 +23,6 @@ func NewInitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			name := args[0]
-
-			validProtocols := []string{"hysteria2", "vless", "trojan", "socks5", "http"}
-			valid := slices.Contains(validProtocols, protocol)
-			if !valid {
-				return fmt.Errorf("invalid protocol %q: must be one of hysteria2|vless|trojan|socks5|http", protocol)
-			}
 
 			k8sClient, ok := cmd.Context().Value("k8s-client").(client.Client)
 			if !ok {
@@ -59,7 +51,6 @@ func NewInitCmd() *cobra.Command {
 					Namespace: namespace,
 				},
 				Spec: proxyv1alpha1.UserSpec{
-					Protocol: protocol,
 					AuthSecret: corev1.SecretReference{
 						Name:      name + "-auth",
 						Namespace: namespace,
@@ -76,7 +67,6 @@ func NewInitCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&protocol, "protocol", "hysteria2", "Proxy protocol (hysteria2|vless|trojan|socks5|http)")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
 
 	return cmd

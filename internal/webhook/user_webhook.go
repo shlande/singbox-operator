@@ -31,9 +31,6 @@ import (
 type UserWebhook struct{}
 
 func (w *UserWebhook) Default(ctx context.Context, user *v1alpha1.User) error {
-	if user.Spec.Protocol == "" {
-		user.Spec.Protocol = "hysteria2"
-	}
 	return nil
 }
 
@@ -49,24 +46,8 @@ func (w *UserWebhook) ValidateDelete(ctx context.Context, user *v1alpha1.User) (
 	return nil, nil
 }
 
-var validProtocols = map[string]bool{
-	"hysteria2": true,
-	"vless":     true,
-	"trojan":    true,
-	"socks5":    true,
-	"http":      true,
-}
-
 func validateUser(user *v1alpha1.User) error {
 	var allErrs field.ErrorList
-
-	if user.Spec.Protocol != "" && !validProtocols[user.Spec.Protocol] {
-		allErrs = append(allErrs, field.NotSupported(
-			field.NewPath("spec", "protocol"),
-			user.Spec.Protocol,
-			[]string{"hysteria2", "vless", "trojan", "socks5", "http"},
-		))
-	}
 
 	if user.Spec.AuthSecret.Name == "" {
 		allErrs = append(allErrs, field.Required(field.NewPath("spec", "authSecret", "name"), "authSecret.name must not be empty"))

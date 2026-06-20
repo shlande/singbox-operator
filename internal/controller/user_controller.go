@@ -93,7 +93,7 @@ func (r *UserReconciler) findMatchingInboundNodes(ctx context.Context, user *pro
 
 	var matching []proxyv1alpha1.SingBoxNode
 	for _, node := range allNodes.Items {
-		if hasRole(&node, proxyv1alpha1.ProxyRoleInbound) && nodeSupportsProtocol(&node, user.Spec.Protocol) {
+		if hasRole(&node, proxyv1alpha1.ProxyRoleInbound) {
 			matching = append(matching, node)
 		}
 	}
@@ -194,7 +194,7 @@ func (r *UserReconciler) updateStatus(ctx context.Context, user *proxyv1alpha1.U
 		return ctrl.Result{}, err
 	}
 
-	metrics.ProxyUsersTotal.WithLabelValues(latest.Spec.Protocol).Set(1)
+	metrics.ProxyUsersTotal.Set(1)
 
 	return ctrl.Result{}, nil
 }

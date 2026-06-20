@@ -34,8 +34,6 @@ type ClientConfigInput struct {
 // BuildClientConfig generates the outbounds array for a client sing-box config.
 // Returns: proxy outbounds + selector("proxy") + direct
 func BuildClientConfig(input ClientConfigInput) ([]any, error) {
-	protocol := input.User.Spec.Protocol
-
 	var proxyOutbounds []any
 	var proxyTags []string
 
@@ -46,6 +44,7 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 		if !configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
 			continue
 		}
+		protocol := effectiveNodeProtocol(inboundNode)
 		if !supportsProtocol(inboundNode, protocol) {
 			continue
 		}
@@ -83,6 +82,16 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 	})
 
 	return result, nil
+}
+
+// effectiveNodeProtocol returns the protocol this inbound node uses for all users.
+// If InboundProtocol is explicitly set, that protocol is used.
+// Otherwise, defaults to "hysteria2".
+func effectiveNodeProtocol(node *v1alpha1.SingBoxNode) string {
+	if node.Spec.InboundProtocol != "" {
+		return node.Spec.InboundProtocol
+	}
+	return "hysteria2"
 }
 
 func supportsProtocol(node *v1alpha1.SingBoxNode, protocol string) bool {

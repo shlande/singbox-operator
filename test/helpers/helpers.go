@@ -50,14 +50,13 @@ func CreateSingBoxNode(ctx context.Context, c client.Client, name, namespace, re
 	return node, nil
 }
 
-func CreateUser(ctx context.Context, c client.Client, name, namespace, protocol, secretName string) (*v1alpha1.User, error) {
+func CreateUser(ctx context.Context, c client.Client, name, namespace, secretName string) (*v1alpha1.User, error) {
 	user := &v1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: v1alpha1.UserSpec{
-			Protocol: protocol,
 			AuthSecret: corev1.SecretReference{
 				Name:      secretName,
 				Namespace: namespace,

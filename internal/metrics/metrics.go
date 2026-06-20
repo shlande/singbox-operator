@@ -15,13 +15,12 @@ var (
 		[]string{"region", "role", "phase"},
 	)
 
-	// ProxyUsersTotal tracks the number of ProxyUsers by protocol
-	ProxyUsersTotal = prometheus.NewGaugeVec(
+	// ProxyUsersTotal tracks the number of ProxyUsers
+	ProxyUsersTotal = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "singbox_proxy_users_total",
-			Help: "Total number of ProxyUsers by protocol",
+			Help: "Total number of ProxyUsers",
 		},
-		[]string{"protocol"},
 	)
 
 	// ReconcileDurationSeconds tracks reconcile duration by controller and result

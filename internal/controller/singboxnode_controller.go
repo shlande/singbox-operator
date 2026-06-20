@@ -236,9 +236,6 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 		})
 		for i := range allUsers.Items {
 			user := &allUsers.Items[i]
-			if !nodeSupportsProtocol(node, user.Spec.Protocol) {
-				continue
-			}
 			if user.Spec.UserGroupRef == "" {
 				// No group ref: no restrictions, add user normally.
 				input.Users = append(input.Users, user)
@@ -604,7 +601,7 @@ func (r *SingBoxNodeReconciler) matchingProtocolNodeMapper(ctx context.Context, 
 	}
 	var requests []reconcile.Request
 	for _, n := range allNodes.Items {
-		if hasRole(&n, proxyv1alpha1.ProxyRoleInbound) && nodeSupportsProtocol(&n, user.Spec.Protocol) {
+		if hasRole(&n, proxyv1alpha1.ProxyRoleInbound) {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{Name: n.Name, Namespace: n.Namespace},
 			})
@@ -628,8 +625,7 @@ func (r *SingBoxNodeReconciler) usersInGroupToNodesMapper(ctx context.Context, o
 	if err := r.List(ctx, allNodes, client.InNamespace(userGroup.Namespace)); err != nil {
 		return nil
 	}
-	// Return the union of all inbound SingBoxNodes that match any user's protocol
-	// AND whose user references this UserGroup.
+	// Return the union of all inbound SingBoxNodes whose user references this UserGroup.
 	seen := make(map[types.NamespacedName]bool)
 	var requests []reconcile.Request
 	for _, user := range userList.Items {
@@ -638,7 +634,7 @@ func (r *SingBoxNodeReconciler) usersInGroupToNodesMapper(ctx context.Context, o
 		}
 		for _, n := range allNodes.Items {
 			key := types.NamespacedName{Name: n.Name, Namespace: n.Namespace}
-			if !seen[key] && hasRole(&n, proxyv1alpha1.ProxyRoleInbound) && nodeSupportsProtocol(&n, user.Spec.Protocol) {
+			if !seen[key] && hasRole(&n, proxyv1alpha1.ProxyRoleInbound) {
 				seen[key] = true
 				requests = append(requests, reconcile.Request{NamespacedName: key})
 			}
@@ -734,15 +730,6 @@ func hostPortProtocols(protocol string) []corev1.Protocol {
 
 func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool {
 	return slices.Contains(node.Spec.Roles, role)
-}
-
-func nodeSupportsProtocol(node *proxyv1alpha1.SingBoxNode, protocol string) bool {
-	for _, p := range node.Spec.SupportedProtocols {
-		if p.Protocol == protocol {
-			return true
-		}
-	}
-	return false
 }
 
 func needsTLS(node *proxyv1alpha1.SingBoxNode) bool {
