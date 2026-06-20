@@ -1,0 +1,10 @@
+Search pattern: "User.Protocol" (SimpleMatch)
+Result: False (no matches found)
+
+Search pattern: "Spec.Protocol" (SimpleMatch)
+Result: True - only 2 matches:
+  Line 91: node.Spec.InboundProtocol (the new InboundProtocol field, not User.Spec.Protocol)
+  (other occurrence is also node.Spec.InboundProtocol)
+
+Confirmed: No references to input.User.Spec.Protocol or User.Protocol remain.
+Task 4 requirement met.

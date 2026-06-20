@@ -86,7 +86,6 @@ func TestDiscoverOneInboundNodeWithUsers(t *testing.T) {
 			// User controller resolves ActiveNodes; simplified for test
 		},
 		Spec: proxyv1alpha1.UserSpec{
-			Protocol: "hysteria2",
 			AuthSecret: corev1.SecretReference{
 				Name: "alice-secret",
 			},
@@ -99,7 +98,6 @@ func TestDiscoverOneInboundNodeWithUsers(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: proxyv1alpha1.UserSpec{
-			Protocol: "hysteria2",
 			AuthSecret: corev1.SecretReference{
 				Name: "bob-secret",
 			},

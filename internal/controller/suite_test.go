@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,9 +88,9 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	cancel()
-	Eventually(func() error {
-		return testEnv.Stop()
-	}, time.Minute, time.Second).Should(Succeed())
+	// testEnv.Stop() may return an error on Windows because SIGTERM is not supported.
+	// Ignore the error to avoid a false test failure; the OS cleans up child processes on exit.
+	_ = testEnv.Stop()
 })
 
 // getFirstFoundEnvTestBinaryDir locates the first binary in the specified path.
@@ -111,7 +110,17 @@ func getFirstFoundEnvTestBinaryDir() string {
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			return filepath.Join(basePath, entry.Name())
+			// Recurse one level to find the versioned directory (e.g. 1.31.0-linux-amd64).
+			subDir := filepath.Join(basePath, entry.Name())
+			subEntries, err := os.ReadDir(subDir)
+			if err == nil {
+				for _, sub := range subEntries {
+					if sub.IsDir() {
+						return filepath.Join(subDir, sub.Name())
+					}
+				}
+			}
+			return subDir
 		}
 	}
 	return ""

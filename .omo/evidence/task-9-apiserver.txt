@@ -1,0 +1,49 @@
+Task 9 — UserGroup Node Restriction Filtering in Client Config API
+===================================================================
+
+## Summary
+
+Added UserGroup-based node restriction filtering to the client config API.
+Build: `go build ./internal/apiserver/...` exits 0.
+
+## Changes
+
+### 1. internal/configengine/engine.go
+Added exported function `IsNodeAllowed`:
+
+  func IsNodeAllowed(nodeName string, allowedNodeNames, deniedNodeNames map[string]bool) bool
+    - deny-wins: if deniedNodeNames[nodeName] → false
+    - if allowedNodeNames non-empty and name not in it → false
+    - otherwise → true (nil maps = no restrictions)
+
+### 2. internal/apiserver/client_config.go
+- Added to ClientConfigInput struct:
+    AllowedNodeNames map[string]bool  // whitelist; nil = allow all
+    DeniedNodeNames  map[string]bool  // blacklist; nil = deny none
+- BuildClientConfig() inbound loop: added IsNodeAllowed check for each inboundNode
+  BEFORE supportsProtocol check; skips denied/non-allowed inbound nodes
+- resolveOutboundNodes():
+  - same-region outbound nodes: added IsNodeAllowed guard in loop condition
+  - inboundNode-as-outbound: added IsNodeAllowed guard
+  - CustomRoute outbound nodes: added IsNodeAllowed guard in loop condition
+
+### 3. internal/apiserver/handler.go
+- After routesByInbound is built, added UserGroup fetch:
+    var allowedNodeNames, deniedNodeNames map[string]bool
+    if matchedUser.Spec.UserGroupRef != "" {
+        fetch proxyv1alpha1.UserGroup
+        if not found → log warning, proceed with nil (fail-open)
+        if found → build maps from ug.Spec.AllowedNodes / ug.Spec.DeniedNodes
+    }
+- ClientConfigInput literal: added AllowedNodeNames and DeniedNodeNames fields
+
+## Checklist
+[x] ClientConfigInput has AllowedNodeNames map[string]bool
+[x] ClientConfigInput has DeniedNodeNames map[string]bool
+[x] handleClientConfig() fetches UserGroup and populates these fields
+[x] BuildClientConfig() skips inbound nodes that are denied for the user
+[x] resolveOutboundNodes() skips outbound nodes that are denied for the user
+[x] go build ./internal/apiserver/... exits 0
+[x] BuildClientConfig() signature unchanged (pure function)
+[x] No client.Client added to BuildClientConfig or ClientConfigInput
+[x] template.go not modified

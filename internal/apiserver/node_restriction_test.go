@@ -22,7 +22,7 @@ func TestBuildClientConfig_WithNodeRestrictions(t *testing.T) {
 	outboundB := makeOutboundNode("node-b", "us")
 	outboundC := makeOutboundNode("node-c", "us")
 
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 	userCred := credmanager.UserCredential{UUID: baseUUID}
 
 	t.Run("DeniedNodeNames excludes denied outbound node-b, keeps node-c", func(t *testing.T) {

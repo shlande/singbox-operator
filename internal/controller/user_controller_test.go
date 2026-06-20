@@ -79,7 +79,6 @@ var _ = Describe("User Reconciler", func() {
 		user := &proxyv1alpha1.User{
 			ObjectMeta: metav1.ObjectMeta{Name: userName, Namespace: ns},
 			Spec: proxyv1alpha1.UserSpec{
-				Protocol: "vless",
 				AuthSecret: corev1.SecretReference{
 					Name:      "pu-test-secret-1",
 					Namespace: ns,
@@ -132,7 +131,6 @@ var _ = Describe("User Reconciler", func() {
 		user := &proxyv1alpha1.User{
 			ObjectMeta: metav1.ObjectMeta{Name: userName, Namespace: ns},
 			Spec: proxyv1alpha1.UserSpec{
-				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: "pu-multi-secret", Namespace: ns},
 			},
 		}
@@ -151,9 +149,19 @@ var _ = Describe("User Reconciler", func() {
 		}, timeout, interval).Should(BeNumerically(">=", int32(2)))
 	})
 
-	It("should set ActiveNodeCount=0 when no nodes support the protocol", func() {
+	It("should set ActiveNodeCount=0 when no inbound nodes exist in the namespace", func() {
+		// Use an isolated namespace with no inbound nodes to verify count=0.
+		// Since the controller no longer filters by protocol, all inbound nodes
+		// in the namespace match any user. An empty namespace means 0 matches.
+		isolatedNs := "pu-isolated-ns"
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: isolatedNs},
+		}
+		Expect(k8sClient.Create(testCtx, namespace)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(testCtx, namespace) })
+
 		authSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: "pu-nomatch-secret", Namespace: ns},
+			ObjectMeta: metav1.ObjectMeta{Name: "pu-nomatch-secret", Namespace: isolatedNs},
 			Data:       map[string][]byte{"password": []byte("test-password")},
 		}
 		Expect(k8sClient.Create(testCtx, authSecret)).To(Succeed())
@@ -161,23 +169,22 @@ var _ = Describe("User Reconciler", func() {
 
 		userName := "pu-nomatch-user"
 		user := &proxyv1alpha1.User{
-			ObjectMeta: metav1.ObjectMeta{Name: userName, Namespace: ns},
+			ObjectMeta: metav1.ObjectMeta{Name: userName, Namespace: isolatedNs},
 			Spec: proxyv1alpha1.UserSpec{
-				Protocol:   "trojan",
-				AuthSecret: corev1.SecretReference{Name: "pu-nomatch-secret", Namespace: ns},
+				AuthSecret: corev1.SecretReference{Name: "pu-nomatch-secret", Namespace: isolatedNs},
 			},
 		}
 		Expect(k8sClient.Create(testCtx, user)).To(Succeed())
 		DeferCleanup(func() { k8sClient.Delete(testCtx, user) })
 
 		_, err := reconciler.Reconcile(testCtx, ctrl.Request{
-			NamespacedName: types.NamespacedName{Name: userName, Namespace: ns},
+			NamespacedName: types.NamespacedName{Name: userName, Namespace: isolatedNs},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		updatedUser := &proxyv1alpha1.User{}
 		Eventually(func() bool {
-			k8sClient.Get(testCtx, types.NamespacedName{Name: userName, Namespace: ns}, updatedUser)
+			k8sClient.Get(testCtx, types.NamespacedName{Name: userName, Namespace: isolatedNs}, updatedUser)
 			return updatedUser.Status.ObservedGeneration > 0
 		}, timeout, interval).Should(BeTrue())
 		Expect(updatedUser.Status.ActiveNodeCount).To(Equal(int32(0)))

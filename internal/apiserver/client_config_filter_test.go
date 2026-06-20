@@ -40,7 +40,7 @@ func countProxyOutbounds(result []any) int {
 
 func setupBasicInput(inbound *proxyv1alpha1.SingBoxNode, outbound *proxyv1alpha1.SingBoxNode, offlineNames map[string]bool) ClientConfigInput {
 	return ClientConfigInput{
-		User:             makeUser("user-alice", "vless", "secret-alice"),
+		User:             makeUser("user-alice", "secret-alice"),
 		UserCred:         credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
 		InboundNodes:     []*proxyv1alpha1.SingBoxNode{inbound},
 		RoutesByInbound:  map[string][]*proxyv1alpha1.CustomRoute{},
@@ -212,7 +212,7 @@ func TestNodeReadiness_MultipleUnhealthyNodes_AllExcluded(t *testing.T) {
 	outbound3 := makeOutboundNode("node-b3", "us")
 
 	input := ClientConfigInput{
-		User:            makeUser("user-alice", "vless", "secret-alice"),
+		User:            makeUser("user-alice", "secret-alice"),
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
 		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
 		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
@@ -262,7 +262,7 @@ func TestNodeReadiness_CustomRouteUnhealthy_Excluded(t *testing.T) {
 	customRoute := makeCustomRoute("route-a-b", "default", "node-a", "node-b")
 
 	input := ClientConfigInput{
-		User:         makeUser("user-alice", "vless", "secret-alice"),
+		User:         makeUser("user-alice", "secret-alice"),
 		UserCred:     credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
 		InboundNodes: []*proxyv1alpha1.SingBoxNode{inbound},
 		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{
@@ -293,7 +293,7 @@ func TestNodeReadiness_DualRoleNodeUnhealthy_ExcludesSelf(t *testing.T) {
 	nodeX.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
 	input := ClientConfigInput{
-		User:            makeUser("user-alice", "vless", "secret-alice"),
+		User:            makeUser("user-alice", "secret-alice"),
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
 		InboundNodes:    []*proxyv1alpha1.SingBoxNode{nodeX},
 		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},

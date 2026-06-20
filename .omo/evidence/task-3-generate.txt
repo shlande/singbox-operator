@@ -1,0 +1,59 @@
+Task 3: Run make manifests + make generate
+=============================================
+Date: 2026-06-21
+Project: sing-box-operator (kubebuilder v4)
+
+## Commands Executed
+
+### make manifests equivalent:
+controller-gen paths=./api/v1alpha1/... paths=./internal/controller/... paths=./internal/webhook/... \
+  crd rbac:roleName=manager-role \
+  output:crd:artifacts:config=config/crd/bases \
+  output:rbac:artifacts:config=config/rbac
+
+### make generate equivalent:
+controller-gen object:headerFile=hack/boilerplate.go.txt,year=2026 paths=./api/v1alpha1/...
+
+## Exit Codes
+- make manifests (controller-gen crd+rbac): 0
+- make generate (controller-gen object): 0
+- go build ./...: 0
+
+## Verification Results
+
+### 1. CRD YAML for UserGroup
+File exists: config/crd/bases/singboxoperator.shlande.top_usergroups.yaml ✓
+
+All CRD YAML files:
+- singboxoperator.shlande.top_customroutes.yaml
+- singboxoperator.shlande.top_singboxnodes.yaml
+- singboxoperator.shlande.top_usergroups.yaml   ✓ NEW
+- singboxoperator.shlande.top_users.yaml
+
+### 2. RBAC role.yaml for usergroups
+config/rbac/role.yaml contains:
+- resources: ["usergroups"] ✓
+- resources: ["usergroups/finalizers"] ✓
+- resources: ["usergroups/status"] ✓
+
+### 3. DeepCopy methods for UserGroup
+api/v1alpha1/zz_generated.deepcopy.go contains:
+- func (in *UserGroup) DeepCopyInto(out *UserGroup) ✓
+- func (in *UserGroup) DeepCopy() *UserGroup ✓
+- func (in *UserGroup) DeepCopyObject() runtime.Object ✓
+- func (in *UserGroupList) DeepCopyInto(out *UserGroupList) ✓
+- func (in *UserGroupList) DeepCopy() *UserGroupList ✓
+- func (in *UserGroupList) DeepCopyObject() runtime.Object ✓
+- func (in *UserGroupSpec) DeepCopyInto(out *UserGroupSpec) ✓
+- func (in *UserGroupSpec) DeepCopy() *UserGroupSpec ✓
+- func (in *UserGroupStatus) DeepCopyInto(out *UserGroupStatus) ✓
+- func (in *UserGroupStatus) DeepCopy() *UserGroupStatus ✓
+
+### 4. Build Verification
+go build ./...: exits 0 (no errors) ✓
+
+## Notes
+- make was not available on Windows; used controller-gen binary directly
+- controller-tools version: v0.20.1 (per Makefile CONTROLLER_TOOLS_VERSION)
+- Used explicit path arguments: paths=./api/v1alpha1/... paths=./internal/controller/... paths=./internal/webhook/...
+  because the root wildcard paths=./... failed on Windows ("no Go files in root directory")

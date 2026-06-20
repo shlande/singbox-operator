@@ -323,33 +323,28 @@ func TestUserWebhook_Default(t *testing.T) {
 	w := &webhook.UserWebhook{}
 	ctx := context.Background()
 
-	t.Run("defaults empty protocol to hysteria2", func(t *testing.T) {
+	t.Run("Default() returns no error for user with authSecret", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		if err := w.Default(ctx, user); err != nil {
 			t.Fatalf("Default() error: %v", err)
-		}
-		if user.Spec.Protocol != "hysteria2" {
-			t.Errorf("Expected protocol=hysteria2, got %q", user.Spec.Protocol)
 		}
 	})
 
-	t.Run("does not override explicitly set protocol", func(t *testing.T) {
+	t.Run("Default() does not modify authSecret", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		if err := w.Default(ctx, user); err != nil {
 			t.Fatalf("Default() error: %v", err)
 		}
-		if user.Spec.Protocol != "vless" {
-			t.Errorf("Expected protocol=vless (unchanged), got %q", user.Spec.Protocol)
+		if user.Spec.AuthSecret.Name != "my-secret" {
+			t.Errorf("Expected authSecret.name=my-secret (unchanged), got %q", user.Spec.AuthSecret.Name)
 		}
 	})
 }
@@ -358,36 +353,34 @@ func TestUserWebhook_ValidateCreate(t *testing.T) {
 	w := &webhook.UserWebhook{}
 	ctx := context.Background()
 
-	t.Run("accepts empty protocol (defaulted by webhook)", func(t *testing.T) {
+	t.Run("accepts User with valid authSecret", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
 		if err != nil {
-			t.Errorf("Expected no error for empty protocol (optional field), got: %v", err)
+			t.Errorf("Expected no error for valid authSecret, got: %v", err)
 		}
 	})
 
-	t.Run("rejects unknown protocol", func(t *testing.T) {
+	t.Run("rejects invalid userGroupRef (contains space)", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "shadowsocks",
-				AuthSecret: corev1.SecretReference{Name: "my-secret"},
+				AuthSecret:   corev1.SecretReference{Name: "my-secret"},
+				UserGroupRef: "my group",
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
 		if err == nil {
-			t.Error("Expected error for unknown protocol, got nil")
+			t.Error("Expected error for invalid userGroupRef, got nil")
 		}
 	})
 
 	t.Run("rejects empty authSecret name", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: ""},
 			},
 		}
@@ -403,20 +396,18 @@ func TestUserWebhook_ValidateCreate(t *testing.T) {
 	t.Run("accepts valid User with hysteria2", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "hysteria2",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, user)
 		if err != nil {
-			t.Errorf("Expected no error for hysteria2 User, got: %v", err)
+			t.Errorf("Expected no error for User, got: %v", err)
 		}
 	})
 
 	t.Run("accepts valid User with vless", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
@@ -429,7 +420,6 @@ func TestUserWebhook_ValidateCreate(t *testing.T) {
 	t.Run("accepts valid User with trojan", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "trojan",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
@@ -442,7 +432,6 @@ func TestUserWebhook_ValidateCreate(t *testing.T) {
 	t.Run("accepts valid User with socks5", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "socks5",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
@@ -455,7 +444,6 @@ func TestUserWebhook_ValidateCreate(t *testing.T) {
 	t.Run("accepts valid User with http", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "http",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
@@ -473,19 +461,17 @@ func TestUserWebhook_ValidateUpdate(t *testing.T) {
 	t.Run("validates new object on update", func(t *testing.T) {
 		old := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "vless",
 				AuthSecret: corev1.SecretReference{Name: "my-secret"},
 			},
 		}
 		newUser := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:   "unknown-protocol",
-				AuthSecret: corev1.SecretReference{Name: "my-secret"},
+				AuthSecret: corev1.SecretReference{Name: ""},
 			},
 		}
 		_, err := w.ValidateUpdate(ctx, old, newUser)
 		if err == nil {
-			t.Error("Expected error for unknown protocol on update, got nil")
+			t.Error("Expected error for empty authSecret.name on update, got nil")
 		}
 	})
 }

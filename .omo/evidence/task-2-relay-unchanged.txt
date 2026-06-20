@@ -1,0 +1,11 @@
+﻿func buildRelayInbound(input Input) any {
+	cred := input.NodeCreds[input.Node.Name]
+	return map[string]any{
+		"type":        "socks",
+		"tag":         "relay-socks5",
+		"listen":      "::",
+		"listen_port": relayContainerPort,
+		"users":       []map[string]any{{"username": cred.Username, "password": cred.Password}},
+	}
+}
+

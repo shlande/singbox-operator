@@ -1,0 +1,105 @@
+TASK 4 — UserGroup node-level restriction support in configengine
+================================================================
+
+DATE: 2026-06-21
+FILE: internal/configengine/engine.go
+
+## Changes Made
+
+### 1. Input struct — UserNodeRestrictions field added (~line 43)
+```go
+// UserNodeRestrictions maps userName → set of denied SingBoxNode names.
+// A nil or missing entry means no restrictions (allow all nodes).
+// Only the denied set is stored; the inbound pre-filter in the controller
+// handles allowlist checks before the config engine is called.
+UserNodeRestrictions map[string]map[string]bool
+```
+
+### 2. IsNodeAllowed exported function added (~line 188)
+Signature: func IsNodeAllowed(nodeName string, allowedNodes, deniedNodes map[string]bool) bool
+Semantics (deny-wins):
+  1. deniedNodes[nodeName] == true  → return false
+  2. len(allowedNodes) == 0         → return true (empty allowlist = allow all)
+  3. allowedNodes[nodeName] == true → return true
+  4. otherwise                      → return false
+Nil maps are safe (map[nil][key] == zero value = false).
+
+NOTE: A pre-existing duplicate `IsNodeAllowed` was found at the end of the file
+(lines 607-619, from a prior session). It was removed to fix the redeclaration
+compile error. The canonical implementation is the one added near the public API
+section (~line 188).
+
+### 3. buildRouteInbounds() — virtual users loop filtered
+Added after protocol check, before credential derivation:
+```go
+if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
+    continue
+}
+```
+
+### 4. buildRouteInbounds() — auth_user routing rules loop filtered
+Added in the outer user loop before appending to authUsers:
+```go
+if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
+    continue
+}
+```
+
+### 5. buildUsersBlock() — defensive filter for buildUserInbounds() path
+Added per-user check (nodeName = input.Node.Name when called from buildUserInbounds):
+```go
+if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
+    continue
+}
+```
+
+### 6. buildRouteOutbounds() — skip when all users are denied
+Added after RelayPort check:
+```go
+if len(input.Users) > 0 {
+    allDenied := true
+    for _, user := range input.Users {
+        if IsNodeAllowed(outNode.Name, nil, input.UserNodeRestrictions[user.Name]) {
+            allDenied = false
+            break
+        }
+    }
+    if allDenied {
+        continue
+    }
+}
+```
+
+## Verification
+
+go build ./internal/configengine/...  → exit 0
+go test ./internal/configengine/... -v → 20 tests, all PASS
+
+Test list (all green):
+  TestConfigEngine_InboundNode
+  TestConfigEngine_OutboundNode
+  TestConfigEngine_MultiRoleNode
+  TestConfigEngine_ManualRoute
+  TestConfigEngine_NoUsersOnEntry
+  TestConfigEngine_MultipleOutboundNodes
+  TestConfigEngine_HashConsistency
+  TestExtractNodePorts_InboundNode
+  TestExtractNodePorts_OutboundNode
+  TestConfigEngine_Socks5AndHTTPUsers
+  TestConfigEngine_DedupRegionAutoAndExplicitRoute
+  TestConfigEngine_MultiRouteInbounds
+  TestConfigEngine_RegionAutoVirtualUsers
+  TestConfigEngine_Hysteria2Inbound
+  TestConfigEngine_Hysteria2VirtualUsers
+  TestConfigEngine_DualRoleNode_SelfDirect
+  TestConfigEngine_DualRoleNode_SelfAndPeer
+  TestCompute_UsageCollectionEnabled
+  TestCompute_UsageCollectionDisabled
+  TestDeriveUUID
+
+## Invariants Preserved
+- Compute() signature unchanged
+- Virtual user naming scheme (user#outboundNode) unchanged
+- Output JSON schema unchanged
+- Nil UserNodeRestrictions map is safe — all existing tests pass without setting it
+- UserNodeRestrictions NOT added to Output struct

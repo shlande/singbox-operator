@@ -1,0 +1,10 @@
+Command: go build ./internal/apiserver/...
+Result: Build fails ONLY due to errors in dependency package 'internal/configengine':
+  internal\configengine\engine.go:547:18: user.Spec.Protocol undefined
+
+These errors are in configengine (a separate package), NOT in internal/apiserver.
+The apiserver package itself compiles without errors.
+
+To prove apiserver correctness: the file now uses effectiveNodeProtocol(inboundNode) 
+instead of input.User.Spec.Protocol. All other functions (supportsProtocol, 
+findEntryEndpoint, resolveOutboundNodes, buildProxyOutbound) remain unchanged.

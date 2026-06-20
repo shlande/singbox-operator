@@ -34,7 +34,7 @@ func TestBuildClientConfig_TwoOutboundNodes(t *testing.T) {
 	outbound1 := makeOutboundNode("node-b1", "us")
 	outbound2 := makeOutboundNode("node-b2", "us")
 
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
@@ -83,7 +83,7 @@ func TestBuildClientConfig_DerivedUUID(t *testing.T) {
 
 	outbound := makeOutboundNode(outboundName, "us")
 
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
@@ -126,7 +126,7 @@ func TestBuildClientConfig_TrojanPassword(t *testing.T) {
 
 	outbound := makeOutboundNode(outboundName, "us")
 
-	user := makeUser("user-bob", "trojan", "secret-bob")
+	user := makeUser("user-bob", "secret-bob")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
@@ -164,7 +164,7 @@ func TestBuildClientConfig_EmptyEntryEndpoints(t *testing.T) {
 	})
 
 	outbound := makeOutboundNode("node-b", "us")
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 
 	input := ClientConfigInput{
 		User:            user,
@@ -209,7 +209,7 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 	outboundY := makeOutboundNode("outbound-y", "us")
 
 	route := makeCustomRoute("route-1", "default", "node-a", "outbound-x")
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 
 	input := ClientConfigInput{
 		User:         user,
@@ -374,7 +374,7 @@ func TestHandler_Success(t *testing.T) {
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
 
-	user := makeUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -419,6 +419,10 @@ func TestHandler_Success(t *testing.T) {
 }
 
 func makeInboundNode(name, region, address string, protocols []proxyv1alpha1.ProtocolConfig) *proxyv1alpha1.SingBoxNode {
+	var inboundProtocol string
+	if len(protocols) > 0 {
+		inboundProtocol = protocols[0].Protocol
+	}
 	return &proxyv1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -430,6 +434,7 @@ func makeInboundNode(name, region, address string, protocols []proxyv1alpha1.Pro
 			Region:             region,
 			Roles:              []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
 			SupportedProtocols: protocols,
+			InboundProtocol:    inboundProtocol,
 		},
 	}
 }
@@ -450,6 +455,10 @@ func makeOutboundNode(name, region string) *proxyv1alpha1.SingBoxNode {
 }
 
 func makeDualRoleNode(name, region, address string, protocols []proxyv1alpha1.ProtocolConfig) *proxyv1alpha1.SingBoxNode {
+	var inboundProtocol string
+	if len(protocols) > 0 {
+		inboundProtocol = protocols[0].Protocol
+	}
 	return &proxyv1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -461,18 +470,18 @@ func makeDualRoleNode(name, region, address string, protocols []proxyv1alpha1.Pr
 			Region:             region,
 			Roles:              []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound, proxyv1alpha1.ProxyRoleOutbound},
 			SupportedProtocols: protocols,
+			InboundProtocol:    inboundProtocol,
 		},
 	}
 }
 
-func makeUser(name, protocol, secretName string) *proxyv1alpha1.User {
+func makeUser(name, secretName string) *proxyv1alpha1.User {
 	return &proxyv1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
 		},
 		Spec: proxyv1alpha1.UserSpec{
-			Protocol: protocol,
 			AuthSecret: corev1.SecretReference{
 				Name:      secretName,
 				Namespace: "default",
@@ -525,7 +534,7 @@ func TestBuildClientConfig_Socks5Password(t *testing.T) {
 
 	outbound := makeOutboundNode(outboundName, "us")
 
-	user := makeUser("user-charlie", "socks5", "secret-charlie")
+	user := makeUser("user-charlie", "secret-charlie")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
@@ -568,7 +577,7 @@ func TestBuildClientConfig_HTTPPassword(t *testing.T) {
 
 	outbound := makeOutboundNode(outboundName, "us")
 
-	user := makeUser("user-dave", "http", "secret-dave")
+	user := makeUser("user-dave", "secret-dave")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
@@ -605,7 +614,7 @@ func TestHandler_TemplateRef_InvalidFormat(t *testing.T) {
 	const namespace = "default"
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
-	user := makeUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -639,7 +648,7 @@ func TestHandler_TemplateRef_MissingConfigMap(t *testing.T) {
 	const namespace = "default"
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
-	user := makeUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -673,7 +682,7 @@ func TestHandler_TemplateRef_WithConfigMap(t *testing.T) {
 	const namespace = "default"
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
-	user := makeUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -718,14 +727,17 @@ func TestHandler_TemplateRef_WithConfigMap(t *testing.T) {
 }
 
 func TestBuildClientConfig_UnsupportedProtocol(t *testing.T) {
+	// InboundProtocol set to "vless" but SupportedProtocols only has "trojan" — mismatch.
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "trojan", Port: 10444},
 	})
-	inbound.Status.EntryEndpoints = []string{"trojan:1.2.3.4:10444"}
+	// Override to a protocol not in SupportedProtocols so supportsProtocol returns false.
+	inbound.Spec.InboundProtocol = "vless"
+	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
 	outbound := makeOutboundNode("node-b", "us")
 
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
@@ -756,7 +768,7 @@ func TestBuildClientConfig_BadEndpointFormat(t *testing.T) {
 
 	outbound := makeOutboundNode("node-b", "us")
 
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
@@ -777,7 +789,7 @@ func TestBuildClientConfig_BadEndpointFormat(t *testing.T) {
 
 func TestBuildClientConfig_NullInboundInResolve(t *testing.T) {
 	outbound := makeOutboundNode("node-b", "us")
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
@@ -801,7 +813,7 @@ func TestHandler_TemplateRef_ConfigMapMissingKey(t *testing.T) {
 	const namespace = "default"
 
 	secret := makeUserSecret(namespace, "test-secret", testUUID, "pw")
-	user := makeUser("user-alice", "vless", "test-secret")
+	user := makeUser("user-alice", "test-secret")
 	user.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -868,7 +880,7 @@ func TestBuildClientConfig_RouteWithMissingOutbound(t *testing.T) {
 	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
 	route := makeCustomRoute("route-1", "default", "node-a", "nonexistent-outbound")
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 
 	input := ClientConfigInput{
 		User:         user,
@@ -898,7 +910,7 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 	})
 	node.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
-	user := makeUser("user-alice", "vless", "secret-alice")
+	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
 		User:            user,
 		UserCred:        credmanager.UserCredential{UUID: baseUUID},
@@ -964,10 +976,10 @@ func TestHandler_MultipleUsersMatchUUID(t *testing.T) {
 	secret2 := makeUserSecret(namespace, "secret-2", testUUID, "pw2")
 	secret2.Name = "secret-2"
 
-	user1 := makeUser("user-1", "vless", "secret-1")
+	user1 := makeUser("user-1", "secret-1")
 	user1.Namespace = namespace
 
-	user2 := makeUser("user-2", "vless", "secret-2")
+	user2 := makeUser("user-2", "secret-2")
 	user2.Namespace = namespace
 
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -995,3 +1007,4 @@ func TestHandler_MultipleUsersMatchUUID(t *testing.T) {
 		t.Fatalf("expected HTTP 200 for first matching user, got %d; body: %s", w.Code, w.Body.String())
 	}
 }
+

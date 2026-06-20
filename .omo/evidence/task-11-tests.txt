@@ -1,0 +1,48 @@
+Task 11 — UserGroup Node Restriction Tests
+==========================================
+Date: 2026-06-21
+
+## New Test Files Created
+
+### 1. internal/configengine/usergroup_test.go
+Tests:
+  - TestIsNodeAllowed/deny-list_blocks_node                          PASS
+  - TestIsNodeAllowed/no_restrictions_allows_all_nodes               PASS
+  - TestIsNodeAllowed/node_in_allowlist_is_allowed                   PASS
+  - TestIsNodeAllowed/node_not_in_allowlist_is_denied                PASS
+  - TestIsNodeAllowed/deny-wins:_node_in_both_allow_and_deny_lists   PASS
+  - TestComputeWithUserNodeRestrictions                               PASS
+
+### 2. internal/webhook/usergroup_webhook_test.go
+Tests:
+  - TestUserGroupWebhook_ValidateCreate/accepts_valid_UserGroup_with_valid_node_names         PASS
+  - TestUserGroupWebhook_ValidateCreate/rejects_UserGroup_with_invalid_node_name_(uppercase) PASS
+  - TestUserGroupWebhook_ValidateCreate/accepts_UserGroup_with_empty_allowedNodes_and_deniedNodes PASS
+  - TestUserGroupWebhook_ValidateCreate/rejects_UserGroup_with_invalid_deniedNodes_name_(space) PASS
+  - TestUserGroupWebhook_ValidateUpdate/validates_new_object_on_update                       PASS
+  - TestUserGroupWebhook_ValidateUpdate/accepts_valid_update                                 PASS
+  - TestUserWebhook_UserGroupRef/accepts_User_with_valid_userGroupRef                        PASS
+  - TestUserWebhook_UserGroupRef/rejects_User_with_invalid_userGroupRef_(contains_space)     PASS
+  - TestUserWebhook_UserGroupRef/accepts_User_with_empty_userGroupRef                        PASS
+  - TestUserWebhook_UserGroupRef/accepts_User_with_hyphenated_userGroupRef                   PASS
+
+### 3. internal/apiserver/node_restriction_test.go
+Tests:
+  - TestBuildClientConfig_WithNodeRestrictions/DeniedNodeNames_excludes_denied_outbound_node-b,_keeps_node-c  PASS
+  - TestBuildClientConfig_WithNodeRestrictions/nil_AllowedNodeNames_and_DeniedNodeNames_allow_all_outbounds   PASS
+  - TestBuildClientConfig_WithNodeRestrictions/AllowedNodeNames_keeps_only_node-b_outbound,_excludes_node-c  PASS
+
+## Test Run Results
+
+  ok  github.com/shlande/singbox-operator/internal/configengine  0.511s
+  ok  github.com/shlande/singbox-operator/internal/apiserver     0.204s
+  ok  github.com/shlande/singbox-operator/internal/webhook       0.143s
+  ok  github.com/shlande/singbox-operator/api/v1alpha1           0.461s
+
+All existing tests continue to pass. Exit code: 0.
+
+## Notes
+- No existing test files were modified; all new tests are in new files.
+- No envtest/etcd dependencies; all tests use standard testing.T.
+- AllowedNodeNames test includes the inbound node (node-a) in the allowlist
+  because BuildClientConfig() also checks inbound nodes against IsNodeAllowed().

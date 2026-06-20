@@ -75,7 +75,16 @@ func getFirstFoundEnvTestBinaryDir() string {
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			return filepath.Join(basePath, entry.Name())
+			subDir := filepath.Join(basePath, entry.Name())
+			subEntries, err := os.ReadDir(subDir)
+			if err == nil {
+				for _, sub := range subEntries {
+					if sub.IsDir() {
+						return filepath.Join(subDir, sub.Name())
+					}
+				}
+			}
+			return subDir
 		}
 	}
 	return ""
@@ -178,7 +187,6 @@ func TestGetUserCredential(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.UserSpec{
-			Protocol: "vless",
 			AuthSecret: corev1.SecretReference{
 				Name:      "user-a-secret",
 				Namespace: "default",

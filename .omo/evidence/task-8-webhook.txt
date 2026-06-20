@@ -1,0 +1,20 @@
+Task 8: UserGroup validating webhook + userGroupRef format validation
+=====================================================================
+
+Files created:
+  internal/webhook/usergroup_webhook.go (new)
+
+Files modified:
+  internal/webhook/user_webhook.go   (added userGroupRef DNS subdomain validation)
+  cmd/main.go                        (registered SetupUserGroupWebhookWithManager)
+
+Verification:
+  go build ./internal/webhook/... → exit 0
+  go build ./...                   → exit 0
+
+Functionality:
+  - UserGroupCustomValidator struct with ValidateCreate/ValidateUpdate/ValidateDelete
+  - SetupUserGroupWebhookWithManager(mgr) registers the webhook
+  - validateUserGroup() checks AllowedNodes and DeniedNodes for valid DNS1123 subdomains
+  - User webhook's validateUser() now validates userGroupRef format (if non-empty, must be valid DNS subdomain)
+  - No client.Client used in any webhook

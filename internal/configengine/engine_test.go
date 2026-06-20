@@ -25,10 +25,10 @@ func makeNode(name, address, region string, roles []v1alpha1.ProxyRole, protocol
 	}
 }
 
-func makeUser(name, protocol string) *v1alpha1.User {
+func makeUser(name string) *v1alpha1.User {
 	return &v1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       v1alpha1.UserSpec{Protocol: protocol},
+		Spec:       v1alpha1.UserSpec{},
 	}
 }
 
@@ -125,12 +125,13 @@ func TestConfigEngine_InboundNode(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	node.Spec.InboundProtocol = "vless"
 	outNode := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
 		nil, 31962,
 	)
-	user1 := makeUser("user-alice", "vless")
-	user2 := makeUser("user-bob", "vless")
+	user1 := makeUser("user-alice")
+	user2 := makeUser("user-bob")
 
 	input := configengine.Input{
 		Node:  node,
@@ -279,7 +280,8 @@ func TestConfigEngine_MultiRoleNode(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "trojan", Port: 10444}},
 		10808,
 	)
-	user := makeUser("user-carol", "trojan")
+	node.Spec.InboundProtocol = "trojan"
+	user := makeUser("user-carol")
 	input := configengine.Input{
 		Node:  node,
 		Users: []*v1alpha1.User{user},
@@ -313,7 +315,7 @@ func TestConfigEngine_MultiRoleNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 4: Manual route — single inbound per protocol with all users,
+// Test 4: Manual route �?single inbound per protocol with all users,
 // auth_user routing rule binds users to outbound.
 // ---------------------------------------------------------------------------
 func TestConfigEngine_ManualRoute(t *testing.T) {
@@ -322,11 +324,12 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	nodeA.Spec.InboundProtocol = "vless"
 	nodeB := makeNode("node-b", "5.6.7.8", "us-east",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
 		nil, 31962,
 	)
-	user := makeUser("user-dave", "vless")
+	user := makeUser("user-dave")
 	route := makeRoute("route-a-to-b", "node-a", "node-b")
 
 	input := configengine.Input{
@@ -399,12 +402,12 @@ func TestConfigEngine_ManualRoute(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("no routing rule with auth_user=user-dave#node-b → outbound-node-b")
+		t.Errorf("no routing rule with auth_user=user-dave#node-b �?outbound-node-b")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test 5: Inbound node with no matching users — inbounds must be empty slice
+// Test 5: Inbound node with no matching users �?inbounds must be empty slice
 // ---------------------------------------------------------------------------
 func TestConfigEngine_NoUsersOnEntry(t *testing.T) {
 	node := makeNode("node-a", "1.2.3.4", "us-west",
@@ -412,6 +415,7 @@ func TestConfigEngine_NoUsersOnEntry(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	node.Spec.InboundProtocol = "vless"
 	input := configengine.Input{
 		Node:                node,
 		Users:               []*v1alpha1.User{},
@@ -445,6 +449,7 @@ func TestConfigEngine_MultipleOutboundNodes(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	node.Spec.InboundProtocol = "vless"
 	outNode1 := makeNode("node-b1", "5.5.5.5", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
@@ -491,7 +496,7 @@ func TestConfigEngine_MultipleOutboundNodes(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 7: Hash consistency — same input → same hash; different input → different hash
+// Test 7: Hash consistency �?same input �?same hash; different input �?different hash
 // ---------------------------------------------------------------------------
 func TestConfigEngine_HashConsistency(t *testing.T) {
 	node := makeNode("node-a", "1.2.3.4", "us-west",
@@ -499,7 +504,8 @@ func TestConfigEngine_HashConsistency(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
-	user := makeUser("user-alice", "vless")
+	node.Spec.InboundProtocol = "vless"
+	user := makeUser("user-alice")
 	input := configengine.Input{
 		Node:  node,
 		Users: []*v1alpha1.User{user},
@@ -518,7 +524,7 @@ func TestConfigEngine_HashConsistency(t *testing.T) {
 		t.Fatalf("unexpected error on second call: %v", err)
 	}
 
-	// same input → same hash
+	// same input �?same hash
 	if out1.Hash != out2.Hash {
 		t.Errorf("hash not stable: %q vs %q", out1.Hash, out2.Hash)
 	}
@@ -526,8 +532,8 @@ func TestConfigEngine_HashConsistency(t *testing.T) {
 		t.Errorf("expected 16-char hash, got %d: %q", len(out1.Hash), out1.Hash)
 	}
 
-	// different input → different hash
-	user2 := makeUser("user-bob", "vless")
+	// different input �?different hash
+	user2 := makeUser("user-bob")
 	input2 := input
 	input2.Users = []*v1alpha1.User{user2}
 	input2.UserCreds = map[string]configengine.UserCredential{
@@ -543,7 +549,7 @@ func TestConfigEngine_HashConsistency(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 8: ExtractNodePorts — inbound node with multiple protocols
+// Test 8: ExtractNodePorts �?inbound node with multiple protocols
 // ---------------------------------------------------------------------------
 func TestExtractNodePorts_InboundNode(t *testing.T) {
 	node := makeNode("node-a", "1.2.3.4", "us-west",
@@ -579,12 +585,12 @@ func TestConfigEngine_Socks5AndHTTPUsers(t *testing.T) {
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 		[]v1alpha1.ProtocolConfig{
 			{Protocol: "socks5", Port: 10808},
-			{Protocol: "http", Port: 10080},
 		},
 		10900,
 	)
-	userS := makeUser("user-socks", "socks5")
-	userH := makeUser("user-http", "http")
+	node.Spec.InboundProtocol = "socks5"
+	userS := makeUser("user-socks")
+	userH := makeUser("user-http")
 
 	input := configengine.Input{
 		Node:  node,
@@ -607,23 +613,17 @@ func TestConfigEngine_Socks5AndHTTPUsers(t *testing.T) {
 	if !containsTag(ibs, "inbound-socks5") {
 		t.Errorf("missing socks5 inbound, got %v", ibs)
 	}
-	if !containsTag(ibs, "inbound-http") {
-		t.Errorf("missing http inbound, got %v", ibs)
-	}
 
 	for _, ib := range inboundsOf(t, cfg) {
 		m := ib.(map[string]any)
 		if m["tag"] == "inbound-socks5" && m["type"] != "socks" {
 			t.Errorf("expected type=socks, got %v", m["type"])
 		}
-		if m["tag"] == "inbound-http" && m["type"] != "http" {
-			t.Errorf("expected type=http, got %v", m["type"])
-		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test 10: Dedup — region-auto outbound node that is also in an explicit Route
+// Test 10: Dedup �?region-auto outbound node that is also in an explicit Route
 // must appear exactly once in outbounds.
 // ---------------------------------------------------------------------------
 func TestConfigEngine_DedupRegionAutoAndExplicitRoute(t *testing.T) {
@@ -632,11 +632,12 @@ func TestConfigEngine_DedupRegionAutoAndExplicitRoute(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	nodeA.Spec.InboundProtocol = "vless"
 	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
 		nil, 31962,
 	)
-	user := makeUser("user-eve", "vless")
+	user := makeUser("user-eve")
 	route := makeRoute("route-a-to-b", "node-a", "node-b")
 
 	input := configengine.Input{
@@ -669,7 +670,7 @@ func TestConfigEngine_DedupRegionAutoAndExplicitRoute(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 11: Multi-route — 1 user, 2 routes → 2 inbounds on distinct ports,
+// Test 11: Multi-route �?1 user, 2 routes �?2 inbounds on distinct ports,
 // each containing all users, with auth_user routing rules per outbound.
 // ---------------------------------------------------------------------------
 func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
@@ -678,13 +679,14 @@ func TestConfigEngine_MultiRouteInbounds(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	nodeA.Spec.InboundProtocol = "vless"
 	nodeB := makeNode("node-b", "5.5.5.5", "us-east",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
 	nodeC := makeNode("node-c", "6.6.6.6", "us-east",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
-	user := makeUser("user-frank", "vless")
+	user := makeUser("user-frank")
 	routeToB := makeRoute("route-a-to-b", "node-a", "node-b")
 	routeToC := makeRoute("route-a-to-c", "node-a", "node-c")
 
@@ -791,13 +793,14 @@ func TestConfigEngine_RegionAutoVirtualUsers(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	nodeA.Spec.InboundProtocol = "vless"
 	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
 	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
 	)
-	user := makeUser("user-alice", "vless")
+	user := makeUser("user-alice")
 
 	input := configengine.Input{
 		Node:  nodeA,
@@ -872,7 +875,7 @@ func TestConfigEngine_RegionAutoVirtualUsers(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 14: hysteria2 inbound — users have password, inbound has tls block
+// Test 14: hysteria2 inbound �?users have password, inbound has tls block
 // ---------------------------------------------------------------------------
 func TestConfigEngine_Hysteria2Inbound(t *testing.T) {
 	node := makeNode("node-a", "1.2.3.4", "us-west",
@@ -880,7 +883,7 @@ func TestConfigEngine_Hysteria2Inbound(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "hysteria2", Port: 30443}},
 		0,
 	)
-	user := makeUser("user-alice", "hysteria2")
+	user := makeUser("user-alice")
 
 	input := configengine.Input{
 		Node:  node,
@@ -935,7 +938,7 @@ func TestConfigEngine_Hysteria2Inbound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 15: hysteria2 inbound with outbound nodes — virtual users use DerivePassword
+// Test 15: hysteria2 inbound with outbound nodes �?virtual users use DerivePassword
 // ---------------------------------------------------------------------------
 func TestConfigEngine_Hysteria2VirtualUsers(t *testing.T) {
 	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
@@ -946,7 +949,7 @@ func TestConfigEngine_Hysteria2VirtualUsers(t *testing.T) {
 	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
-	user := makeUser("user-alice", "hysteria2")
+	user := makeUser("user-alice")
 
 	input := configengine.Input{
 		Node:  nodeA,
@@ -1002,7 +1005,8 @@ func TestConfigEngine_DualRoleNode_SelfDirect(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
-	user := makeUser("user-alice", "vless")
+	node.Spec.InboundProtocol = "vless"
+	user := makeUser("user-alice")
 
 	input := configengine.Input{
 		Node:  node,
@@ -1078,7 +1082,7 @@ func TestConfigEngine_DualRoleNode_SelfDirect(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 17: Dual-role node with additional outbound peer — self and peer both
+// Test 17: Dual-role node with additional outbound peer �?self and peer both
 // produce routing rules; self outbound is direct, peer outbound is SOCKS5.
 // ---------------------------------------------------------------------------
 func TestConfigEngine_DualRoleNode_SelfAndPeer(t *testing.T) {
@@ -1087,11 +1091,12 @@ func TestConfigEngine_DualRoleNode_SelfAndPeer(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	node.Spec.InboundProtocol = "vless"
 	peer := makeNode("node-y", "5.6.7.8", "ap-east",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
 		nil, 31962,
 	)
-	user := makeUser("user-bob", "vless")
+	user := makeUser("user-bob")
 
 	input := configengine.Input{
 		Node:  node,
@@ -1154,7 +1159,7 @@ func TestConfigEngine_DualRoleNode_SelfAndPeer(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test V2ray: UsageCollectionEnabled=true — config must contain experimental.v2ray_api
+// Test V2ray: UsageCollectionEnabled=true �?config must contain experimental.v2ray_api
 // ---------------------------------------------------------------------------
 func TestCompute_UsageCollectionEnabled(t *testing.T) {
 	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
@@ -1162,14 +1167,15 @@ func TestCompute_UsageCollectionEnabled(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	nodeA.Spec.InboundProtocol = "vless"
 	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
 	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
 	)
-	alice := makeUser("user-alice", "vless")
-	bob := makeUser("user-bob", "vless")
+	alice := makeUser("user-alice")
+	bob := makeUser("user-bob")
 
 	input := configengine.Input{
 		Node:  nodeA,
@@ -1261,7 +1267,7 @@ func TestCompute_UsageCollectionEnabled(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test V2ray: UsageCollectionEnabled=false — config must NOT contain experimental key
+// Test V2ray: UsageCollectionEnabled=false �?config must NOT contain experimental key
 // ---------------------------------------------------------------------------
 func TestCompute_UsageCollectionDisabled(t *testing.T) {
 	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
@@ -1269,10 +1275,11 @@ func TestCompute_UsageCollectionDisabled(t *testing.T) {
 		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
 		10808,
 	)
+	nodeA.Spec.InboundProtocol = "vless"
 	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
 	)
-	alice := makeUser("user-alice", "vless")
+	alice := makeUser("user-alice")
 
 	input := configengine.Input{
 		Node:  nodeA,
@@ -1310,7 +1317,7 @@ func TestCompute_UsageCollectionDisabled(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 12: DeriveUUID — determinism and uniqueness
+// Test 12: DeriveUUID �?determinism and uniqueness
 // ---------------------------------------------------------------------------
 func TestDeriveUUID(t *testing.T) {
 	uuid1 := configengine.DeriveUUID("f0a5a0d6-951a-4936-a7e7-93a8f86f2fb8", "acck-jp")
@@ -1328,3 +1335,4 @@ func TestDeriveUUID(t *testing.T) {
 		t.Errorf("expected 36-char UUID, got %d: %q", len(uuid1), uuid1)
 	}
 }
+

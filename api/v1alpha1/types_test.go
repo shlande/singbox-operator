@@ -60,9 +60,7 @@ func TestSingBoxNodeDeepCopy(t *testing.T) {
 
 func TestUserDeepCopy(t *testing.T) {
 	original := &User{
-		Spec: UserSpec{
-			Protocol: "vless",
-		},
+		Spec: UserSpec{},
 		Status: UserStatus{
 			ActiveNodeCount: 2,
 			ActiveNodes:     []string{"node-a", "node-b"},

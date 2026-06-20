@@ -1,0 +1,9 @@
+﻿
+internal\controller\singboxnode_controller.go:266:			deniedSet := make(map[string]bool, len(ug.Spec.DeniedNodes))
+internal\controller\singboxnode_controller.go:268:				deniedSet[n] = true
+internal\controller\singboxnode_controller.go:270:			allowedSet := make(map[string]bool, len(ug.Spec.AllowedNodes))
+internal\controller\singboxnode_controller.go:272:				allowedSet[n] = true
+internal\controller\singboxnode_controller.go:275:			if !configengine.IsNodeAllowed(node.Name, allowedSet, deniedSet) {
+internal\controller\singboxnode_controller.go:283:			input.UserNodeRestrictions[user.Name] = deniedSet
+
+

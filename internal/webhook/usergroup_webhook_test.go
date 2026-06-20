@@ -125,7 +125,6 @@ func TestUserWebhook_UserGroupRef(t *testing.T) {
 	t.Run("accepts User with valid userGroupRef", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:     "vless",
 				AuthSecret:   corev1.SecretReference{Name: "my-secret"},
 				UserGroupRef: "my-group",
 			},
@@ -139,7 +138,6 @@ func TestUserWebhook_UserGroupRef(t *testing.T) {
 	t.Run("rejects User with invalid userGroupRef (contains space)", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:     "vless",
 				AuthSecret:   corev1.SecretReference{Name: "my-secret"},
 				UserGroupRef: "My Group",
 			},
@@ -156,7 +154,6 @@ func TestUserWebhook_UserGroupRef(t *testing.T) {
 	t.Run("accepts User with empty userGroupRef", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:     "vless",
 				AuthSecret:   corev1.SecretReference{Name: "my-secret"},
 				UserGroupRef: "",
 			},
@@ -170,7 +167,6 @@ func TestUserWebhook_UserGroupRef(t *testing.T) {
 	t.Run("accepts User with hyphenated userGroupRef", func(t *testing.T) {
 		user := &v1alpha1.User{
 			Spec: v1alpha1.UserSpec{
-				Protocol:     "vless",
 				AuthSecret:   corev1.SecretReference{Name: "my-secret"},
 				UserGroupRef: "team-alpha-group",
 			},

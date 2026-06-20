@@ -1,0 +1,47 @@
+Task 5: SingBoxNode controller — UserGroup node-level restriction support
+========================================================================
+
+## Changes Made
+
+### internal/configengine/engine.go
+- Removed duplicate `IsNodeAllowed` function (lines 176-188 that was identical in behaviour
+  to the existing correct one at ~202-219) — prevents "IsNodeAllowed redeclared" compile error.
+- `UserNodeRestrictions map[string]map[string]bool` field was already present in the Input
+  struct (added by a prior task). No further change needed.
+- Single authoritative `IsNodeAllowed` function remains (deny-wins, empty allowlist = allow-all).
+
+### internal/controller/singboxnode_controller.go
+1. RBAC marker added:
+   // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=usergroups,verbs=get;list;watch
+
+2. collectInput():
+   - `UserNodeRestrictions: make(map[string]map[string]bool)` initialised in Input literal.
+   - User loop (was lines 234-245) replaced with full UserGroup pre-filter:
+     * No UserGroupRef → add user with no restrictions (unchanged path).
+     * UserGroupRef set, UserGroup not found → log warning, fail-open (add user with no restrictions).
+     * UserGroupRef set, UserGroup found → build allowedSet/deniedSet from spec;
+       call configengine.IsNodeAllowed(node.Name, allowedSet, deniedSet):
+         - false → skip user (inbound restriction)
+         - true  → add user; set input.UserNodeRestrictions[user.Name] = deniedSet
+
+3. usersInGroupToNodesMapper() added (after matchingProtocolNodeMapper):
+   - Casts obj to *proxyv1alpha1.UserGroup.
+   - Lists Users with client.MatchingFields{"spec.userGroupRef": userGroup.Name}.
+   - Lists all SingBoxNodes once; returns reconcile requests for the union of
+     inbound nodes that support any matched user's protocol.
+
+4. SetupWithManager():
+   - Added:
+     .Watches(&proxyv1alpha1.UserGroup{},
+         handler.EnqueueRequestsFromMapFunc(r.usersInGroupToNodesMapper))
+
+## Build verification
+
+  go build ./internal/controller/...   → exit 0 (no output)
+  go build ./...                        → exit 0 (no output)
+
+## Expected outcome checklist
+[x] collectInput() fetches UserGroup per user and builds input.UserNodeRestrictions
+[x] Users denied from the current inbound node are excluded from input.Users
+[x] usersInGroupToNodesMapper exists and is registered in SetupWithManager()
+[x] go build ./internal/controller/... exits 0

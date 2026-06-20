@@ -1,0 +1,61 @@
+Task 6: UserGroupReady condition + findMatchingInboundNodes UserGroup filtering
+=================================================================================
+
+## Changes Made
+
+### 1. internal/configengine/engine.go
+Added exported function `IsNodeAllowed` at end of file (lines 558-569):
+
+```go
+// IsNodeAllowed reports whether nodeName passes UserGroup allow/deny rules.
+// allowedSet: if non-empty, nodeName must be present to be allowed.
+// deniedSet: if nodeName is present, it is denied regardless of allowedSet.
+// Deny-wins: a node in both sets is denied.
+func IsNodeAllowed(nodeName string, allowedSet, deniedSet map[string]bool) bool {
+    if deniedSet[nodeName] {
+        return false
+    }
+    if len(allowedSet) > 0 && !allowedSet[nodeName] {
+        return false
+    }
+    return true
+}
+```
+
+### 2. internal/controller/user_controller.go
+
+**Import added:**
+```go
+"github.com/shlande/singbox-operator/internal/configengine"
+```
+
+**findMatchingInboundNodes() — UserGroup filtering (lines 100-130):**
+- If UserGroupRef is empty: returns all protocol-matching inbound nodes (unchanged behaviour)
+- If UserGroupRef is non-empty:
+  - Fetches UserGroup; on NotFound → fail-open (returns all matching nodes unchanged)
+  - On real error → propagates error
+  - Builds allowedSet and deniedSet maps from ug.Spec.AllowedNodes / ug.Spec.DeniedNodes
+  - Filters matching nodes via configengine.IsNodeAllowed(node.Name, allowedSet, deniedSet)
+  - Returns only nodes that pass the filter
+
+**updateStatus() — UserGroupReady condition (lines 168-191):**
+- After setting "Ready" condition, if latest.Spec.UserGroupRef != "":
+  - Fetches UserGroup
+  - Not found (IgnoreNotFound) → sets UserGroupReady=False/UserGroupNotFound with message
+  - Real error → returns error
+  - Found → sets UserGroupReady=True/UserGroupFound
+- Condition is included in the existing r.Status().Update(ctx, latest) call
+
+## Build Verification
+```
+$ go build ./internal/controller/...
+(exit 0, no output)
+```
+
+## Outcomes
+- [x] Reconcile() sets UserGroupReady condition when userGroupRef is non-empty
+- [x] Condition is False/UserGroupNotFound when UserGroup doesn't exist
+- [x] Condition is True/UserGroupFound when UserGroup exists
+- [x] findMatchingInboundNodes() filters nodes using UserGroup allowedNodes/deniedNodes
+- [x] Fail-open: missing UserGroup → no filtering applied
+- [x] go build ./internal/controller/... exits 0

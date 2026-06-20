@@ -1,0 +1,9 @@
+﻿go : # github.com/shlande/singbox-operator/internal/controller
+所在位置 行:1 字符: 11
++ $result = go build ./... 2>&1; $result | Out-File -FilePath ".omo/evi ...
++           ~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (# github.com/sh...rnal/controller:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+internal\controller\user_controller.go:197:26: metrics.ProxyUsersTotal.WithLabelValues undefined (type prometheus.Gauge
+ has no field or method WithLabelValues)

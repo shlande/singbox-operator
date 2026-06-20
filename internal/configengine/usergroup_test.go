@@ -85,13 +85,15 @@ func TestComputeWithUserNodeRestrictions(t *testing.T) {
 		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
 	)
 
+	nodeA.Spec.InboundProtocol = "vless"
+
 	alice := &v1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{Name: "alice"},
-		Spec:       v1alpha1.UserSpec{Protocol: "vless"},
+		Spec:       v1alpha1.UserSpec{},
 	}
 	bob := &v1alpha1.User{
 		ObjectMeta: metav1.ObjectMeta{Name: "bob"},
-		Spec:       v1alpha1.UserSpec{Protocol: "vless"},
+		Spec:       v1alpha1.UserSpec{},
 	}
 
 	input := configengine.Input{

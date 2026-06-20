@@ -174,7 +174,7 @@ func TestUsageCollectorFeatureDisabled(t *testing.T) {
 		},
 	}
 	user := &v1alpha1.User{
-		Spec: v1alpha1.UserSpec{Protocol: "vless"},
+		Spec: v1alpha1.UserSpec{},
 	}
 	user.Name = "alice"
 

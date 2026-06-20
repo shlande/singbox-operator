@@ -1,0 +1,6 @@
+> C:\Users\24285\GolandProjects\singbox-operator\config\crd\bases\singboxoperator.shlande.top_singboxnodes.yaml:61:              inboundProtocol:
+  C:\Users\24285\GolandProjects\singbox-operator\config\crd\bases\singboxoperator.shlande.top_singboxnodes.yaml:62:                description: |-
+> C:\Users\24285\GolandProjects\singbox-operator\config\crd\bases\singboxoperator.shlande.top_singboxnodes.yaml:63:                  InboundProtocol forces this inbound node to use a specific protocol for all users.
+  C:\Users\24285\GolandProjects\singbox-operator\config\crd\bases\singboxoperator.shlande.top_singboxnodes.yaml:64:                  When set, only this protocol is used for inbound connections, regardless of SupportedProtocols.
+  C:\Users\24285\GolandProjects\singbox-operator\config\crd\bases\singboxoperator.shlande.top_singboxnodes.yaml:65:                  When empty, defaults to "hysteria2".
+  C:\Users\24285\GolandProjects\singbox-operator\config\crd\bases\singboxoperator.shlande.top_singboxnodes.yaml:66:                  Only meaningful for nodes with the inbound role.

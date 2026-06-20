@@ -1,0 +1,25 @@
+Task 1: Scaffold UserGroup CRD and Controller
+===============================================
+
+Command run:
+  kubebuilder create api --group singboxoperator --version v1alpha1 --kind UserGroup --resource=true --controller=true
+
+Verification Results:
+----------------------
+
+1. api/v1alpha1/usergroup_types.go EXISTS? YES
+   Path: C:\Users\24285\GolandProjects\singbox-operator\api\v1alpha1\usergroup_types.go
+
+2. internal/controller/usergroup_controller.go EXISTS? YES
+   Path: C:\Users\24285\GolandProjects\singbox-operator\internal\controller\usergroup_controller.go
+
+3. PROJECT file contains kind: UserGroup? YES
+   Line found: PROJECT:45:  kind: UserGroup
+
+4. go build ./... exits 0? YES
+   Command exited with code 0 (no errors).
+
+Note: controller-gen object generation was required for DeepCopyObject methods
+      (make/gmake not available on Windows). Build passes cleanly.
+
+Date: 2026-06-21

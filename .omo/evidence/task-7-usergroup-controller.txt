@@ -1,0 +1,37 @@
+Task 7: UserGroup Controller Implementation
+==========================================
+
+File: internal/controller/usergroup_controller.go
+
+## Changes Made
+- Replaced scaffolded stub with full UserGroupReconciler implementation
+
+## Implementation Details
+
+### Struct
+UserGroupReconciler with client.Client and Scheme *runtime.Scheme fields.
+
+### RBAC Markers
+// +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=usergroups,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=usergroups/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=usergroups/finalizers,verbs=update
+// +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=users,verbs=get;list;watch;patch
+
+### Reconcile() Logic
+1. Fetches UserGroup by NamespacedName; logs and continues on NotFound (deleted case)
+2. Lists all Users in the namespace with client.MatchingFields{"spec.userGroupRef": req.Name}
+3. For each User, patches annotation "singboxoperator.shlande.top/reconcile-trigger" with RFC3339 timestamp
+4. Uses r.Patch() with client.MergeFrom(user.DeepCopy()) — NOT r.Update()
+5. Returns ctrl.Result{}, nil
+
+### SetupWithManager()
+Registers controller with ctrl.NewControllerManagedBy(mgr).For(&proxyv1alpha1.UserGroup{}).Named("usergroup").Complete(r)
+
+### Annotation Key
+singboxoperator.shlande.top/reconcile-trigger  (matches user_controller.go pattern)
+
+### Timestamp Format
+time.Now().Format(time.RFC3339)
+
+## Verification
+go build ./internal/controller/... → exit 0 (no errors)
