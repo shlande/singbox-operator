@@ -5,11 +5,9 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - proxy.proxy.io
+  - singboxoperator.shlande.top
   resources:
-  - proxynodes
-  - proxyroutes
-  - proxyusers
+  - usergroups
   verbs:
   - create
   - delete
@@ -19,19 +17,15 @@ rules:
   - update
   - watch
 - apiGroups:
-  - proxy.proxy.io
+  - singboxoperator.shlande.top
   resources:
-  - proxynodes/finalizers
-  - proxyroutes/finalizers
-  - proxyusers/finalizers
+  - usergroups/finalizers
   verbs:
   - update
 - apiGroups:
-  - proxy.proxy.io
+  - singboxoperator.shlande.top
   resources:
-  - proxynodes/status
-  - proxyroutes/status
-  - proxyusers/status
+  - usergroups/status
   verbs:
   - get
   - patch

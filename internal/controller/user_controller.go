@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
+	"github.com/shlande/singbox-operator/internal/configengine"
 	"github.com/shlande/singbox-operator/internal/metrics"
 )
 
@@ -96,7 +97,37 @@ func (r *UserReconciler) findMatchingInboundNodes(ctx context.Context, user *pro
 			matching = append(matching, node)
 		}
 	}
-	return matching, nil
+
+	// Apply UserGroup restrictions if specified — fail-open on missing UserGroup
+	if user.Spec.UserGroupRef == "" {
+		return matching, nil
+	}
+
+	var ug proxyv1alpha1.UserGroup
+	if err := r.Get(ctx, types.NamespacedName{Namespace: user.Namespace, Name: user.Spec.UserGroupRef}, &ug); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			return nil, err
+		}
+		// UserGroup not found — fail-open, no restrictions applied
+		return matching, nil
+	}
+
+	allowedSet := make(map[string]bool, len(ug.Spec.AllowedNodes))
+	for _, n := range ug.Spec.AllowedNodes {
+		allowedSet[n] = true
+	}
+	deniedSet := make(map[string]bool, len(ug.Spec.DeniedNodes))
+	for _, n := range ug.Spec.DeniedNodes {
+		deniedSet[n] = true
+	}
+
+	var filtered []proxyv1alpha1.SingBoxNode
+	for _, node := range matching {
+		if configengine.IsNodeAllowed(node.Name, allowedSet, deniedSet) {
+			filtered = append(filtered, node)
+		}
+	}
+	return filtered, nil
 }
 
 func (r *UserReconciler) triggerNodeReconcile(ctx context.Context, node *proxyv1alpha1.SingBoxNode) error {
@@ -133,6 +164,31 @@ func (r *UserReconciler) updateStatus(ctx context.Context, user *proxyv1alpha1.U
 		Message:            fmt.Sprintf("User active on %d nodes", len(nodes)),
 		ObservedGeneration: latest.Generation,
 	})
+
+	if latest.Spec.UserGroupRef != "" {
+		var ug proxyv1alpha1.UserGroup
+		ugErr := r.Get(ctx, types.NamespacedName{Namespace: latest.Namespace, Name: latest.Spec.UserGroupRef}, &ug)
+		if ugErr != nil {
+			if client.IgnoreNotFound(ugErr) != nil {
+				return ctrl.Result{}, ugErr
+			}
+			apimeta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+				Type:               "UserGroupReady",
+				Status:             metav1.ConditionFalse,
+				Reason:             "UserGroupNotFound",
+				Message:            fmt.Sprintf("UserGroup %q not found in namespace %q", latest.Spec.UserGroupRef, latest.Namespace),
+				ObservedGeneration: latest.Generation,
+			})
+		} else {
+			apimeta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
+				Type:               "UserGroupReady",
+				Status:             metav1.ConditionTrue,
+				Reason:             "UserGroupFound",
+				Message:            "",
+				ObservedGeneration: latest.Generation,
+			})
+		}
+	}
 
 	if err := r.Status().Update(ctx, latest); err != nil {
 		return ctrl.Result{}, err

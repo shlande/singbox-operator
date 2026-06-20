@@ -5,6 +5,7 @@ resources:
 - bases/proxy.proxy.io_proxynodes.yaml
 - bases/proxy.proxy.io_proxyusers.yaml
 - bases/proxy.proxy.io_proxyroutes.yaml
+- bases/singboxoperator.shlande.top_usergroups.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

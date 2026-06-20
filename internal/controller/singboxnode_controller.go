@@ -62,6 +62,7 @@ const (
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=singboxnodes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=singboxnodes/finalizers,verbs=update
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=users,verbs=get;list;watch
+// +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=usergroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=customroutes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -194,6 +195,7 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 		UserCreds:              make(map[string]configengine.UserCredential),
 		NodeCreds:              make(map[string]configengine.NodeCredential),
 		OutboundNodesByName:    make(map[string]*proxyv1alpha1.SingBoxNode),
+		UserNodeRestrictions:   make(map[string]map[string]bool),
 		UsageCollectionEnabled: r.UsageCollectionEnabled,
 		V2RayAPIListenAddr:     r.V2RayAPIListenAddr,
 	}
@@ -224,6 +226,7 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 	}
 
 	if hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
+		logger := log.FromContext(ctx)
 		allUsers := &proxyv1alpha1.UserList{}
 		if err := r.List(ctx, allUsers, client.InNamespace(node.Namespace)); err != nil {
 			return input, fmt.Errorf("listing Users: %w", err)
@@ -233,15 +236,54 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 		})
 		for i := range allUsers.Items {
 			user := &allUsers.Items[i]
-			if nodeSupportsProtocol(node, user.Spec.Protocol) {
+			if !nodeSupportsProtocol(node, user.Spec.Protocol) {
+				continue
+			}
+			if user.Spec.UserGroupRef == "" {
+				// No group ref: no restrictions, add user normally.
 				input.Users = append(input.Users, user)
 				cred, err := credmanager.GetUserCredential(ctx, r.Client, user)
 				if err == nil {
-					input.UserCreds[user.Name] = configengine.UserCredential{
-						UUID: cred.UUID,
-					}
+					input.UserCreds[user.Name] = configengine.UserCredential{UUID: cred.UUID}
 				}
+				continue
 			}
+			// Fetch UserGroup for this user.
+			ug := &proxyv1alpha1.UserGroup{}
+			err := r.Get(ctx, types.NamespacedName{Namespace: node.Namespace, Name: user.Spec.UserGroupRef}, ug)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					logger.Info("UserGroup not found, treating as no restrictions",
+						"user", user.Name, "userGroupRef", user.Spec.UserGroupRef)
+				} else {
+					return input, fmt.Errorf("fetching UserGroup %s: %w", user.Spec.UserGroupRef, err)
+				}
+				// Fail-open: add user with no restrictions.
+				input.Users = append(input.Users, user)
+				if cred, credErr := credmanager.GetUserCredential(ctx, r.Client, user); credErr == nil {
+					input.UserCreds[user.Name] = configengine.UserCredential{UUID: cred.UUID}
+				}
+				continue
+			}
+			// Build allow/deny sets from the UserGroup spec.
+			deniedSet := make(map[string]bool, len(ug.Spec.DeniedNodes))
+			for _, n := range ug.Spec.DeniedNodes {
+				deniedSet[n] = true
+			}
+			allowedSet := make(map[string]bool, len(ug.Spec.AllowedNodes))
+			for _, n := range ug.Spec.AllowedNodes {
+				allowedSet[n] = true
+			}
+			// Inbound pre-filter: skip user if the current node is not allowed.
+			if !configengine.IsNodeAllowed(node.Name, allowedSet, deniedSet) {
+				continue
+			}
+			input.Users = append(input.Users, user)
+			if cred, credErr := credmanager.GetUserCredential(ctx, r.Client, user); credErr == nil {
+				input.UserCreds[user.Name] = configengine.UserCredential{UUID: cred.UUID}
+			}
+			// Store denied set so configengine can filter outbound virtual users.
+			input.UserNodeRestrictions[user.Name] = deniedSet
 		}
 	}
 
@@ -571,6 +613,37 @@ func (r *SingBoxNodeReconciler) matchingProtocolNodeMapper(ctx context.Context, 
 	return requests
 }
 
+func (r *SingBoxNodeReconciler) usersInGroupToNodesMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	userGroup, ok := obj.(*proxyv1alpha1.UserGroup)
+	if !ok {
+		return nil
+	}
+	// List all Users in the namespace that reference this UserGroup.
+	userList := &proxyv1alpha1.UserList{}
+	if err := r.List(ctx, userList, client.InNamespace(userGroup.Namespace),
+		client.MatchingFields{"spec.userGroupRef": userGroup.Name}); err != nil {
+		return nil
+	}
+	// List all SingBoxNodes once to avoid repeated API calls.
+	allNodes := &proxyv1alpha1.SingBoxNodeList{}
+	if err := r.List(ctx, allNodes, client.InNamespace(userGroup.Namespace)); err != nil {
+		return nil
+	}
+	// Return the union of all inbound SingBoxNodes that match any user's protocol.
+	seen := make(map[types.NamespacedName]bool)
+	var requests []reconcile.Request
+	for _, user := range userList.Items {
+		for _, n := range allNodes.Items {
+			key := types.NamespacedName{Name: n.Name, Namespace: n.Namespace}
+			if !seen[key] && hasRole(&n, proxyv1alpha1.ProxyRoleInbound) && nodeSupportsProtocol(&n, user.Spec.Protocol) {
+				seen[key] = true
+				requests = append(requests, reconcile.Request{NamespacedName: key})
+			}
+		}
+	}
+	return requests
+}
+
 func (r *SingBoxNodeReconciler) affectedByRouteMapper(ctx context.Context, obj client.Object) []reconcile.Request {
 	route, ok := obj.(*proxyv1alpha1.CustomRoute)
 	if !ok {
@@ -611,6 +684,8 @@ func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&proxyv1alpha1.User{},
 			handler.EnqueueRequestsFromMapFunc(r.matchingProtocolNodeMapper)).
+		Watches(&proxyv1alpha1.UserGroup{},
+			handler.EnqueueRequestsFromMapFunc(r.usersInGroupToNodesMapper)).
 		Watches(&proxyv1alpha1.CustomRoute{},
 			handler.EnqueueRequestsFromMapFunc(r.affectedByRouteMapper)).
 		Watches(&corev1.Node{},

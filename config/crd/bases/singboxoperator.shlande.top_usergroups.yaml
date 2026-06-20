@@ -4,32 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: users.singboxoperator.shlande.top
+  name: usergroups.singboxoperator.shlande.top
 spec:
   group: singboxoperator.shlande.top
   names:
-    kind: User
-    listKind: UserList
-    plural: users
-    shortNames:
-    - u
-    singular: user
+    kind: UserGroup
+    listKind: UserGroupList
+    plural: usergroups
+    singular: usergroup
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .spec.protocol
-      name: Protocol
-      type: string
-    - jsonPath: .status.activeNodeCount
-      name: ActiveNodes
-      type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: User is the Schema for the users API
+        description: |-
+          UserGroup is the Schema for the usergroups API.
+          A UserGroup restricts which SingBoxNodes its member Users can access.
+          Users bind to a UserGroup via spec.userGroupRef. If a node is restricted,
+          the user cannot use it as either an inbound or an outbound.
         properties:
           apiVersion:
             description: |-
@@ -49,61 +41,33 @@ spec:
           metadata:
             type: object
           spec:
-            description: UserSpec defines the desired state of User
+            description: spec defines the desired state of UserGroup
             properties:
-              authSecret:
+              allowedNodes:
                 description: |-
-                  AuthSecret references the Secret containing authentication credentials
-                  (e.g., password for hysteria2/trojan, uuid for vless)
-                properties:
-                  name:
-                    description: name is unique within a namespace to reference a
-                      secret resource.
-                    type: string
-                  namespace:
-                    description: namespace defines the space within which the secret
-                      name must be unique.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
-              protocol:
-                default: hysteria2
-                description: |-
-                  Protocol is the inbound proxy protocol (must match a SingBoxNode's supportedProtocols).
-                  Defaults to hysteria2 when omitted.
-                enum:
-                - hysteria2
-                - vless
-                - trojan
-                - socks5
-                - http
-                type: string
-              userGroupRef:
-                description: |-
-                  UserGroupRef is the name of the UserGroup in the same namespace.
-                  If empty, no node restrictions apply to this user.
-                  If set, the user is subject to the allowedNodes/deniedNodes rules of the referenced UserGroup.
-                maxLength: 253
-                type: string
-            required:
-            - authSecret
-            type: object
-          status:
-            description: UserStatus defines the observed state of User
-            properties:
-              activeNodeCount:
-                description: ActiveNodeCount is the number of inbound SingBoxNodes
-                  this user is injected into
-                format: int32
-                type: integer
-              activeNodes:
-                description: ActiveNodes lists the names of inbound SingBoxNodes this
-                  user is active on
+                  AllowedNodes is the whitelist of SingBoxNode names (metadata.name) this group may use.
+                  If empty, all nodes are allowed (subject to DeniedNodes).
+                  Deny-wins: if a node appears in both AllowedNodes and DeniedNodes, it is denied.
                 items:
                   type: string
                 type: array
+                x-kubernetes-list-type: set
+              deniedNodes:
+                description: |-
+                  DeniedNodes is the blacklist of SingBoxNode names (metadata.name) this group may NOT use.
+                  Deny-wins: if a node appears in both AllowedNodes and DeniedNodes, it is denied.
+                  Restriction is node-level: a denied node cannot be used as either an inbound or outbound.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
+            type: object
+          status:
+            description: status defines the observed state of UserGroup
+            properties:
               conditions:
                 description: Conditions represent the latest available observations
+                  of the UserGroup state.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -164,7 +128,7 @@ spec:
                 x-kubernetes-list-type: map
               observedGeneration:
                 description: ObservedGeneration is the generation observed by the
-                  controller
+                  controller.
                 format: int64
                 type: integer
             type: object

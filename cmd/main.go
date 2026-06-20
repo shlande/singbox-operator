@@ -241,6 +241,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Register field index for spec.userGroupRef to enable efficient UserGroup→User lookups.
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &proxyv1alpha1.User{}, "spec.userGroupRef", func(rawObj client.Object) []string {
+		user := rawObj.(*proxyv1alpha1.User)
+		if user.Spec.UserGroupRef == "" {
+			return nil
+		}
+		return []string{user.Spec.UserGroupRef}
+	}); err != nil {
+		setupLog.Error(err, "Failed to set up field index for spec.userGroupRef")
+		os.Exit(1)
+	}
+
 	if err := (&controller.SingBoxNodeReconciler{
 		Client:                 mgr.GetClient(),
 		Scheme:                 mgr.GetScheme(),
@@ -278,12 +290,23 @@ func main() {
 		setupLog.Error(err, "Failed to create webhook", "webhook", "CustomRoute")
 		os.Exit(1)
 	}
+	if err := proxywebhook.SetupUserGroupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "UserGroup")
+		os.Exit(1)
+	}
 	if err := mgr.Add(&apiserver.Server{
 		BindAddress: apiBindAddress,
 		TemplateRef: clientConfigTemplate,
 		Client:      mgr.GetClient(),
 	}); err != nil {
 		setupLog.Error(err, "Failed to register API server")
+		os.Exit(1)
+	}
+	if err := (&controller.UserGroupReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "usergroup")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

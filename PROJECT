@@ -36,4 +36,13 @@ resources:
   kind: CustomRoute
   path: github.com/shlande/singbox-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: shlande.top
+  group: singboxoperator
+  kind: UserGroup
+  path: github.com/shlande/singbox-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

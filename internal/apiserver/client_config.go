@@ -23,6 +23,12 @@ type ClientConfigInput struct {
 	// (NodeReady condition is False or absent). These nodes are excluded from
 	// client config outbounds.
 	OfflineNodeNames map[string]bool
+	// AllowedNodeNames is the whitelist of SingBoxNode names for this user (from UserGroup).
+	// nil means allow all.
+	AllowedNodeNames map[string]bool
+	// DeniedNodeNames is the blacklist of SingBoxNode names for this user (from UserGroup).
+	// nil means deny none.
+	DeniedNodeNames map[string]bool
 }
 
 // BuildClientConfig generates the outbounds array for a client sing-box config.
@@ -35,6 +41,9 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 
 	for _, inboundNode := range input.InboundNodes {
 		if input.OfflineNodeNames[inboundNode.Name] {
+			continue
+		}
+		if !configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
 			continue
 		}
 		if !supportsProtocol(inboundNode, protocol) {
@@ -117,19 +126,22 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 
 	if inboundNode != nil {
 		for _, n := range input.OutboundsByName {
-			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.OfflineNodeNames[n.Name] {
+			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
+				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
 				seen[n.Name] = true
 				nodes = append(nodes, n)
 			}
 		}
-		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] {
+		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] &&
+			configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
 			seen[inboundNode.Name] = true
 			nodes = append(nodes, inboundNode)
 		}
 	}
 
 	for _, r := range input.RoutesByInbound[inboundName] {
-		if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] && !input.OfflineNodeNames[n.Name] {
+		if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
+			configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
 			seen[n.Name] = true
 			nodes = append(nodes, n)
 		}

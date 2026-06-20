@@ -32,6 +32,12 @@ type UserSpec struct {
 	// AuthSecret references the Secret containing authentication credentials
 	// (e.g., password for hysteria2/trojan, uuid for vless)
 	AuthSecret corev1.SecretReference `json:"authSecret"`
+	// UserGroupRef is the name of the UserGroup in the same namespace.
+	// If empty, no node restrictions apply to this user.
+	// If set, the user is subject to the allowedNodes/deniedNodes rules of the referenced UserGroup.
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	UserGroupRef string `json:"userGroupRef,omitempty"`
 }
 
 // UserStatus defines the observed state of User

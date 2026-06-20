@@ -3,4 +3,5 @@ resources:
 - singboxoperator_v1alpha1_singboxnode.yaml
 - singboxoperator_v1alpha1_user.yaml
 - singboxoperator_v1alpha1_customroute.yaml
+- singboxoperator_v1alpha1_usergroup.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

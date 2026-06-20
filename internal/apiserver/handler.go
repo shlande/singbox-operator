@@ -9,6 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -108,6 +109,32 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		routesByInbound[route.Spec.InboundNode] = append(routesByInbound[route.Spec.InboundNode], route)
 	}
 
+	var allowedNodeNames, deniedNodeNames map[string]bool
+	if matchedUser.Spec.UserGroupRef != "" {
+		var ug proxyv1alpha1.UserGroup
+		if err := s.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: matchedUser.Spec.UserGroupRef}, &ug); err != nil {
+			if !apierrors.IsNotFound(err) {
+				logger.Error(err, "Failed to fetch UserGroup for user", "user", matchedUser.Name, "userGroupRef", matchedUser.Spec.UserGroupRef)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			logger.Info("UserGroup not found for user, proceeding without node restrictions", "user", matchedUser.Name, "userGroupRef", matchedUser.Spec.UserGroupRef)
+		} else {
+			if len(ug.Spec.AllowedNodes) > 0 {
+				allowedNodeNames = make(map[string]bool, len(ug.Spec.AllowedNodes))
+				for _, name := range ug.Spec.AllowedNodes {
+					allowedNodeNames[name] = true
+				}
+			}
+			if len(ug.Spec.DeniedNodes) > 0 {
+				deniedNodeNames = make(map[string]bool, len(ug.Spec.DeniedNodes))
+				for _, name := range ug.Spec.DeniedNodes {
+					deniedNodeNames[name] = true
+				}
+			}
+		}
+	}
+
 	input := ClientConfigInput{
 		User:             matchedUser,
 		UserCred:         matchedCred,
@@ -115,6 +142,8 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		RoutesByInbound:  routesByInbound,
 		OutboundsByName:  outboundsByName,
 		OfflineNodeNames: offlineNodeNames,
+		AllowedNodeNames: allowedNodeNames,
+		DeniedNodeNames:  deniedNodeNames,
 	}
 
 	outbounds, err := BuildClientConfig(input)

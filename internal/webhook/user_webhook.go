@@ -19,6 +19,7 @@ package webhook
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -69,6 +70,16 @@ func validateUser(user *v1alpha1.User) error {
 
 	if user.Spec.AuthSecret.Name == "" {
 		allErrs = append(allErrs, field.Required(field.NewPath("spec", "authSecret", "name"), "authSecret.name must not be empty"))
+	}
+
+	if user.Spec.UserGroupRef != "" {
+		if errs := validation.IsDNS1123Subdomain(user.Spec.UserGroupRef); len(errs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec", "userGroupRef"),
+				user.Spec.UserGroupRef,
+				"must be a valid DNS subdomain: "+errs[0],
+			))
+		}
 	}
 
 	if len(allErrs) > 0 {
