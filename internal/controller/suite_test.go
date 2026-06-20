@@ -28,12 +28,10 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -86,33 +84,6 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
-	// Register field index for spec.userGroupRef on User objects.
-	// The UserGroup controller uses client.MatchingFields{"spec.userGroupRef": ...} for lookups,
-	// which requires a field index registered on the client's field indexer.
-	// We create a lightweight manager just to register the index, start it, and use its
-	// client (which has the index) instead of the bare envtest client.
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-		HealthProbeBindAddress: "0",
-	})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(mgr.GetFieldIndexer().IndexField(ctx, &proxyv1alpha1.User{}, "spec.userGroupRef", func(rawObj client.Object) []string {
-		user := rawObj.(*proxyv1alpha1.User)
-		if user.Spec.UserGroupRef == "" {
-			return nil
-		}
-		return []string{user.Spec.UserGroupRef}
-	})).To(Succeed())
-	go func() {
-		defer GinkgoRecover()
-		Expect(mgr.Start(ctx)).To(Succeed())
-	}()
-	k8sClient = mgr.GetClient()
-	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 })
 
 var _ = AfterSuite(func() {

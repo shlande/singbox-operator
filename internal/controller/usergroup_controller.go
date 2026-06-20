@@ -52,16 +52,20 @@ func (r *UserGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	userList := &proxyv1alpha1.UserList{}
-	if err := r.List(ctx, userList,
-		client.InNamespace(req.Namespace),
-		client.MatchingFields{"spec.userGroupRef": req.Name},
-	); err != nil {
+	// List all Users in the namespace, then filter by userGroupRef.
+	// We use client-side filtering rather than MatchingFields so that the controller
+	// works both with and without a registered field index (e.g. in tests).
+	if err := r.List(ctx, userList, client.InNamespace(req.Namespace)); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	timestamp := time.Now().Format(time.RFC3339)
 	for i := range userList.Items {
 		user := &userList.Items[i]
+		// Filter: only patch Users whose userGroupRef matches this UserGroup's name.
+		if user.Spec.UserGroupRef != req.Name {
+			continue
+		}
 		patch := client.MergeFrom(user.DeepCopy())
 		if user.Annotations == nil {
 			user.Annotations = make(map[string]string)

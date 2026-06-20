@@ -49,12 +49,12 @@ import (
 )
 
 const (
-	singboxNodeFinalizer    = "singboxoperator.shlande.top/singboxnode-finalizer"
-	configMapSuffix         = "-config"
-	deploymentSuffix        = "-deploy"
-	configHashAnnotation    = "singboxoperator.shlande.top/config-hash"
-	defaultSingBoxImage     = "ghcr.io/sagernet/sing-box:latest"
-	relayContainerPort      = int32(10808)
+	singboxNodeFinalizer = "singboxoperator.shlande.top/singboxnode-finalizer"
+	configMapSuffix      = "-config"
+	deploymentSuffix     = "-deploy"
+	configHashAnnotation = "singboxoperator.shlande.top/config-hash"
+	defaultSingBoxImage  = "ghcr.io/sagernet/sing-box:latest"
+	relayContainerPort   = int32(10808)
 )
 
 // SingBoxNodeReconciler reconciles a SingBoxNode object
@@ -74,11 +74,11 @@ const (
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 type SingBoxNodeReconciler struct {
 	client.Client
-	Scheme                  *runtime.Scheme
-	DefaultTLSSecret        string
-	SingBoxImage            string
-	UsageCollectionEnabled  bool
-	V2RayAPIListenAddr      string
+	Scheme                 *runtime.Scheme
+	DefaultTLSSecret       string
+	SingBoxImage           string
+	UsageCollectionEnabled bool
+	V2RayAPIListenAddr     string
 }
 
 func (r *SingBoxNodeReconciler) singboxImage() string {
@@ -618,10 +618,9 @@ func (r *SingBoxNodeReconciler) usersInGroupToNodesMapper(ctx context.Context, o
 	if !ok {
 		return nil
 	}
-	// List all Users in the namespace that reference this UserGroup.
+	// List all Users in the namespace and filter by userGroupRef client-side.
 	userList := &proxyv1alpha1.UserList{}
-	if err := r.List(ctx, userList, client.InNamespace(userGroup.Namespace),
-		client.MatchingFields{"spec.userGroupRef": userGroup.Name}); err != nil {
+	if err := r.List(ctx, userList, client.InNamespace(userGroup.Namespace)); err != nil {
 		return nil
 	}
 	// List all SingBoxNodes once to avoid repeated API calls.
@@ -629,10 +628,14 @@ func (r *SingBoxNodeReconciler) usersInGroupToNodesMapper(ctx context.Context, o
 	if err := r.List(ctx, allNodes, client.InNamespace(userGroup.Namespace)); err != nil {
 		return nil
 	}
-	// Return the union of all inbound SingBoxNodes that match any user's protocol.
+	// Return the union of all inbound SingBoxNodes that match any user's protocol
+	// AND whose user references this UserGroup.
 	seen := make(map[types.NamespacedName]bool)
 	var requests []reconcile.Request
 	for _, user := range userList.Items {
+		if user.Spec.UserGroupRef != userGroup.Name {
+			continue
+		}
 		for _, n := range allNodes.Items {
 			key := types.NamespacedName{Name: n.Name, Namespace: n.Namespace}
 			if !seen[key] && hasRole(&n, proxyv1alpha1.ProxyRoleInbound) && nodeSupportsProtocol(&n, user.Spec.Protocol) {
