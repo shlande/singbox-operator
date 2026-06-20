@@ -53,7 +53,7 @@ const (
 	configMapSuffix      = "-config"
 	deploymentSuffix     = "-deploy"
 	configHashAnnotation = "singboxoperator.shlande.top/config-hash"
-	defaultSingBoxImage  = "ghcr.io/sagernet/sing-box:latest"
+	defaultSingBoxImage  = "ghcr.io/shlande/sing-box:1.13.13-with_v2ray_api"
 	relayContainerPort   = int32(10808)
 )
 
