@@ -89,12 +89,15 @@ var _ = BeforeSuite(func() {
 
 	// Register field index for spec.userGroupRef on User objects.
 	// The UserGroup controller uses client.MatchingFields{"spec.userGroupRef": ...} for lookups,
-	// which requires a field index registered on the manager's field indexer.
+	// which requires a field index registered on the client's field indexer.
+	// We create a lightweight manager just to register the index, start it, and use its
+	// client (which has the index) instead of the bare envtest client.
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
+		HealthProbeBindAddress: "0",
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.GetFieldIndexer().IndexField(ctx, &proxyv1alpha1.User{}, "spec.userGroupRef", func(rawObj client.Object) []string {
@@ -104,8 +107,12 @@ var _ = BeforeSuite(func() {
 		}
 		return []string{user.Spec.UserGroupRef}
 	})).To(Succeed())
-	// Use the manager's client which has field indexes available.
+	go func() {
+		defer GinkgoRecover()
+		Expect(mgr.Start(ctx)).To(Succeed())
+	}()
 	k8sClient = mgr.GetClient()
+	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 })
 
 var _ = AfterSuite(func() {
