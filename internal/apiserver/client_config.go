@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -44,7 +45,7 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 		if !configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
 			continue
 		}
-		protocol := effectiveNodeProtocol(inboundNode)
+		protocol := configengine.EffectiveInboundProtocol(inboundNode)
 		if !supportsProtocol(inboundNode, protocol) {
 			continue
 		}
@@ -82,16 +83,6 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 	})
 
 	return result, nil
-}
-
-// effectiveNodeProtocol returns the protocol this inbound node uses for all users.
-// If InboundProtocol is explicitly set, that protocol is used.
-// Otherwise, defaults to "hysteria2".
-func effectiveNodeProtocol(node *v1alpha1.SingBoxNode) string {
-	if node.Spec.InboundProtocol != "" {
-		return node.Spec.InboundProtocol
-	}
-	return "hysteria2"
 }
 
 func supportsProtocol(node *v1alpha1.SingBoxNode, protocol string) bool {
@@ -156,6 +147,9 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 		}
 	}
 
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].Name < nodes[j].Name
+	})
 	return nodes
 }
 

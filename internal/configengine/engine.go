@@ -221,10 +221,10 @@ func findProtocolPort(node *v1alpha1.SingBoxNode, protocol string) int32 {
 	return 0
 }
 
-// effectiveInboundProtocol returns the protocol this inbound node uses for all users.
+// EffectiveInboundProtocol returns the protocol this inbound node uses for all users.
 // If InboundProtocol is explicitly set, that protocol is used.
 // Otherwise, defaults to "hysteria2".
-func effectiveInboundProtocol(node *v1alpha1.SingBoxNode) string {
+func EffectiveInboundProtocol(node *v1alpha1.SingBoxNode) string {
 	if node.Spec.InboundProtocol != "" {
 		return node.Spec.InboundProtocol
 	}
@@ -318,7 +318,7 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 		outboundNames = append(outboundNames, input.Node.Name)
 	}
 
-	proto := effectiveInboundProtocol(input.Node)
+	proto := EffectiveInboundProtocol(input.Node)
 	port := findProtocolPort(input.Node, proto)
 	if port != 0 {
 		tag := fmt.Sprintf("inbound-%s", proto)
@@ -401,7 +401,7 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]any)
 }
 
 func buildUserInbounds(input Input) []any {
-	proto := effectiveInboundProtocol(input.Node)
+	proto := EffectiveInboundProtocol(input.Node)
 	port := findProtocolPort(input.Node, proto)
 	if port == 0 {
 		return nil
