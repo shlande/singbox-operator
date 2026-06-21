@@ -1058,8 +1058,10 @@ func TestBuildClientConfig_NaiveOutbound(t *testing.T) {
 			t.Errorf("expected tls.server_name=example.com, got %v", tls["server_name"])
 		}
 	}
-	if _, hasUsername := proxyOb["username"]; !hasUsername {
+	if username, hasUsername := proxyOb["username"]; !hasUsername {
 		t.Error("expected username field in naive outbound")
+	} else if username != "user-alice#node-b" {
+		t.Errorf("expected username 'user-alice#node-b', got '%v'", username)
 	}
 	if _, hasPassword := proxyOb["password"]; !hasPassword {
 		t.Error("expected password field in naive outbound")

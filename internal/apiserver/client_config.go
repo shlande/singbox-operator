@@ -64,7 +64,7 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 			} else {
 				tag = fmt.Sprintf("%s#%s", outboundNode.Name, inboundNode.Name)
 			}
-			ob := buildProxyOutbound(tag, address, port, protocol, outboundNode.Name, inboundNode.Status.TLSServerName, input.UserCred)
+			ob := buildProxyOutbound(tag, address, port, protocol, input.User.Name, outboundNode.Name, inboundNode.Status.TLSServerName, input.UserCred)
 			proxyOutbounds = append(proxyOutbounds, ob)
 			proxyTags = append(proxyTags, tag)
 		}
@@ -157,7 +157,7 @@ func hasOutboundRole(node *v1alpha1.SingBoxNode) bool {
 	return slices.Contains(node.Spec.Roles, v1alpha1.ProxyRoleOutbound)
 }
 
-func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeName, tlsServerName string, cred credmanager.UserCredential) map[string]any {
+func buildProxyOutbound(tag, address string, port int, protocol, userName, outboundNodeName, tlsServerName string, cred credmanager.UserCredential) map[string]any {
 	typeStr := protocol
 	if protocol == "socks5" {
 		typeStr = "socks"
@@ -169,6 +169,11 @@ func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeNam
 		"server_port": port,
 	}
 	maps.Copy(ob, configengine.DeriveAuth(protocol, cred.UUID, outboundNodeName))
+	// For naive protocol, the inbound server identifies users by "user#node" format username.
+	// Override the uuid-based username from DeriveAuth to match the server's expectation.
+	if protocol == "naive" {
+		ob["username"] = fmt.Sprintf("%s#%s", userName, outboundNodeName)
+	}
 	if protocol == "hysteria2" || protocol == "naive" || protocol == "anytls" || protocol == "tuic" {
 		tls := map[string]any{"enabled": true}
 		if tlsServerName != "" {
