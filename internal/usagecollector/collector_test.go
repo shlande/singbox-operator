@@ -61,8 +61,8 @@ func (f *fakeStatsClient) QueryUserStats(_ context.Context, addr string) ([]RawS
 type fakeSink struct {
 	mu         sync.Mutex
 	records    []UsageRecord
-	writeErr   error // optional error to return from Write
-	writeCount int32 // atomic counter of Write calls
+	writeErr   error        // optional error to return from Write
+	writeCount atomic.Int32 // atomic counter of Write calls
 	closed     bool
 }
 
@@ -77,7 +77,7 @@ func (f *fakeSink) setWriteErr(err error) {
 }
 
 func (f *fakeSink) Write(_ context.Context, batch UsageBatch) error {
-	atomic.AddInt32(&f.writeCount, 1)
+	f.writeCount.Add(1)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.writeErr != nil {
@@ -169,19 +169,17 @@ func TestCollector_FullPollCycle(t *testing.T) {
 // fakeSinkWithFailures fails Write on specific call numbers.
 type fakeSinkWithFailures struct {
 	*fakeSink
-	callCount   int32
+	callCount   atomic.Int32
 	failOnCalls map[int32]error
 }
 
 func (f *fakeSinkWithFailures) Write(ctx context.Context, batch UsageBatch) error {
-	c := atomic.AddInt32(&f.callCount, 1)
+	c := f.callCount.Add(1)
 	if err, ok := f.failOnCalls[c]; ok {
 		return err
 	}
 	return f.fakeSink.Write(ctx, batch)
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Scenario 4: Shutdown flush
@@ -341,7 +339,7 @@ func (s *blockingStatsClient) QueryUserStats(_ context.Context, addr string) ([]
 
 func (s *blockingStatsClient) waitForEnter(t *testing.T) {
 	t.Helper()
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		s.mu.Lock()
 		c := s.enterCount
 		s.mu.Unlock()
@@ -420,7 +418,7 @@ func TestCollector_BackpressureBufferDrop(t *testing.T) {
 
 	// Produce many counters per target
 	entries := make([]RawStatEntry, 0, 200)
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		entries = append(entries, RawStatEntry{
 			Name:  fmt.Sprintf("user>>>user%d#node-x>>>traffic>>>uplink", i),
 			Value: int64(i * 100),

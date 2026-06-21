@@ -719,7 +719,7 @@ func buildHostPorts(node *proxyv1alpha1.SingBoxNode) []corev1.ContainerPort {
 
 func hostPortProtocols(protocol string) []corev1.Protocol {
 	switch protocol {
-	case "hysteria2":
+	case "hysteria2", "tuic":
 		return []corev1.Protocol{corev1.ProtocolUDP}
 	case "socks5":
 		return []corev1.Protocol{corev1.ProtocolTCP, corev1.ProtocolUDP}
@@ -734,7 +734,7 @@ func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool
 
 func needsTLS(node *proxyv1alpha1.SingBoxNode) bool {
 	for _, p := range node.Spec.SupportedProtocols {
-		if p.Protocol == "hysteria2" {
+		if p.Protocol == "hysteria2" || p.Protocol == "tuic" || p.Protocol == "naive" || p.Protocol == "anytls" {
 			return true
 		}
 	}

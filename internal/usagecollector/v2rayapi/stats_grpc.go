@@ -68,7 +68,7 @@ var StatsService_ServiceDesc = grpc.ServiceDesc{
 }
 
 // handlerGetStats decodes GetStatsRequest, dispatches to server, encodes response.
-func handlerGetStats(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
+func handlerGetStats(srv any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
 	in := new(GetStatsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func handlerGetStats(srv interface{}, ctx context.Context, dec func(interface{})
 }
 
 // handlerQueryStats decodes QueryStatsRequest, dispatches to server, encodes response.
-func handlerQueryStats(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
+func handlerQueryStats(srv any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
 	in := new(QueryStatsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func handlerQueryStats(srv interface{}, ctx context.Context, dec func(interface{
 }
 
 // handlerGetSysStats decodes SysStatsRequest, dispatches to server, encodes response.
-func handlerGetSysStats(srv interface{}, ctx context.Context, dec func(interface{}) error, _ grpc.UnaryServerInterceptor) (interface{}, error) {
+func handlerGetSysStats(srv any, ctx context.Context, dec func(any) error, _ grpc.UnaryServerInterceptor) (any, error) {
 	in := new(SysStatsRequest)
 	if err := dec(in); err != nil {
 		return nil, err

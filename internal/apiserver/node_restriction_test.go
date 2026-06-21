@@ -27,9 +27,9 @@ func TestBuildClientConfig_WithNodeRestrictions(t *testing.T) {
 
 	t.Run("DeniedNodeNames excludes denied outbound node-b, keeps node-c", func(t *testing.T) {
 		input := ClientConfigInput{
-			User:         user,
-			UserCred:     userCred,
-			InboundNodes: []*proxyv1alpha1.SingBoxNode{inbound},
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
 			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
 			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
 				"node-b": outboundB,
@@ -58,9 +58,9 @@ func TestBuildClientConfig_WithNodeRestrictions(t *testing.T) {
 
 	t.Run("nil AllowedNodeNames and DeniedNodeNames allow all outbounds (regression)", func(t *testing.T) {
 		input := ClientConfigInput{
-			User:         user,
-			UserCred:     userCred,
-			InboundNodes: []*proxyv1alpha1.SingBoxNode{inbound},
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
 			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
 			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
 				"node-b": outboundB,
@@ -92,9 +92,9 @@ func TestBuildClientConfig_WithNodeRestrictions(t *testing.T) {
 		// AllowedNodeNames must include the inbound node-a as well,
 		// because BuildClientConfig also checks inbound nodes against the allowlist.
 		input := ClientConfigInput{
-			User:         user,
-			UserCred:     userCred,
-			InboundNodes: []*proxyv1alpha1.SingBoxNode{inbound},
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
 			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
 			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
 				"node-b": outboundB,

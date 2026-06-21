@@ -3,6 +3,7 @@ package usagecollector
 import (
 	"context"
 	"net"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -373,13 +374,7 @@ func TestQueryUserStats(t *testing.T) {
 		}
 
 		// Must use "user>>>" as pattern to filter on the server side.
-		found := false
-		for _, p := range capturedPatterns {
-			if p == "user>>>" {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(capturedPatterns, "user>>>")
 		if !found {
 			t.Fatalf("expected QueryStats to use 'user>>>' pattern, got patterns: %v", capturedPatterns)
 		}

@@ -169,7 +169,7 @@ func buildProxyOutbound(tag, address string, port int, protocol, outboundNodeNam
 		"server_port": port,
 	}
 	maps.Copy(ob, configengine.DeriveAuth(protocol, cred.UUID, outboundNodeName))
-	if protocol == "hysteria2" {
+	if protocol == "hysteria2" || protocol == "naive" || protocol == "anytls" || protocol == "tuic" {
 		tls := map[string]any{"enabled": true}
 		if tlsServerName != "" {
 			tls["server_name"] = tlsServerName

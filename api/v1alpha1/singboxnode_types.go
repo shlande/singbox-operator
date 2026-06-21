@@ -40,8 +40,8 @@ const (
 
 // ProtocolConfig declares a supported inbound protocol and its host port
 type ProtocolConfig struct {
-	// Protocol is the proxy protocol: hysteria2, vless, trojan, socks5, or http
-	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http
+	// Protocol is the proxy protocol: hysteria2, vless, trojan, socks5, http, naive, anytls, or tuic
+	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http;naive;anytls;tuic
 	Protocol string `json:"protocol"`
 	// Port is the port on the host machine for client connections (1-65535).
 	// This is exposed via hostPort on the pod, so the same port number can be
@@ -72,7 +72,7 @@ type SingBoxNodeSpec struct {
 	// When set, only this protocol is used for inbound connections, regardless of SupportedProtocols.
 	// When empty, defaults to "hysteria2".
 	// Only meaningful for nodes with the inbound role.
-	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http
+	// +kubebuilder:validation:Enum=hysteria2;vless;trojan;socks5;http;naive;anytls;tuic
 	// +optional
 	InboundProtocol string `json:"inboundProtocol,omitempty"`
 	// RelayPort is the host port for inter-node relay connections.

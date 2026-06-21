@@ -102,13 +102,13 @@ func ParseUserCounterName(name string) (user, node, direction string, ok bool) {
 		return "", "", "", false
 	}
 
-	hashIdx := strings.Index(virtualUserName, "#")
-	if hashIdx < 0 {
+	before, after, ok := strings.Cut(virtualUserName, "#")
+	if !ok {
 		user = virtualUserName
 		node = ""
 	} else {
-		user = virtualUserName[:hashIdx]
-		node = virtualUserName[hashIdx+1:]
+		user = before
+		node = after
 	}
 
 	return user, node, direction, true

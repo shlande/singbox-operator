@@ -2,6 +2,7 @@ package usagecollector
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -150,13 +151,7 @@ func TestDiscoverOneInboundNodeWithUsers(t *testing.T) {
 			len(ct.VirtualUsers), len(expectedVirtualUsers), ct.VirtualUsers)
 	}
 	for _, expected := range expectedVirtualUsers {
-		found := false
-		for _, got := range ct.VirtualUsers {
-			if got == expected {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(ct.VirtualUsers, expected)
 		if !found {
 			t.Fatalf("VirtualUsers missing expected entry %q; got %v", expected, ct.VirtualUsers)
 		}

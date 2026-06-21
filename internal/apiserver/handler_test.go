@@ -1008,3 +1008,166 @@ func TestHandler_MultipleUsersMatchUUID(t *testing.T) {
 	}
 }
 
+func TestBuildClientConfig_NaiveOutbound(t *testing.T) {
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	const outboundName = "node-b"
+
+	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "naive", Port: 10443},
+	})
+	inbound.Status.EntryEndpoints = []string{"naive:1.2.3.4:10443"}
+	inbound.Status.TLSServerName = "example.com"
+
+	outbound := makeOutboundNode(outboundName, "us")
+
+	user := makeUser("user-alice", "secret-alice")
+	input := ClientConfigInput{
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: baseUUID},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{outboundName: outbound},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var proxyOb map[string]any
+	for _, ob := range result {
+		m, ok := ob.(map[string]any)
+		if !ok {
+			continue
+		}
+		if m["type"] == "naive" {
+			proxyOb = m
+		}
+	}
+	if proxyOb == nil {
+		t.Fatal("expected a naive outbound in result")
+	}
+	tls, ok := proxyOb["tls"].(map[string]any)
+	if !ok {
+		t.Error("expected tls block in naive outbound")
+	} else {
+		if tls["enabled"] != true {
+			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+		}
+		if tls["server_name"] != "example.com" {
+			t.Errorf("expected tls.server_name=example.com, got %v", tls["server_name"])
+		}
+	}
+	if _, hasUsername := proxyOb["username"]; !hasUsername {
+		t.Error("expected username field in naive outbound")
+	}
+	if _, hasPassword := proxyOb["password"]; !hasPassword {
+		t.Error("expected password field in naive outbound")
+	}
+}
+
+func TestBuildClientConfig_AnyTLSOutbound(t *testing.T) {
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	const outboundName = "node-b"
+
+	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "anytls", Port: 10443},
+	})
+	inbound.Status.EntryEndpoints = []string{"anytls:1.2.3.4:10443"}
+	inbound.Status.TLSServerName = "example.com"
+
+	outbound := makeOutboundNode(outboundName, "us")
+
+	user := makeUser("user-alice", "secret-alice")
+	input := ClientConfigInput{
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: baseUUID},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{outboundName: outbound},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var proxyOb map[string]any
+	for _, ob := range result {
+		m, ok := ob.(map[string]any)
+		if !ok {
+			continue
+		}
+		if m["type"] == "anytls" {
+			proxyOb = m
+		}
+	}
+	if proxyOb == nil {
+		t.Fatal("expected an anytls outbound in result")
+	}
+	if _, ok := proxyOb["tls"]; !ok {
+		t.Error("expected tls block in anytls outbound")
+	}
+	if _, hasPassword := proxyOb["password"]; !hasPassword {
+		t.Error("expected password field in anytls outbound")
+	}
+	if _, hasUsername := proxyOb["username"]; hasUsername {
+		t.Error("anytls outbound must not have username field")
+	}
+	if _, hasIdle := proxyOb["idle_session_check_interval"]; hasIdle {
+		t.Error("anytls outbound must not have idle_session_check_interval field")
+	}
+}
+
+func TestBuildClientConfig_TUICOutbound(t *testing.T) {
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	const outboundName = "node-b"
+
+	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "tuic", Port: 10443},
+	})
+	inbound.Status.EntryEndpoints = []string{"tuic:1.2.3.4:10443"}
+	inbound.Status.TLSServerName = "example.com"
+
+	outbound := makeOutboundNode(outboundName, "us")
+
+	user := makeUser("user-alice", "secret-alice")
+	input := ClientConfigInput{
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: baseUUID},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{outboundName: outbound},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var proxyOb map[string]any
+	for _, ob := range result {
+		m, ok := ob.(map[string]any)
+		if !ok {
+			continue
+		}
+		if m["type"] == "tuic" {
+			proxyOb = m
+		}
+	}
+	if proxyOb == nil {
+		t.Fatal("expected a tuic outbound in result")
+	}
+	if _, ok := proxyOb["tls"]; !ok {
+		t.Error("expected tls block in tuic outbound")
+	}
+	if _, hasUUID := proxyOb["uuid"]; !hasUUID {
+		t.Error("expected uuid field in tuic outbound")
+	}
+	if _, hasPassword := proxyOb["password"]; !hasPassword {
+		t.Error("expected password field in tuic outbound")
+	}
+	if _, hasCongestion := proxyOb["congestion_control"]; hasCongestion {
+		t.Error("tuic outbound must not have congestion_control field")
+	}
+}

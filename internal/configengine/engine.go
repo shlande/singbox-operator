@@ -290,6 +290,12 @@ func DeriveAuth(protocol, uuid, nodeName string) map[string]any {
 		return map[string]any{"username": uuid, "password": DerivePassword(uuid, nodeName)}
 	case "http":
 		return map[string]any{"username": uuid, "password": DerivePassword(uuid, nodeName)}
+	case "naive":
+		return map[string]any{"username": uuid, "password": DerivePassword(uuid, nodeName)}
+	case "anytls":
+		return map[string]any{"password": DerivePassword(uuid, nodeName)}
+	case "tuic":
+		return map[string]any{"uuid": DeriveUUID(uuid, nodeName), "password": DerivePassword(uuid, nodeName)}
 	default:
 		return map[string]any{"password": DerivePassword(uuid, nodeName)}
 	}
@@ -390,7 +396,7 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]any)
 		"listen_port": port,
 		"users":       users,
 	}
-	if protocol == "hysteria2" {
+	if protocol == "hysteria2" || protocol == "naive" || protocol == "anytls" || protocol == "tuic" {
 		entry["tls"] = map[string]any{
 			"enabled":          true,
 			"certificate_path": "/etc/sing-box/tls/tls.crt",
@@ -578,4 +584,3 @@ func routeFinal(outbounds []any) string {
 	}
 	return "direct"
 }
-

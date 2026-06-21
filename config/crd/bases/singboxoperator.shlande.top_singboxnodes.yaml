@@ -70,6 +70,9 @@ spec:
                 - trojan
                 - socks5
                 - http
+                - naive
+                - anytls
+                - tuic
                 type: string
               nodeRef:
                 description: NodeRef is the name of the Kubernetes Node this proxy
@@ -118,13 +121,16 @@ spec:
                       type: integer
                     protocol:
                       description: 'Protocol is the proxy protocol: hysteria2, vless,
-                        trojan, socks5, or http'
+                        trojan, socks5, http, naive, anytls, or tuic'
                       enum:
                       - hysteria2
                       - vless
                       - trojan
                       - socks5
                       - http
+                      - naive
+                      - anytls
+                      - tuic
                       type: string
                   required:
                   - port

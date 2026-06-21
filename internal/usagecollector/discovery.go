@@ -3,13 +3,14 @@ package usagecollector
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	proxyv1alpha1 "github.com/shlande/singbox-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -217,12 +218,7 @@ func virtualUserName(userName, outboundNodeName string) string {
 
 // hasRole checks whether a SingBoxNode has the given role.
 func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool {
-	for _, r := range node.Spec.Roles {
-		if r == role {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(node.Spec.Roles, role)
 }
 
 // normalizeCounterName extracts the user name, node name, and direction

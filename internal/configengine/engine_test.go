@@ -1336,3 +1336,407 @@ func TestDeriveUUID(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Test: naive inbound — type, tag, TLS block, username+password user fields
+// ---------------------------------------------------------------------------
+func TestConfigEngine_NaiveInbound(t *testing.T) {
+	node := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "naive", Port: 10443}},
+		0,
+	)
+	node.Spec.InboundProtocol = "naive"
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:  node,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "s3cr3t-uuid"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+
+	if !containsTag(ibs, "inbound-naive") {
+		t.Errorf("missing inbound-naive tag, got %v", ibs)
+	}
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		if m["tag"] != "inbound-naive" {
+			continue
+		}
+		if m["type"] != "naive" {
+			t.Errorf("expected type=naive, got %v", m["type"])
+		}
+		tls, ok := m["tls"].(map[string]any)
+		if !ok {
+			t.Error("expected tls block in naive inbound")
+		} else if tls["enabled"] != true {
+			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+		}
+		users, _ := m["users"].([]any)
+		if len(users) != 1 {
+			t.Fatalf("expected 1 user, got %d", len(users))
+		}
+		u := users[0].(map[string]any)
+		if _, hasUsername := u["username"]; !hasUsername {
+			t.Error("expected username field in naive user")
+		}
+		if _, hasPassword := u["password"]; !hasPassword {
+			t.Error("expected password field in naive user")
+		}
+		if _, hasUUID := u["uuid"]; hasUUID {
+			t.Error("naive user must not have uuid field")
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: naive inbound with outbound node — virtual users have username+password
+// ---------------------------------------------------------------------------
+func TestConfigEngine_NaiveVirtualUsers(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "naive", Port: 10443}},
+		0,
+	)
+	nodeA.Spec.InboundProtocol = "naive"
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "s3cr3t-uuid"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "relay-user", Password: "relay-pass"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-b": nodeB},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		if m["tag"] != "inbound-naive" {
+			continue
+		}
+		tls, ok := m["tls"].(map[string]any)
+		if !ok {
+			t.Error("expected tls block in naive virtual-user inbound")
+		} else if tls["enabled"] != true {
+			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+		}
+		users, _ := m["users"].([]any)
+		if len(users) != 1 {
+			t.Fatalf("expected 1 virtual user, got %d", len(users))
+		}
+		u := users[0].(map[string]any)
+		if u["name"] != "user-alice#node-b" {
+			t.Errorf("expected virtual user name=user-alice#node-b, got %v", u["name"])
+		}
+		if _, hasUsername := u["username"]; !hasUsername {
+			t.Error("expected username field in naive virtual user")
+		}
+		if _, hasPassword := u["password"]; !hasPassword {
+			t.Error("expected password field in naive virtual user")
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: anytls inbound — type, tag, TLS block, name+password only (no username/uuid)
+// ---------------------------------------------------------------------------
+func TestConfigEngine_AnyTLSInbound(t *testing.T) {
+	node := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "anytls", Port: 10443}},
+		0,
+	)
+	node.Spec.InboundProtocol = "anytls"
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:  node,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "s3cr3t-uuid"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+
+	if !containsTag(ibs, "inbound-anytls") {
+		t.Errorf("missing inbound-anytls tag, got %v", ibs)
+	}
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		if m["tag"] != "inbound-anytls" {
+			continue
+		}
+		if m["type"] != "anytls" {
+			t.Errorf("expected type=anytls, got %v", m["type"])
+		}
+		tls, ok := m["tls"].(map[string]any)
+		if !ok {
+			t.Error("expected tls block in anytls inbound")
+		} else if tls["enabled"] != true {
+			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+		}
+		if _, hasPaddingScheme := m["padding_scheme"]; hasPaddingScheme {
+			t.Error("anytls inbound must not have padding_scheme field at the top level")
+		}
+		users, _ := m["users"].([]any)
+		if len(users) != 1 {
+			t.Fatalf("expected 1 user, got %d", len(users))
+		}
+		u := users[0].(map[string]any)
+		if u["name"] != "user-alice" {
+			t.Errorf("expected name=user-alice, got %v", u["name"])
+		}
+		if _, hasPassword := u["password"]; !hasPassword {
+			t.Error("expected password field in anytls user")
+		}
+		if _, hasUsername := u["username"]; hasUsername {
+			t.Error("anytls user must not have username field")
+		}
+		if _, hasUUID := u["uuid"]; hasUUID {
+			t.Error("anytls user must not have uuid field")
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: anytls inbound with outbound node — virtual users have password only
+// ---------------------------------------------------------------------------
+func TestConfigEngine_AnyTLSVirtualUsers(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "anytls", Port: 10443}},
+		0,
+	)
+	nodeA.Spec.InboundProtocol = "anytls"
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "s3cr3t-uuid"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "relay-user", Password: "relay-pass"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-b": nodeB},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		if m["tag"] != "inbound-anytls" {
+			continue
+		}
+		tls, ok := m["tls"].(map[string]any)
+		if !ok {
+			t.Error("expected tls block in anytls virtual-user inbound")
+		} else if tls["enabled"] != true {
+			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+		}
+		users, _ := m["users"].([]any)
+		if len(users) != 1 {
+			t.Fatalf("expected 1 virtual user, got %d", len(users))
+		}
+		u := users[0].(map[string]any)
+		if u["name"] != "user-alice#node-b" {
+			t.Errorf("expected virtual user name=user-alice#node-b, got %v", u["name"])
+		}
+		if _, hasPassword := u["password"]; !hasPassword {
+			t.Error("expected password field in anytls virtual user")
+		}
+		if _, hasUsername := u["username"]; hasUsername {
+			t.Error("anytls virtual user must not have username field")
+		}
+		if _, hasUUID := u["uuid"]; hasUUID {
+			t.Error("anytls virtual user must not have uuid field")
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: tuic inbound — type, tag, TLS block, name+uuid+password user fields
+// ---------------------------------------------------------------------------
+func TestConfigEngine_TUICInbound(t *testing.T) {
+	node := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "tuic", Port: 10443}},
+		0,
+	)
+	node.Spec.InboundProtocol = "tuic"
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:  node,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "s3cr3t-uuid"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+
+	if !containsTag(ibs, "inbound-tuic") {
+		t.Errorf("missing inbound-tuic tag, got %v", ibs)
+	}
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		if m["tag"] != "inbound-tuic" {
+			continue
+		}
+		if m["type"] != "tuic" {
+			t.Errorf("expected type=tuic, got %v", m["type"])
+		}
+		tls, ok := m["tls"].(map[string]any)
+		if !ok {
+			t.Error("expected tls block in tuic inbound")
+		} else if tls["enabled"] != true {
+			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+		}
+		users, _ := m["users"].([]any)
+		if len(users) != 1 {
+			t.Fatalf("expected 1 user, got %d", len(users))
+		}
+		u := users[0].(map[string]any)
+		if u["name"] != "user-alice" {
+			t.Errorf("expected name=user-alice, got %v", u["name"])
+		}
+		if _, hasUUID := u["uuid"]; !hasUUID {
+			t.Error("expected uuid field in tuic user")
+		}
+		if _, hasPassword := u["password"]; !hasPassword {
+			t.Error("expected password field in tuic user")
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: tuic inbound with 2 outbound nodes — 2 virtual users, distinct UUIDs
+// ---------------------------------------------------------------------------
+func TestConfigEngine_TUICVirtualUsers(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "tuic", Port: 10443}},
+		0,
+	)
+	nodeA.Spec.InboundProtocol = "tuic"
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	nodeC := makeNode("node-c", "9.10.11.12", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "s3cr3t-uuid"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB, nodeC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "relay-user-b", Password: "relay-pass-b"},
+			"node-c": {Username: "relay-user-c", Password: "relay-pass-c"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		if m["tag"] != "inbound-tuic" {
+			continue
+		}
+		tls, ok := m["tls"].(map[string]any)
+		if !ok {
+			t.Error("expected tls block in tuic virtual-user inbound")
+		} else if tls["enabled"] != true {
+			t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+		}
+		users, _ := m["users"].([]any)
+		if len(users) != 2 {
+			t.Fatalf("expected 2 virtual users, got %d", len(users))
+		}
+		uuids := make(map[string]bool)
+		for _, vu := range users {
+			u := vu.(map[string]any)
+			name, _ := u["name"].(string)
+			if name != "user-alice#node-b" && name != "user-alice#node-c" {
+				t.Errorf("unexpected virtual user name: %v", name)
+			}
+			if _, hasUUID := u["uuid"]; !hasUUID {
+				t.Errorf("tuic virtual user %q must have uuid field", name)
+			}
+			if _, hasPassword := u["password"]; !hasPassword {
+				t.Errorf("tuic virtual user %q must have password field", name)
+			}
+			uuids[u["uuid"].(string)] = true
+		}
+		if len(uuids) != 2 {
+			t.Error("expected two distinct UUIDs for the two TUIC virtual users")
+		}
+	}
+}
