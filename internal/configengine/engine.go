@@ -403,6 +403,13 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]any)
 			"key_path":         "/etc/sing-box/tls/tls.key",
 		}
 	}
+	// Naive protocol does not support the "name" field inside users[] entries.
+	// Strip it from every user so sing-box won't reject the config.
+	if protocol == "naive" {
+		for i := range users {
+			delete(users[i], "name")
+		}
+	}
 	return entry
 }
 
