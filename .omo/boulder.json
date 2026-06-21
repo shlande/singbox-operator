@@ -6,9 +6,9 @@
       "work_id": "protocol-ownership-migration-a8c0bbf7",
       "active_plan": "C:\\Users\\24285\\GolandProjects\\singbox-operator\\.omo\\plans\\protocol-ownership-migration.md",
       "plan_name": "protocol-ownership-migration",
-      "status": "active",
+      "status": "completed",
       "started_at": "2026-06-20T20:29:13.732Z",
-      "updated_at": "2026-06-20T21:14:21.649Z",
+      "updated_at": "2026-06-20T21:20:53.186Z",
       "session_ids": [
         "opencode:ses_11953ee14ffef2QZyK374r7NuR"
       ],
@@ -20,15 +20,15 @@
         "todo:1": {
           "task_key": "todo:1",
           "task_label": "1",
-          "task_title": "`internal/webhook/user_webhook.go`: 删除协议 defaulting 和 validation",
-          "session_id": "opencode:ses_119414ac0ffeNoVBt4vYNBle48",
+          "task_title": "`effectiveInboundProtocol`（engine.go）和 `effectiveNodeProtocol`（client_config.go）逻辑完全相同，需要消除重复",
+          "session_id": "opencode:ses_1191acb93ffeVpEdXoLo6KWe08",
           "agent": "Sisyphus-Junior",
           "category": "quick",
           "started_at": "2026-06-20T20:32:30.888Z",
-          "ended_at": "2026-06-20T20:37:44.204Z",
-          "elapsed_ms": 313316,
+          "ended_at": "2026-06-20T21:18:42.360Z",
+          "elapsed_ms": 2771472,
           "status": "completed",
-          "updated_at": "2026-06-20T20:37:44.204Z"
+          "updated_at": "2026-06-20T21:18:42.360Z"
         },
         "todo:2": {
           "task_key": "todo:2",
@@ -55,14 +55,28 @@
           "status": "completed",
           "ended_at": "2026-06-20T21:14:21.649Z",
           "elapsed_ms": 63217
+        },
+        "final-wave:f1": {
+          "task_key": "final-wave:f1",
+          "task_label": "F1",
+          "task_title": "**Plan Compliance Audit** — `oracle`",
+          "session_id": "opencode:ses_11918cfcfffeW42kUl5akYKMz4",
+          "agent": "oracle",
+          "started_at": "2026-06-20T21:16:23.893Z",
+          "status": "completed",
+          "updated_at": "2026-06-20T21:20:01.297Z",
+          "ended_at": "2026-06-20T21:20:01.297Z",
+          "elapsed_ms": 217404
         }
-      }
+      },
+      "ended_at": "2026-06-20T21:20:53.186Z",
+      "elapsed_ms": 3099454
     }
   },
   "active_plan": "C:\\Users\\24285\\GolandProjects\\singbox-operator\\.omo\\plans\\protocol-ownership-migration.md",
   "started_at": "2026-06-20T20:29:13.732Z",
-  "status": "active",
-  "updated_at": "2026-06-20T21:14:21.649Z",
+  "status": "completed",
+  "updated_at": "2026-06-20T21:20:53.186Z",
   "session_ids": [
     "opencode:ses_11953ee14ffef2QZyK374r7NuR"
   ],
@@ -74,15 +88,15 @@
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "`internal/webhook/user_webhook.go`: 删除协议 defaulting 和 validation",
-      "session_id": "opencode:ses_119414ac0ffeNoVBt4vYNBle48",
+      "task_title": "`effectiveInboundProtocol`（engine.go）和 `effectiveNodeProtocol`（client_config.go）逻辑完全相同，需要消除重复",
+      "session_id": "opencode:ses_1191acb93ffeVpEdXoLo6KWe08",
       "agent": "Sisyphus-Junior",
       "category": "quick",
       "started_at": "2026-06-20T20:32:30.888Z",
-      "ended_at": "2026-06-20T20:37:44.204Z",
-      "elapsed_ms": 313316,
+      "ended_at": "2026-06-20T21:18:42.360Z",
+      "elapsed_ms": 2771472,
       "status": "completed",
-      "updated_at": "2026-06-20T20:37:44.204Z"
+      "updated_at": "2026-06-20T21:18:42.360Z"
     },
     "todo:2": {
       "task_key": "todo:2",
@@ -109,7 +123,21 @@
       "status": "completed",
       "ended_at": "2026-06-20T21:14:21.649Z",
       "elapsed_ms": 63217
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "opencode:ses_11918cfcfffeW42kUl5akYKMz4",
+      "agent": "oracle",
+      "started_at": "2026-06-20T21:16:23.893Z",
+      "status": "completed",
+      "updated_at": "2026-06-20T21:20:01.297Z",
+      "ended_at": "2026-06-20T21:20:01.297Z",
+      "elapsed_ms": 217404
     }
   },
-  "agent": "atlas"
+  "agent": "atlas",
+  "ended_at": "2026-06-20T21:20:53.186Z",
+  "elapsed_ms": 3099454
 }
