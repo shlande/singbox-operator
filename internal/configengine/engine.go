@@ -335,11 +335,17 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 				if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
 					continue
 				}
-				cred := input.UserCreds[user.Name]
-				vName := virtualUserName(user.Name, nodeName)
-				auth := DeriveAuth(proto, cred.UUID, nodeName)
+			cred := input.UserCreds[user.Name]
+			vName := virtualUserName(user.Name, nodeName)
+			auth := DeriveAuth(proto, cred.UUID, nodeName)
+			if proto == "naive" {
+				// naive inbound users[] uses username (not name) as the virtual user identifier.
+				// Override the uuid-based username from DeriveAuth with the virtual user name.
+				auth["username"] = vName
+			} else {
 				auth["name"] = vName
-				users = append(users, auth)
+			}
+			users = append(users, auth)
 			}
 		}
 
@@ -378,7 +384,12 @@ func buildUsersBlock(input Input, protocol, nodeName string) []map[string]any {
 		}
 		cred := input.UserCreds[user.Name]
 		auth := DeriveAuth(protocol, cred.UUID, nodeName)
-		auth["name"] = user.Name
+		if protocol == "naive" {
+			// naive inbound users[] uses username (not name) as the user identifier.
+			auth["username"] = user.Name
+		} else {
+			auth["name"] = user.Name
+		}
 		users = append(users, auth)
 	}
 	return users
@@ -401,13 +412,6 @@ func buildInboundEntry(protocol, tag string, port int32, users []map[string]any)
 			"enabled":          true,
 			"certificate_path": "/etc/sing-box/tls/tls.crt",
 			"key_path":         "/etc/sing-box/tls/tls.key",
-		}
-	}
-	// Naive protocol does not support the "name" field inside users[] entries.
-	// Strip it from every user so sing-box won't reject the config.
-	if protocol == "naive" {
-		for i := range users {
-			delete(users[i], "name")
 		}
 	}
 	return entry

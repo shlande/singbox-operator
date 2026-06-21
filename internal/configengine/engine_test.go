@@ -1451,11 +1451,13 @@ func TestConfigEngine_NaiveVirtualUsers(t *testing.T) {
 			t.Fatalf("expected 1 virtual user, got %d", len(users))
 		}
 		u := users[0].(map[string]any)
-		if u["name"] != "user-alice#node-b" {
-			t.Errorf("expected virtual user name=user-alice#node-b, got %v", u["name"])
+		// naive users[] must NOT have a "name" field (sing-box strict JSON decode rejects it)
+		if _, hasName := u["name"]; hasName {
+			t.Errorf("naive virtual user must not have 'name' field, got %v", u["name"])
 		}
-		if _, hasUsername := u["username"]; !hasUsername {
-			t.Error("expected username field in naive virtual user")
+		// username carries the virtual user identity for auth_user routing and stats matching
+		if u["username"] != "user-alice#node-b" {
+			t.Errorf("expected username=user-alice#node-b, got %v", u["username"])
 		}
 		if _, hasPassword := u["password"]; !hasPassword {
 			t.Error("expected password field in naive virtual user")
