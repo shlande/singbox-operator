@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -240,7 +239,7 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		}
 	})
 
-	It("should create ConfigMap, Deployment, and Services for inbound node", func() {
+	It("should create ConfigMap, Pod, and Services for inbound node", func() {
 		nodeName := "test-inbound-1"
 		node := &proxyv1alpha1.SingBoxNode{
 			ObjectMeta: metav1.ObjectMeta{Name: nodeName, Namespace: "default"},
@@ -275,16 +274,13 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		}, testTimeout, testInterval).Should(Succeed())
 		Expect(cm.Data).To(HaveKey("config.json"))
 
-		deploy := &appsv1.Deployment{}
+		pod := &corev1.Pod{}
 		Eventually(func() error {
-			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-deploy", Namespace: "default"}, deploy)
+			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-sing-box-server", Namespace: "default"}, pod)
 		}, testTimeout, testInterval).Should(Succeed())
-		Expect(deploy.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/hostname", "k8s-node-1"))
+		Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/hostname", "k8s-node-1"))
 
-		Eventually(func() error {
-			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-deploy", Namespace: "default"}, deploy)
-		}, testTimeout, testInterval).Should(Succeed())
-		containers := deploy.Spec.Template.Spec.Containers
+		containers := pod.Spec.Containers
 		Expect(containers).NotTo(BeEmpty())
 		var hostPorts []int32
 		for _, p := range containers[0].Ports {
@@ -333,9 +329,9 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		Expect(inbounds).To(HaveLen(1))
 		Expect(inbounds[0].(map[string]any)["type"]).To(Equal("socks"))
 
-		outboundDeploy := &appsv1.Deployment{}
+		outboundPod := &corev1.Pod{}
 		Eventually(func() error {
-			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-deploy", Namespace: "default"}, outboundDeploy)
+			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-sing-box-server", Namespace: "default"}, outboundPod)
 		}, testTimeout, testInterval).Should(Succeed())
 	})
 

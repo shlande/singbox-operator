@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -51,7 +50,7 @@ import (
 const (
 	singboxNodeFinalizer = "singboxoperator.shlande.top/singboxnode-finalizer"
 	configMapSuffix      = "-config"
-	deploymentSuffix     = "-deploy"
+	podSuffix            = "-sing-box-server"
 	configHashAnnotation = "singboxoperator.shlande.top/config-hash"
 	defaultSingBoxImage  = "ghcr.io/shlande/sing-box:1.13.13-with_v2ray_api"
 	relayContainerPort   = int32(10808)
@@ -64,12 +63,11 @@ const (
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=users,verbs=get;list;watch
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=usergroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=customroutes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 type SingBoxNodeReconciler struct {
@@ -154,8 +152,8 @@ func (r *SingBoxNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	if err := r.reconcileDeployment(ctx, node, output.Hash); err != nil {
-		logger.Error(err, "Failed to reconcile Deployment")
+	if err := r.reconcilePod(ctx, node, output.Hash); err != nil {
+		logger.Error(err, "Failed to reconcile Pod")
 		reconcileErr = err
 		return ctrl.Result{}, err
 	}
@@ -350,8 +348,9 @@ func (r *SingBoxNodeReconciler) reconcileConfigMap(ctx context.Context, node *pr
 	return nil
 }
 
-func (r *SingBoxNodeReconciler) reconcileDeployment(ctx context.Context, node *proxyv1alpha1.SingBoxNode, configHash string) error {
+func (r *SingBoxNodeReconciler) reconcilePod(ctx context.Context, node *proxyv1alpha1.SingBoxNode, configHash string) error {
 	cmName := node.Name + configMapSuffix
+	podName := node.Name + podSuffix
 
 	volumeMounts := []corev1.VolumeMount{
 		{Name: "config", MountPath: "/etc/sing-box"},
@@ -392,53 +391,54 @@ func (r *SingBoxNodeReconciler) reconcileDeployment(ctx context.Context, node *p
 		}
 	}
 
-	deploy := &appsv1.Deployment{
+	existing := &corev1.Pod{}
+	err := r.Get(ctx, types.NamespacedName{Name: podName, Namespace: node.Namespace}, existing)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if err == nil {
+		if existing.Annotations[configHashAnnotation] == configHash {
+			return nil
+		}
+		if delErr := r.Delete(ctx, existing); delErr != nil && !errors.IsNotFound(delErr) {
+			return delErr
+		}
+	}
+
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      node.Name + deploymentSuffix,
+			Name:      podName,
 			Namespace: node.Namespace,
+			Labels: map[string]string{
+				"app":         "singbox",
+				"singboxnode": node.Name,
+			},
+			Annotations: map[string]string{
+				configHashAnnotation: configHash,
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": node.Spec.NodeRef,
+			},
+			RestartPolicy: corev1.RestartPolicyAlways,
+			Containers: []corev1.Container{
+				{
+					Name:         "singbox",
+					Image:        r.singboxImage(),
+					Args:         []string{"run", "-c", "/etc/sing-box/config.json"},
+					VolumeMounts: volumeMounts,
+					Ports:        buildHostPorts(node),
+				},
+			},
+			Volumes: volumes,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
-		replicas := int32(1)
-		deploy.Spec = appsv1.DeploymentSpec{
-			Replicas: &replicas,
-			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app":         "singbox",
-					"singboxnode": node.Name,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app":         "singbox",
-						"singboxnode": node.Name,
-					},
-					Annotations: map[string]string{
-						configHashAnnotation: configHash,
-					},
-				},
-				Spec: corev1.PodSpec{
-					NodeSelector: map[string]string{
-						"kubernetes.io/hostname": node.Spec.NodeRef,
-					},
-					Containers: []corev1.Container{
-						{
-							Name:         "singbox",
-							Image:        r.singboxImage(),
-							Args:         []string{"run", "-c", "/etc/sing-box/config.json"},
-							VolumeMounts: volumeMounts,
-							Ports:        buildHostPorts(node),
-						},
-					},
-					Volumes: volumes,
-				},
-			},
-		}
-		return controllerutil.SetControllerReference(node, deploy, r.Scheme)
-	})
-	return err
+	if err := controllerutil.SetControllerReference(node, pod, r.Scheme); err != nil {
+		return err
+	}
+	return r.Create(ctx, pod)
 }
 
 func (r *SingBoxNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.SingBoxNode) (requeue bool, err error) {
@@ -676,7 +676,7 @@ func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&proxyv1alpha1.SingBoxNode{}).
 		Named("singboxnode").
 		Owns(&corev1.ConfigMap{}).
-		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Pod{}).
 		Owns(&corev1.Service{}).
 		Watches(&proxyv1alpha1.SingBoxNode{},
 			handler.EnqueueRequestsFromMapFunc(r.sameRegionNodeMapper),
