@@ -17,6 +17,10 @@ spec:
     spec:
       terminationGracePeriodSeconds: 60
       serviceAccountName: {{ include "singbox-operator.serviceAccountName" . }}
+      {{- with .Values.operator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: manager
         image: "{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}"
@@ -34,9 +38,6 @@ spec:
         - --usage-node-timeout={{ .Values.usageCollector.nodeTimeout }}
         - --usage-es-endpoint={{ .Values.usageCollector.elasticsearch.endpoint }}
         - --usage-es-data-stream={{ .Values.usageCollector.elasticsearch.dataStream }}
-        - --usage-checkpoint-path={{ .Values.usageCollector.checkpointPath }}
-        - --usage-max-buffer-size={{ .Values.usageCollector.maxBufferSize }}
-        - --usage-shutdown-timeout={{ .Values.usageCollector.shutdownTimeout }}
         {{- if .Values.usageCollector.elasticsearch.apiKey }}
         - --usage-es-api-key={{ .Values.usageCollector.elasticsearch.apiKey }}
         {{- else if .Values.usageCollector.elasticsearch.existingSecret }}
@@ -83,22 +84,11 @@ spec:
           mountPath: /tmp/k8s-webhook-server/serving-certs
           readOnly: true
         {{- end }}
-        {{- if .Values.usageCollector.enabled }}
-        - name: usage-checkpoint
-          mountPath: /var/lib/usage-collector
-        {{- end }}
+
       volumes:
       {{- if .Values.webhook.enabled }}
       - name: webhook-certs
         secret:
           secretName: {{ include "singbox-operator.fullname" . }}-webhook-server-cert
       {{- end }}
-      {{- if .Values.usageCollector.enabled }}
-      - name: usage-checkpoint
-        {{- if and (hasKey .Values.usageCollector.checkpointVolume "existingClaim") .Values.usageCollector.checkpointVolume.existingClaim }}
-        persistentVolumeClaim:
-          claimName: {{ .Values.usageCollector.checkpointVolume.existingClaim }}
-        {{- else }}
-        emptyDir: {{ toYaml .Values.usageCollector.checkpointVolume.emptyDir | nindent 10 }}
-        {{- end }}
-      {{- end }}
+

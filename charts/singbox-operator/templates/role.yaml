@@ -1,3 +1,4 @@
+# Namespace-scoped permissions
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -15,9 +16,6 @@ rules:
 - apiGroups: ["singboxoperator.shlande.top"]
   resources: ["singboxnodes/finalizers", "users/finalizers", "customroutes/finalizers", "usergroups/finalizers"]
   verbs: ["update"]
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: [""]
   resources: ["configmaps", "services", "secrets"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -28,8 +26,19 @@ rules:
   resources: ["leases"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: [""]
-  resources: ["nodes"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
   resources: ["pods"]
+  verbs: ["get", "list", "watch", "create", "delete"]
+
+---
+
+# Cluster-scoped permissions (nodes)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "singbox-operator.fullname" . }}-manager-role
+  labels:
+    {{- include "singbox-operator.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
   verbs: ["get", "list", "watch"]
