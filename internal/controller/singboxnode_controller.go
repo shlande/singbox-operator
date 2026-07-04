@@ -211,6 +211,11 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 			continue
 		}
 		if other.Spec.Region == node.Spec.Region && hasRole(other, proxyv1alpha1.ProxyRoleOutbound) {
+			log := log.FromContext(ctx)
+			if len(other.Spec.AllowedInbounds) > 0 && !slices.Contains(other.Spec.AllowedInbounds, node.Name) {
+				log.Info("Skipping outbound node due to allowedInbounds binding", "outboundNode", other.Name, "inboundNode", node.Name)
+				continue
+			}
 			input.OutboundNodes = append(input.OutboundNodes, other)
 			input.OutboundNodesByName[other.Name] = other
 			cred, err := credmanager.GetNodeCredential(ctx, r.Client, other.Name, node.Namespace)
@@ -288,18 +293,25 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 	}
 	for i := range allRoutes.Items {
 		route := &allRoutes.Items[i]
-		if route.Spec.InboundNode == node.Name {
-			input.Routes = append(input.Routes, route)
-			outboundNode := &proxyv1alpha1.SingBoxNode{}
-			if err := r.Get(ctx, types.NamespacedName{Name: route.Spec.OutboundNode, Namespace: node.Namespace}, outboundNode); err == nil {
-				input.OutboundNodesByName[outboundNode.Name] = outboundNode
-				cred, err := credmanager.GetNodeCredential(ctx, r.Client, outboundNode.Name, node.Namespace)
-				if err == nil {
-					input.NodeCreds[outboundNode.Name] = configengine.NodeCredential{
-						Username: cred.Username,
-						Password: cred.Password,
-					}
-				}
+		if route.Spec.InboundNode != node.Name {
+			continue
+		}
+		outboundNode := &proxyv1alpha1.SingBoxNode{}
+		if err := r.Get(ctx, types.NamespacedName{Name: route.Spec.OutboundNode, Namespace: node.Namespace}, outboundNode); err != nil {
+			continue
+		}
+		log := log.FromContext(ctx)
+		if len(outboundNode.Spec.AllowedInbounds) > 0 && !slices.Contains(outboundNode.Spec.AllowedInbounds, node.Name) {
+			log.Info("Skipping CustomRoute due to allowedInbounds binding", "route", route.Name, "outboundNode", outboundNode.Name, "inboundNode", node.Name)
+			continue
+		}
+		input.Routes = append(input.Routes, route)
+		input.OutboundNodesByName[outboundNode.Name] = outboundNode
+		cred, err := credmanager.GetNodeCredential(ctx, r.Client, outboundNode.Name, node.Namespace)
+		if err == nil {
+			input.NodeCreds[outboundNode.Name] = configengine.NodeCredential{
+				Username: cred.Username,
+				Password: cred.Password,
 			}
 		}
 	}
@@ -653,6 +665,26 @@ func (r *SingBoxNodeReconciler) affectedByRouteMapper(ctx context.Context, obj c
 	}
 }
 
+func (r *SingBoxNodeReconciler) customRouteOutboundNodeMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	changedNode, ok := obj.(*proxyv1alpha1.SingBoxNode)
+	if !ok {
+		return nil
+	}
+	allRoutes := &proxyv1alpha1.CustomRouteList{}
+	if err := r.List(ctx, allRoutes, client.InNamespace(changedNode.Namespace)); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for _, route := range allRoutes.Items {
+		if route.Spec.OutboundNode == changedNode.Name {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: route.Spec.InboundNode, Namespace: route.Namespace},
+			})
+		}
+	}
+	return requests
+}
+
 func (r *SingBoxNodeReconciler) nodeToSingBoxNodesMapper(ctx context.Context, obj client.Object) []reconcile.Request {
 	k8sNode, ok := obj.(*corev1.Node)
 	if !ok {
@@ -680,6 +712,9 @@ func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Watches(&proxyv1alpha1.SingBoxNode{},
 			handler.EnqueueRequestsFromMapFunc(r.sameRegionNodeMapper),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&proxyv1alpha1.SingBoxNode{},
+			handler.EnqueueRequestsFromMapFunc(r.customRouteOutboundNodeMapper),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&proxyv1alpha1.User{},
 			handler.EnqueueRequestsFromMapFunc(r.matchingProtocolNodeMapper)).
