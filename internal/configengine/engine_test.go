@@ -1666,6 +1666,295 @@ func TestConfigEngine_TUICInbound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Test: OutboundNodeOutbounds — AllowedInbounds defensive filter
+// ---------------------------------------------------------------------------
+func TestConfigEngine_OutboundNodeOutbounds_AllowedInboundsFilter(t *testing.T) {
+	// Inbound node A with outbound nodes B (AllowedInbounds=[A]) and C (AllowedInbounds=[OtherNode])
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	nodeB.Spec.AllowedInbounds = []string{"node-a"} // allows node-a
+
+	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
+	)
+	nodeC.Spec.AllowedInbounds = []string{"OtherNode"} // does NOT allow node-a
+
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:          nodeA,
+		Users:         []*v1alpha1.User{user},
+		UserCreds:     map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB, nodeC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+			"node-c": {Username: "uc", Password: "pc"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	// node-b is allowed (AllowedInbounds includes node-a) → must appear
+	if !containsTag(obs, "outbound-node-b") {
+		t.Errorf("expected outbound-node-b (AllowedInbounds matches), got %v", obs)
+	}
+	// node-c is NOT allowed (AllowedInbounds=[OtherNode]) → must NOT appear
+	if containsTag(obs, "outbound-node-c") {
+		t.Errorf("outbound-node-c must NOT appear when AllowedInbounds=[OtherNode] and inbound is node-a, got %v", obs)
+	}
+	// direct outbound always present
+	if !containsTag(obs, "direct") {
+		t.Errorf("missing direct outbound, got %v", obs)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: buildRouteOutbounds — AllowedInbounds defensive filter
+// ---------------------------------------------------------------------------
+func TestConfigEngine_RouteOutbounds_AllowedInboundsFilter(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+
+	nodeB := makeNode("node-b", "5.6.7.8", "us-east",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	nodeB.Spec.AllowedInbounds = []string{"node-a"} // allows node-a
+
+	nodeC := makeNode("node-c", "9.9.9.9", "us-east",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
+	)
+	nodeC.Spec.AllowedInbounds = []string{"OtherNode"} // does NOT allow node-a
+
+	user := makeUser("user-alice")
+	routeToB := makeRoute("route-a-to-b", "node-a", "node-b")
+	routeToC := makeRoute("route-a-to-c", "node-a", "node-c")
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "aaaa-1111"},
+		},
+		Routes: []*v1alpha1.CustomRoute{routeToB, routeToC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+			"node-c": {Username: "uc", Password: "pc"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	// route to node-b is allowed → outbound-node-b must appear
+	if !containsTag(obs, "outbound-node-b") {
+		t.Errorf("expected outbound-node-b (AllowedInbounds matches), got %v", obs)
+	}
+	// route to node-c is NOT allowed → outbound-node-c must NOT appear
+	if containsTag(obs, "outbound-node-c") {
+		t.Errorf("outbound-node-c must NOT appear when AllowedInbounds=[OtherNode] and inbound is node-a, got %v", obs)
+	}
+	if !containsTag(obs, "direct") {
+		t.Errorf("missing direct outbound, got %v", obs)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: AllowedInbounds empty — backward compat, all outbounds included
+// ---------------------------------------------------------------------------
+func TestConfigEngine_AllowedInboundsEmpty_BackwardCompat(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	// AllowedInbounds not set (nil/empty) = allow all
+
+	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
+	)
+	// AllowedInbounds not set (nil/empty) = allow all
+
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:          nodeA,
+		Users:         []*v1alpha1.User{user},
+		UserCreds:     map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB, nodeC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+			"node-c": {Username: "uc", Password: "pc"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	// Both outbound nodes must appear (backward compat)
+	if !containsTag(obs, "outbound-node-b") {
+		t.Errorf("expected outbound-node-b (AllowedInbounds empty=allow all), got %v", obs)
+	}
+	if !containsTag(obs, "outbound-node-c") {
+		t.Errorf("expected outbound-node-c (AllowedInbounds empty=allow all), got %v", obs)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: buildExperimentalConfig and buildRouteInbounds — regression: pre-filtered
+// OutboundNodes should not crash and produce correct structure
+// ---------------------------------------------------------------------------
+func TestConfigEngine_DefensiveFilterRegression(t *testing.T) {
+	// Node A (inbound) with node B (AllowedInbounds matches), node C (mismatch)
+	// buildExperimentalConfig and buildRouteInbounds receive pre-filtered OutboundNodes
+	// (simulating controller pre-filter having already removed node C).
+	// They should produce correct output without crashing.
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	nodeB.Spec.AllowedInbounds = []string{"node-a"}
+
+	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
+	)
+	nodeC.Spec.AllowedInbounds = []string{"node-a"}
+
+	alice := makeUser("user-alice")
+	bob := makeUser("user-bob")
+
+	input := configengine.Input{
+		Node:          nodeA,
+		Users:         []*v1alpha1.User{alice, bob},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "aaaa-1111"},
+			"user-bob":   {UUID: "bbbb-2222"},
+		},
+		// Both outbound nodes are already allowed (simulating pre-filter)
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB, nodeC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+			"node-c": {Username: "uc", Password: "pc"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+		UsageCollectionEnabled: true,
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+	obs := outboundTags(t, cfg)
+
+	// Inbound must exist and be correct
+	if !containsTag(ibs, "inbound-vless") {
+		t.Errorf("missing inbound-vless, got %v", ibs)
+	}
+
+	// Outbounds: both node-b and node-c must appear
+	if !containsTag(obs, "outbound-node-b") {
+		t.Errorf("expected outbound-node-b, got %v", obs)
+	}
+	if !containsTag(obs, "outbound-node-c") {
+		t.Errorf("expected outbound-node-c, got %v", obs)
+	}
+
+	// Experimental block must exist with correct stats users
+	exp, ok := cfg["experimental"].(map[string]any)
+	if !ok {
+		t.Fatal("expected experimental key in config")
+	}
+	v2ray, ok := exp["v2ray_api"].(map[string]any)
+	if !ok {
+		t.Fatal("expected experimental.v2ray_api key")
+	}
+	stats, ok := v2ray["stats"].(map[string]any)
+	if !ok {
+		t.Fatal("expected experimental.v2ray_api.stats key")
+	}
+	rawUsers, _ := stats["users"].([]any)
+	// 2 users × 2 outbound nodes = 4 virtual users
+	if len(rawUsers) != 4 {
+		t.Errorf("expected 4 stats users, got %d: %v", len(rawUsers), rawUsers)
+	}
+	userSet := make(map[string]bool)
+	for _, u := range rawUsers {
+		userSet[u.(string)] = true
+	}
+	for _, expected := range []string{
+		"user-alice#node-b", "user-alice#node-c",
+		"user-bob#node-b", "user-bob#node-c",
+	} {
+		if !userSet[expected] {
+			t.Errorf("missing stats user %q, got %v", expected, userSet)
+		}
+	}
+
+	// Routing rules: 2 rules (one per outbound node)
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 2 {
+		t.Fatalf("expected 2 routing rules, got %d", len(rules))
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Test: tuic inbound with 2 outbound nodes — 2 virtual users, distinct UUIDs
 // ---------------------------------------------------------------------------
 func TestConfigEngine_TUICVirtualUsers(t *testing.T) {

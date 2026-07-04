@@ -302,6 +302,8 @@ func DeriveAuth(protocol, uuid, nodeName string) map[string]any {
 }
 
 func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf bool) ([]any, []routeRule) {
+	// NOTE: input.OutboundNodes and routes are pre-filtered by controller's AllowedInbounds check;
+	// no defensive filter needed here.
 	var inbounds []any
 	var rules []routeRule
 
@@ -443,6 +445,8 @@ func buildRelayInbound(input Input) any {
 }
 
 func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []any {
+	// routedNodes comes from myRoutes, already binding-filtered by the controller;
+	// the continue below is dedup logic, unrelated to binding.
 	routedNodes := make(map[string]bool, len(myRoutes))
 	for _, r := range myRoutes {
 		routedNodes[r.Spec.OutboundNode] = true
@@ -451,6 +455,12 @@ func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) [
 	var result []any
 	for _, outNode := range input.OutboundNodes {
 		if routedNodes[outNode.Name] {
+			continue
+		}
+		// Defensive: skip outbound nodes that don't allow this inbound node.
+		// Controller already filters in collectInput; this is a belt-and-suspenders guard
+		// matching the UserNodeRestrictions defensive pattern (buildRouteInbounds/UsersBlock).
+		if len(outNode.Spec.AllowedInbounds) > 0 && !slices.Contains(outNode.Spec.AllowedInbounds, input.Node.Name) {
 			continue
 		}
 		if outNode.Spec.RelayPort == 0 {
@@ -477,6 +487,12 @@ func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []any {
 			continue
 		}
 		if outNode.Spec.RelayPort == 0 {
+			continue
+		}
+		// Defensive: skip outbound nodes that don't allow this inbound node.
+		// Controller already filters CustomRoutes in collectInput; belt-and-suspenders
+		// matching the UserNodeRestrictions defensive pattern.
+		if len(outNode.Spec.AllowedInbounds) > 0 && !slices.Contains(outNode.Spec.AllowedInbounds, input.Node.Name) {
 			continue
 		}
 		// Skip outbound entries where every user is denied from this node.
@@ -531,6 +547,8 @@ func deduplicateByTag(outbounds []any) []any {
 }
 
 func buildExperimentalConfig(input Input) *experimentalConfig {
+	// NOTE: input.OutboundNodes is pre-filtered by controller's AllowedInbounds check;
+	// no defensive filter needed here.
 	listenAddr := input.V2RayAPIListenAddr
 	if listenAddr == "" {
 		listenAddr = "0.0.0.0:10085"
