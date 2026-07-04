@@ -1,8 +1,52 @@
 # sing-box-operator-2
-// TODO(user): Add simple overview of use/purpose
+
+A Kubernetes operator for managing [sing-box](https://github.com/SagerNet/sing-box) proxy nodes as Kubernetes custom resources. The operator deploys, configures, and connects proxy nodes with inbound (client-facing protocols) and outbound (upstream exit) roles across regions.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+The sing-box-operator-2 manages a fleet of sing-box proxy nodes via the `SingBoxNode` custom resource. Each node can act as an **inbound** (accepting client connections via hysteria2, vless, trojan, etc.), an **outbound** (forwarding traffic upstream), or both. The operator generates sing-box configuration files automatically, handles TLS certificates, and supports explicit routing between nodes using `CustomRoute` resources. A key access-control feature is **AllowedInbounds**, which restricts which inbound nodes may use a given outbound node — empty means allow all (backward compatible), and when set, routing is gated on top of any explicit `CustomRoute` bindings.
+
+## Features
+
+### Node Roles
+
+Each `SingBoxNode` can be assigned one or both roles:
+- **inbound** — accepts client connections on supported protocols (hysteria2, vless, trojan, socks5, http, naive, anytls, tuic)
+- **outbound** — forwards traffic upstream; receives relay connections from inbound nodes
+
+Nodes can span multiple geographic regions; inbound nodes automatically discover same-region outbound nodes via region matching.
+
+### AllowedInbounds
+
+`AllowedInbounds` is an optional field on outbound nodes that restricts which inbound nodes may use this node as an outbound:
+
+- **Empty or omitted** — allow all inbound nodes (backward compatible)
+- **Non-empty** — only inbound nodes whose names appear in the list may use this outbound
+
+Example:
+
+```yaml
+apiVersion: singboxoperator.shlande.top/v1alpha1
+kind: SingBoxNode
+metadata:
+  name: us-west-outbound
+spec:
+  nodeRef: node-3
+  address: 203.0.113.10
+  region: us-west
+  roles:
+    - outbound
+  relayPort: 31970
+  allowedInbounds:
+    - "us-west-inbound-a"
+    - "us-west-inbound-b"
+```
+
+In this example, only `us-west-inbound-a` and `us-west-inbound-b` may use this node as their outbound. All other inbound nodes — even in the same region — are blocked.
+
+### CustomRoute interaction
+
+When a `CustomRoute` resource explicitly binds inbound node B to outbound node A, the binding is still gated by `A.Spec.AllowedInbounds`. If `A.AllowedInbounds` does not include B's name, the CustomRoute is skipped. The check is an AND gate: both the CustomRoute must exist AND `AllowedInbounds` must permit the binding (or be empty).
 
 ## Getting Started
 

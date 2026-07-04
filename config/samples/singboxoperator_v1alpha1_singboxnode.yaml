@@ -7,3 +7,9 @@ metadata:
   name: singboxnode-sample
 spec:
   # TODO(user): Add fields here
+
+  # # Example: restrict which inbound nodes may use this outbound node.
+  # # Empty or omitted = allow all (backward compatible).
+  # # When set, only the listed inbound node names may use this node as outbound.
+  # allowedInbounds:
+  #   - "my-inbound-node"
