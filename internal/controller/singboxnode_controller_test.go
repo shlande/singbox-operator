@@ -793,6 +793,86 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		Expect(cm.Data["config.json"]).NotTo(ContainSubstring("10.0.4.1"))
 	})
 
+	It("(e2) should NOT collect self-outbound node S for another inbound X when AllowedInbounds=[S]", func() {
+		// Self-outbound node S: has both inbound+outbound roles, AllowedInbounds=[S] restricts to itself only.
+		// Another inbound node X in the same region should NOT see outbound-S in its config.
+		selfOutboundName := "test-self-outbound-s"
+		inboundName := "test-inbound-x-e2"
+
+		selfOutboundNode := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: selfOutboundName, Namespace: "default"},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef:         "k8s-node-self-outbound",
+				Address:         "10.0.5.1",
+				Region:          "us-west",
+				Roles:           []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound, proxyv1alpha1.ProxyRoleOutbound},
+				RelayPort:       31970,
+				AllowedInbounds: []string{selfOutboundName}, // Only allows itself
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 30453},
+				},
+			},
+		}
+		selfOutboundNode.Spec.InboundProtocol = "vless"
+		Expect(k8sClient.Create(testCtx, selfOutboundNode)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, selfOutboundNode) })
+
+		_, err := reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: selfOutboundName, Namespace: "default"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		_, _ = reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: selfOutboundName, Namespace: "default"},
+		})
+
+		inboundNode := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: inboundName, Namespace: "default"},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: "k8s-node-inbound-x-e2",
+				Address: "10.0.5.2",
+				Region:  "us-west",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 30454},
+				},
+			},
+		}
+		Expect(k8sClient.Create(testCtx, inboundNode)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, inboundNode) })
+
+		_, err = reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: inboundName, Namespace: "default"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		_, _ = reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: inboundName, Namespace: "default"},
+		})
+
+		cm := &corev1.ConfigMap{}
+		Eventually(func() error {
+			return k8sClient.Get(testCtx, types.NamespacedName{Name: inboundName + "-config", Namespace: "default"}, cm)
+		}, testTimeout, testInterval).Should(Succeed())
+
+		// X is NOT in S's AllowedInbounds → X's config must NOT contain outbound-S
+		Expect(cm.Data["config.json"]).NotTo(ContainSubstring("outbound-" + selfOutboundName))
+
+		// Parse JSON and verify outbounds structure
+		var config map[string]any
+		Expect(json.Unmarshal([]byte(cm.Data["config.json"]), &config)).To(Succeed())
+
+		outbounds, _ := config["outbounds"].([]any)
+		tags := make(map[string]bool)
+		for _, ob := range outbounds {
+			if m, ok := ob.(map[string]any); ok {
+				if tag, ok := m["tag"].(string); ok {
+					tags[tag] = true
+				}
+			}
+		}
+		Expect(tags).To(HaveKey("direct"), "config outbounds must include a 'direct' outbound")
+		Expect(tags).NotTo(HaveKey("outbound-"+selfOutboundName), "config must not include outbound for self-outbound node S")
+	})
+
 	It("should remove finalizer when SingBoxNode is deleted", func() {
 		nodeName := "test-delete-node"
 		node := &proxyv1alpha1.SingBoxNode{

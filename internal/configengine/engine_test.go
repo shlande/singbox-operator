@@ -1875,8 +1875,8 @@ func TestConfigEngine_DefensiveFilterRegression(t *testing.T) {
 	bob := makeUser("user-bob")
 
 	input := configengine.Input{
-		Node:          nodeA,
-		Users:         []*v1alpha1.User{alice, bob},
+		Node:  nodeA,
+		Users: []*v1alpha1.User{alice, bob},
 		UserCreds: map[string]configengine.UserCredential{
 			"user-alice": {UUID: "aaaa-1111"},
 			"user-bob":   {UUID: "bbbb-2222"},
@@ -1951,6 +1951,130 @@ func TestConfigEngine_DefensiveFilterRegression(t *testing.T) {
 	rules := routeRulesOf(t, cfg)
 	if len(rules) != 2 {
 		t.Fatalf("expected 2 routing rules, got %d", len(rules))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: Self-outbound node S with AllowedInbounds=[S] — another inbound X
+// must NOT see outbound-S in its config.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_SelfOutbound_AllowedInboundsRestrictsPeers(t *testing.T) {
+	// Node S: dual-role (inbound+outbound), AllowedInbounds=[S]
+	nodeS := makeNode("node-s", "10.0.10.1", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeS.Spec.InboundProtocol = "vless"
+	nodeS.Spec.AllowedInbounds = []string{"node-s"} // only allows itself
+
+	// Node X: inbound-only, same region, not in S's AllowedInbounds
+	nodeX := makeNode("node-x", "10.0.10.2", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10444}},
+		10809,
+	)
+	nodeX.Spec.InboundProtocol = "vless"
+
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:  nodeX,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "aaaa-1111"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeS},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-s": {Username: "relay-u", Password: "relay-p"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-s": nodeS},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	// node-s should NOT appear because X is not in S's AllowedInbounds
+	if containsTag(obs, "outbound-node-s") {
+		t.Errorf("outbound-node-s must NOT appear when AllowedInbounds=[S] and inbound is X, got %v", obs)
+	}
+	// direct outbound should still be present
+	if !containsTag(obs, "direct") {
+		t.Errorf("missing direct outbound, got %v", obs)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: Self-outbound node S with AllowedInbounds=[S] in a mixed scenario —
+// another inbound X should see outbound-Y but NOT outbound-S.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_SelfOutbound_AllowedInboundsWithPeer(t *testing.T) {
+	// Node S: dual-role (inbound+outbound), AllowedInbounds=[S]
+	nodeS := makeNode("node-s", "10.0.11.1", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeS.Spec.InboundProtocol = "vless"
+	nodeS.Spec.AllowedInbounds = []string{"node-s"}
+
+	// Node Y: outbound-only, no AllowedInbounds restriction (backward compat)
+	nodeY := makeNode("node-y", "10.0.11.2", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+		nil, 31962,
+	)
+
+	// Node X: inbound-only, same region
+	nodeX := makeNode("node-x", "10.0.11.3", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10444}},
+		10809,
+	)
+	nodeX.Spec.InboundProtocol = "vless"
+
+	user := makeUser("user-alice")
+
+	input := configengine.Input{
+		Node:  nodeX,
+		Users: []*v1alpha1.User{user},
+		UserCreds: map[string]configengine.UserCredential{
+			"user-alice": {UUID: "aaaa-1111"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeS, nodeY},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-s": {Username: "rs-u", Password: "rs-p"},
+			"node-y": {Username: "ry-u", Password: "ry-p"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-s": nodeS,
+			"node-y": nodeY,
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	// node-s should NOT appear (X not in AllowedInbounds)
+	if containsTag(obs, "outbound-node-s") {
+		t.Errorf("outbound-node-s must NOT appear when AllowedInbounds=[S], got %v", obs)
+	}
+	// node-y should appear (no AllowedInbounds restriction → backward compat)
+	if !containsTag(obs, "outbound-node-y") {
+		t.Errorf("expected outbound-node-y (no AllowedInbounds restriction), got %v", obs)
+	}
+	// direct should be present
+	if !containsTag(obs, "direct") {
+		t.Errorf("missing direct outbound, got %v", obs)
 	}
 }
 
