@@ -82,6 +82,12 @@ type SingBoxNodeSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	RelayPort int32 `json:"relayPort,omitempty"`
+	// AllowedInbounds, when set on an outbound node, restricts which inbound nodes
+	// may use this node as an outbound. Empty means allow all (backward compatible).
+	// Only meaningful for nodes with the outbound role.
+	// +optional
+	// +listType=set
+	AllowedInbounds []string `json:"allowedInbounds,omitempty"`
 	// TLSSecretName overrides the default TLS secret for this node.
 	// When set, the named kubernetes.io/tls Secret is mounted and used for all
 	// TLS-requiring protocols (e.g. hysteria2). Falls back to the operator-wide

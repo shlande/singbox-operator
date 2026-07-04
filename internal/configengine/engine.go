@@ -335,17 +335,17 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 				if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
 					continue
 				}
-			cred := input.UserCreds[user.Name]
-			vName := virtualUserName(user.Name, nodeName)
-			auth := DeriveAuth(proto, cred.UUID, nodeName)
-			if proto == "naive" {
-				// naive inbound users[] uses username (not name) as the virtual user identifier.
-				// Override the uuid-based username from DeriveAuth with the virtual user name.
-				auth["username"] = vName
-			} else {
-				auth["name"] = vName
-			}
-			users = append(users, auth)
+				cred := input.UserCreds[user.Name]
+				vName := virtualUserName(user.Name, nodeName)
+				auth := DeriveAuth(proto, cred.UUID, nodeName)
+				if proto == "naive" {
+					// naive inbound users[] uses username (not name) as the virtual user identifier.
+					// Override the uuid-based username from DeriveAuth with the virtual user name.
+					auth["username"] = vName
+				} else {
+					auth["name"] = vName
+				}
+				users = append(users, auth)
 			}
 		}
 

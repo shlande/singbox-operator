@@ -58,6 +58,15 @@ spec:
                 description: Address is the public IP or hostname of the host machine.
                 minLength: 1
                 type: string
+              allowedInbounds:
+                description: |-
+                  AllowedInbounds, when set on an outbound node, restricts which inbound nodes
+                  may use this node as an outbound. Empty means allow all (backward compatible).
+                  Only meaningful for nodes with the outbound role.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               inboundProtocol:
                 description: |-
                   InboundProtocol forces this inbound node to use a specific protocol for all users.
