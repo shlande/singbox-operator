@@ -129,6 +129,24 @@ func (w *SingBoxNodeWebhook) validateSingBoxNode(node *v1alpha1.SingBoxNode) err
 		seenAllowedInbounds[entry] = true
 	}
 
+	seenAllowedOutbounds := make(map[string]bool)
+	for i, entry := range node.Spec.AllowedOutbounds {
+		if entry == "" {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec", "allowedOutbounds").Index(i),
+				entry,
+				"allowedOutbounds entry must not be empty",
+			))
+		}
+		if seenAllowedOutbounds[entry] {
+			allErrs = append(allErrs, field.Duplicate(
+				field.NewPath("spec", "allowedOutbounds").Index(i),
+				entry,
+			))
+		}
+		seenAllowedOutbounds[entry] = true
+	}
+
 	if len(allErrs) > 0 {
 		return allErrs.ToAggregate()
 	}
