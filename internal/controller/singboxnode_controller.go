@@ -216,6 +216,10 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 				log.Info("Skipping outbound node due to allowedInbounds binding", "outboundNode", other.Name, "inboundNode", node.Name)
 				continue
 			}
+			if len(node.Spec.AllowedOutbounds) > 0 && !slices.Contains(node.Spec.AllowedOutbounds, other.Name) {
+				log.Info("Skipping outbound node due to allowedOutbounds whitelist", "outboundNode", other.Name, "inboundNode", node.Name)
+				continue
+			}
 			input.OutboundNodes = append(input.OutboundNodes, other)
 			input.OutboundNodesByName[other.Name] = other
 			cred, err := credmanager.GetNodeCredential(ctx, r.Client, other.Name, node.Namespace)
@@ -303,6 +307,10 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 		log := log.FromContext(ctx)
 		if len(outboundNode.Spec.AllowedInbounds) > 0 && !slices.Contains(outboundNode.Spec.AllowedInbounds, node.Name) {
 			log.Info("Skipping CustomRoute due to allowedInbounds binding", "route", route.Name, "outboundNode", outboundNode.Name, "inboundNode", node.Name)
+			continue
+		}
+		if len(node.Spec.AllowedOutbounds) > 0 && !slices.Contains(node.Spec.AllowedOutbounds, outboundNode.Name) {
+			log.Info("Skipping CustomRoute due to allowedOutbounds whitelist", "route", route.Name, "outboundNode", outboundNode.Name, "inboundNode", node.Name)
 			continue
 		}
 		input.Routes = append(input.Routes, route)
