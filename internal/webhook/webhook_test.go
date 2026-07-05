@@ -630,6 +630,82 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 			t.Errorf("Expected nil error for dual-role node, got: %v", err)
 		}
 	})
+
+	t.Run("rejects inbound node with tag=default", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				Tag:     "default",
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err == nil {
+			t.Error("Expected error for tag=default on inbound node, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "default") {
+			t.Errorf("Expected error to mention 'default', got: %v", err)
+		}
+	})
+
+	t.Run("accepts inbound node with custom tag", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				Tag:     "cdn",
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected nil error for tag=cdn on inbound node, got: %v", err)
+		}
+	})
+
+	t.Run("accepts inbound node with empty tag", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected nil error for empty tag on inbound node, got: %v", err)
+		}
+	})
+
+	t.Run("accepts outbound-only node with tag=default", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:   "node-1",
+				Address:   "1.2.3.4",
+				Region:    "us-west",
+				Roles:     []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+				Tag:       "default",
+				RelayPort: 10000,
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected nil error for tag=default on outbound-only node, got: %v", err)
+		}
+	})
 }
 
 func TestSingBoxNodeWebhook_ValidateUpdate(t *testing.T) {

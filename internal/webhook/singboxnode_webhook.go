@@ -158,6 +158,13 @@ func (w *SingBoxNodeWebhook) validateSingBoxNode(node *v1alpha1.SingBoxNode) err
 		}
 	}
 	if isInbound {
+		if node.Spec.Tag == "default" {
+			allErrs = append(allErrs, field.Invalid(
+				field.NewPath("spec", "tag"),
+				node.Spec.Tag,
+				`"default" is reserved for untagged inbound nodes; choose a different tag value`,
+			))
+		}
 		if len(node.Spec.SupportedProtocols) == 0 {
 			allErrs = append(allErrs, field.Required(
 				field.NewPath("spec", "supportedProtocols"),
