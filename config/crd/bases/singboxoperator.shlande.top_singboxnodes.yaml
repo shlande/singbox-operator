@@ -67,6 +67,18 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              allowedOutbounds:
+                description: |-
+                  AllowedOutbounds, when set on an inbound node, restricts which outbound nodes
+                  it may use as upstream. Empty means allow all (backward compatible).
+                  When non-empty, ALL outbound paths (same-region auto-discovery AND CustomRoute
+                  bindings) are gated by this whitelist — only outbounds whose names appear here
+                  are usable. May include the node's own name when it has both inbound+outbound roles.
+                  Only meaningful for nodes with the inbound role.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               inboundProtocol:
                 description: |-
                   InboundProtocol forces this inbound node to use a specific protocol for all users.

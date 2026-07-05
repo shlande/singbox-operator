@@ -88,6 +88,15 @@ type SingBoxNodeSpec struct {
 	// +optional
 	// +listType=set
 	AllowedInbounds []string `json:"allowedInbounds,omitempty"`
+	// AllowedOutbounds, when set on an inbound node, restricts which outbound nodes
+	// it may use as upstream. Empty means allow all (backward compatible).
+	// When non-empty, ALL outbound paths (same-region auto-discovery AND CustomRoute
+	// bindings) are gated by this whitelist — only outbounds whose names appear here
+	// are usable. May include the node's own name when it has both inbound+outbound roles.
+	// Only meaningful for nodes with the inbound role.
+	// +optional
+	// +listType=set
+	AllowedOutbounds []string `json:"allowedOutbounds,omitempty"`
 	// TLSSecretName overrides the default TLS secret for this node.
 	// When set, the named kubernetes.io/tls Secret is mounted and used for all
 	// TLS-requiring protocols (e.g. hysteria2). Falls back to the operator-wide
