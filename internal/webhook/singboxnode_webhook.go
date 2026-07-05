@@ -147,6 +147,44 @@ func (w *SingBoxNodeWebhook) validateSingBoxNode(node *v1alpha1.SingBoxNode) err
 		seenAllowedOutbounds[entry] = true
 	}
 
+	// Validate inbound protocol consistency for inbound-role nodes.
+	// The default "hysteria2" string is kept in sync with
+	// internal/configengine/engine.go EffectiveInboundProtocol logic.
+	isInbound := false
+	for _, role := range node.Spec.Roles {
+		if role == v1alpha1.ProxyRoleInbound {
+			isInbound = true
+			break
+		}
+	}
+	if isInbound {
+		if len(node.Spec.SupportedProtocols) == 0 {
+			allErrs = append(allErrs, field.Required(
+				field.NewPath("spec", "supportedProtocols"),
+				"inbound nodes must declare at least one supported protocol with a port",
+			))
+		} else {
+			effectiveProto := node.Spec.InboundProtocol
+			if effectiveProto == "" {
+				effectiveProto = "hysteria2"
+			}
+			found := false
+			for _, p := range node.Spec.SupportedProtocols {
+				if p.Protocol == effectiveProto {
+					found = true
+					break
+				}
+			}
+			if !found {
+				allErrs = append(allErrs, field.Invalid(
+					field.NewPath("spec", "inboundProtocol"),
+					node.Spec.InboundProtocol,
+					fmt.Sprintf("effective inbound protocol %q must be present in spec.supportedProtocols (add an entry with protocol=%q and the desired port)", effectiveProto, effectiveProto),
+				))
+			}
+		}
+	}
+
 	if len(allErrs) > 0 {
 		return allErrs.ToAggregate()
 	}

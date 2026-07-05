@@ -226,10 +226,11 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 		for _, port := range []int32{443, 8080, 29999, 32768, 65535} {
 			node := &v1alpha1.SingBoxNode{
 				Spec: v1alpha1.SingBoxNodeSpec{
-					NodeRef: "node-1",
-					Address: "1.2.3.4",
-					Region:  "us-west",
-					Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+					NodeRef:         "node-1",
+					Address:         "1.2.3.4",
+					Region:          "us-west",
+					Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+					InboundProtocol: "vless",
 					SupportedProtocols: []v1alpha1.ProtocolConfig{
 						{Protocol: "vless", Port: port},
 					},
@@ -245,10 +246,11 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("accepts valid SingBoxNode with IP", func(t *testing.T) {
 		node := &v1alpha1.SingBoxNode{
 			Spec: v1alpha1.SingBoxNodeSpec{
-				NodeRef: "node-1",
-				Address: "1.2.3.4",
-				Region:  "us-west",
-				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				NodeRef:         "node-1",
+				Address:         "1.2.3.4",
+				Region:          "us-west",
+				Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				InboundProtocol: "vless",
 				SupportedProtocols: []v1alpha1.ProtocolConfig{
 					{Protocol: "vless", Port: 8443},
 				},
@@ -283,6 +285,9 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 				Region:          "us-west",
 				Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				AllowedInbounds: []string{"B"},
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 443},
+				},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -337,6 +342,9 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 				Region:          "us-west",
 				Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				AllowedInbounds: []string{"NonExistentNode"},
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 443},
+				},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -355,6 +363,9 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 						Region:          "us-west",
 						Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 						AllowedInbounds: allowed,
+						SupportedProtocols: []v1alpha1.ProtocolConfig{
+							{Protocol: "hysteria2", Port: 443},
+						},
 					},
 				}
 				_, err := w.ValidateCreate(ctx, node)
@@ -373,6 +384,9 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 				Region:           "us-west",
 				Roles:            []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				AllowedOutbounds: []string{"B"},
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 443},
+				},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -427,6 +441,9 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 				Region:           "us-west",
 				Roles:            []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				AllowedOutbounds: []string{"NonExistentNode"},
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 443},
+				},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
@@ -445,6 +462,9 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 						Region:           "us-west",
 						Roles:            []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 						AllowedOutbounds: allowed,
+						SupportedProtocols: []v1alpha1.ProtocolConfig{
+							{Protocol: "hysteria2", Port: 443},
+						},
 					},
 				}
 				_, err := w.ValidateCreate(ctx, node)
@@ -462,11 +482,152 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 				Address: "1.2.3.4",
 				Region:  "us-west",
 				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
 		if err != nil {
 			t.Errorf("Expected no error for inbound+outbound roles, got: %v", err)
+		}
+	})
+
+	t.Run("rejects inbound node with empty supportedProtocols", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:           "node-1",
+				Address:           "1.2.3.4",
+				Region:            "us-west",
+				Roles:             []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				SupportedProtocols: nil,
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err == nil {
+			t.Error("Expected error for inbound node with empty supportedProtocols, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "supportedProtocols") {
+			t.Errorf("Expected error to mention 'supportedProtocols', got: %v", err)
+		}
+	})
+
+	t.Run("rejects inbound node when InboundProtocol not in SupportedProtocols", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:         "node-1",
+				Address:         "1.2.3.4",
+				Region:          "us-west",
+				Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				InboundProtocol: "naive",
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err == nil {
+			t.Error("Expected error when InboundProtocol not in SupportedProtocols, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "inboundProtocol") {
+			t.Errorf("Expected error to mention 'inboundProtocol', got: %v", err)
+		}
+		if err != nil && !strings.Contains(err.Error(), "naive") {
+			t.Errorf("Expected error to mention 'naive', got: %v", err)
+		}
+	})
+
+	t.Run("rejects inbound node when default hysteria2 not in SupportedProtocols", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 10443},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err == nil {
+			t.Error("Expected error when default hysteria2 not in SupportedProtocols, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "hysteria2") {
+			t.Errorf("Expected error to mention 'hysteria2', got: %v", err)
+		}
+	})
+
+	t.Run("accepts inbound node with InboundProtocol in SupportedProtocols", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:         "node-1",
+				Address:         "1.2.3.4",
+				Region:          "us-west",
+				Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				InboundProtocol: "naive",
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "naive", Port: 50443},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected nil error for consistent InboundProtocol+SupportedProtocols, got: %v", err)
+		}
+	})
+
+	t.Run("accepts inbound node with default hysteria2 in SupportedProtocols", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef: "node-1",
+				Address: "1.2.3.4",
+				Region:  "us-west",
+				Roles:   []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected nil error for default hysteria2 in SupportedProtocols, got: %v", err)
+		}
+	})
+
+	t.Run("does not validate SupportedProtocols for outbound-only node", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:           "node-1",
+				Address:           "1.2.3.4",
+				Region:            "us-west",
+				Roles:             []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+				SupportedProtocols: nil,
+				InboundProtocol:   "naive",
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected nil error for outbound-only node, got: %v", err)
+		}
+	})
+
+	t.Run("accepts dual-role node with consistent protocol config", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:         "node-1",
+				Address:         "1.2.3.4",
+				Region:          "us-west",
+				Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
+				InboundProtocol: "hysteria2",
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected nil error for dual-role node, got: %v", err)
 		}
 	})
 }
@@ -495,6 +656,40 @@ func TestSingBoxNodeWebhook_ValidateUpdate(t *testing.T) {
 		_, err := w.ValidateUpdate(ctx, old, newNode)
 		if err == nil {
 			t.Error("Expected error for empty address on update, got nil")
+		}
+	})
+
+	t.Run("rejects update that creates protocol mismatch", func(t *testing.T) {
+		old := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:         "node-1",
+				Address:         "1.2.3.4",
+				Region:          "us-west",
+				Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				InboundProtocol: "hysteria2",
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
+			},
+		}
+		newNode := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:         "node-1",
+				Address:         "1.2.3.4",
+				Region:          "us-west",
+				Roles:           []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				InboundProtocol: "naive",
+				SupportedProtocols: []v1alpha1.ProtocolConfig{
+					{Protocol: "hysteria2", Port: 50443},
+				},
+			},
+		}
+		_, err := w.ValidateUpdate(ctx, old, newNode)
+		if err == nil {
+			t.Error("Expected error for protocol mismatch on update, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "naive") {
+			t.Errorf("Expected error to mention 'naive', got: %v", err)
 		}
 	})
 }
