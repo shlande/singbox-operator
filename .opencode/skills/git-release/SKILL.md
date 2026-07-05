@@ -36,6 +36,13 @@ This project uses **semantic versioning** (`vMAJOR.MINOR.PATCH`). The version nu
 
 For pre-release versions, append a suffix: `v0.3.19-rc1`, `v0.4.0-alpha1`, etc.
 
+**Important: image tag has NO `v` prefix.** The release workflow extracts `VERSION="${GITHUB_REF_NAME#v}"` (strips the `v`), so:
+- Git tag: `v0.4.0`
+- Docker image tag: `0.4.0`
+- Helm chart version: `0.4.0`
+
+Never use `v0.4.0` as an image tag — it will fail with `manifest unknown`.
+
 Ask the user what the new version should be, or suggest the next patch version based on the latest tag. Do NOT bump without confirming.
 
 ### Step 2: Commit pending changes
@@ -257,13 +264,14 @@ Do NOT proceed with deployment without the user's explicit choice. Never deploy 
 
 #### 5d: Deploy the new version
 
-The command to deploy depends on the scenario:
+**Always deploy from the OCI registry chart package**, NOT the local `charts/` directory. The CI pipeline bakes the correct image tag and CRDs into the packaged chart; the local directory has stale defaults (`tag: "latest"`, outdated CRDs).
 
-**Helm upgrade (existing release, same namespace):**
+**Helm upgrade (existing release):**
 ```bash
-helm upgrade <RELEASE_NAME> charts/singbox-operator \
+helm upgrade <RELEASE_NAME> \
+  oci://ghcr.io/<owner>/charts/singbox-operator \
+  --version <VERSION> \
   --namespace <NAMESPACE> \
-  --set operator.image.tag="<VERSION>" \
   --reuse-values \
   --wait \
   --timeout 5m
@@ -271,29 +279,46 @@ helm upgrade <RELEASE_NAME> charts/singbox-operator \
 
 **Helm install (fresh deployment):**
 ```bash
-helm install <RELEASE_NAME> charts/singbox-operator \
+helm install <RELEASE_NAME> \
+  oci://ghcr.io/<owner>/charts/singbox-operator \
+  --version <VERSION> \
   --namespace <NAMESPACE> \
   --create-namespace \
-  --set operator.image.tag="<VERSION>" \
   --wait \
   --timeout 5m
 ```
+
+Where `<VERSION>` is the version WITHOUT `v` prefix (e.g. `0.4.0`, not `v0.4.0`).
 
 After deployment, verify the rollout:
 
 ```bash
 kubectl rollout status deployment/singbox-operator-controller-manager -n <NAMESPACE> --timeout=2m
-kubectl get pods -n <NAMESPACE> -l control-plane=controller-manager
+kubectl get pods -n <NAMESPACE>
 ```
 
-Report the final status: new image tag, pod status, and any errors.
+#### 5e: CRD upgrade caveat
+
+**Helm does NOT upgrade CRDs in the `crds/` directory on `helm upgrade`** (by design, to prevent data loss). After a Helm upgrade that includes CRD schema changes, manually apply the new CRDs:
+
+```bash
+# Pull the chart and extract CRDs, OR apply from the local config/crd/bases/
+kubectl apply -f config/crd/bases/
+```
+
+Verify the CRD schema updated:
+```bash
+kubectl get crd singboxnodes.singboxoperator.shlande.top -o json | jq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.tag'
+```
+
+Report the final status: new image tag, pod status, CRD schema, and any errors.
 
 **Key details about this project's Helm chart:**
 - Chart name: `singbox-operator`
-- Chart location: `charts/singbox-operator/`
+- OCI registry path: `oci://ghcr.io/shlande/charts/singbox-operator`
 - Default namespace: `sing-box-operator`
 - Controller deployment: `singbox-operator-controller-manager`
-- Image: `ghcr.io/<owner>/sing-box-operator:<tag>`
+- Image: `ghcr.io/shlande/singbox-operator:<tag>` (tag has NO `v` prefix)
 
 ## Tag Naming Convention
 
@@ -311,6 +336,8 @@ Report the final status: new image tag, pod status, and any errors.
 - **NEVER** use lightweight tags for releases — always annotated (`-a`)
 - **NEVER** proceed to Step 5 (deployment) if Step 4 (CI monitoring) failed or is still running
 - **NEVER** deploy without user's explicit confirmation in Step 5c
+- **NEVER** deploy from the local `charts/` directory — always use the OCI registry package (local dir has stale `values.yaml` and CRDs)
+- **NEVER** use `v0.4.0` as an image tag — image tags have NO `v` prefix (e.g. `0.4.0`)
 
 ## Rollback (if needed)
 

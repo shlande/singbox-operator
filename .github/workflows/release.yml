@@ -200,6 +200,10 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           sed -i "s|tag:.*|tag: \"${VERSION}\"|" charts/singbox-operator/values.yaml
 
+      - name: Sync CRDs from config/crd/bases to chart crds/
+        run: |
+          cp config/crd/bases/*.yaml charts/singbox-operator/crds/
+
       - name: Log in to the Container registry (Helm OCI)
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} \
