@@ -128,6 +128,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 		for _, n := range input.OutboundsByName {
 			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
+				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
 				nodes = append(nodes, n)
@@ -145,6 +146,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 		for _, r := range input.RoutesByInbound[inboundName] {
 			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
+				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
 				nodes = append(nodes, n)
