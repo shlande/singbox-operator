@@ -127,23 +127,28 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 	if inboundNode != nil {
 		for _, n := range input.OutboundsByName {
 			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
-				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
+				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
+				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
 				nodes = append(nodes, n)
 			}
 		}
 		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] &&
-			configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
+			configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
+			(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, inboundNode.Name)) {
 			seen[inboundNode.Name] = true
 			nodes = append(nodes, inboundNode)
 		}
 	}
 
-	for _, r := range input.RoutesByInbound[inboundName] {
-		if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
-			configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
-			seen[n.Name] = true
-			nodes = append(nodes, n)
+	if inboundNode != nil {
+		for _, r := range input.RoutesByInbound[inboundName] {
+			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
+				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
+				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
+				seen[n.Name] = true
+				nodes = append(nodes, n)
+			}
 		}
 	}
 
