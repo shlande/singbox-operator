@@ -99,7 +99,7 @@ type SingBoxNodeSpec struct {
 	AllowedOutbounds []string `json:"allowedOutbounds,omitempty"`
 	// Tag is an optional grouping label for inbound nodes. When set, client configs
 	// group outbounds that use this node as inbound under a selector named after this tag.
-	// Empty means the "default" group. Must not be "default" (reserved).
+	// Empty means the "others" group. Must not be "others" (reserved).
 	// Only meaningful for nodes with the inbound role.
 	// +optional
 	// +kubebuilder:validation:MaxLength=63

@@ -52,10 +52,10 @@ func TestBuildClientConfig_TwoOutboundNodes(t *testing.T) {
 	}
 
 	if len(result) != 5 {
-		t.Errorf("expected 5 outbounds (2 proxy + default group selector + proxy selector + direct), got %d", len(result))
+		t.Errorf("expected 5 outbounds (2 proxy + others group selector + proxy selector + direct), got %d", len(result))
 	}
 
-	var selectorDefaultOutbounds, selectorProxyOutbounds []string
+	var selectorOthersOutbounds, selectorProxyOutbounds []string
 	for _, ob := range result {
 		m, ok := ob.(map[string]any)
 		if !ok {
@@ -65,20 +65,20 @@ func TestBuildClientConfig_TwoOutboundNodes(t *testing.T) {
 			tag, _ := m["tag"].(string)
 			arr, _ := m["outbounds"].([]string)
 			switch tag {
-			case "default":
-				selectorDefaultOutbounds = arr
+			case "others":
+				selectorOthersOutbounds = arr
 			case "proxy":
 				selectorProxyOutbounds = arr
 			}
 		}
 	}
 
-	if len(selectorDefaultOutbounds) != 2 {
-		t.Errorf("selector(default).outbounds should contain 2 tags, got %v", selectorDefaultOutbounds)
+	if len(selectorOthersOutbounds) != 2 {
+		t.Errorf("selector(others).outbounds should contain 2 tags, got %v", selectorOthersOutbounds)
 	}
 	// proxy selector over group tags
-	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "default" {
-		t.Errorf("selector(proxy).outbounds should be [\"default\"], got %v", selectorProxyOutbounds)
+	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "others" {
+		t.Errorf("selector(proxy).outbounds should be [\"others\"], got %v", selectorProxyOutbounds)
 	}
 }
 
@@ -240,11 +240,11 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 	}
 
 	if len(result) != 5 {
-		t.Errorf("expected 5 outbounds (2 proxy + default group selector + proxy selector + direct), got %d", len(result))
+		t.Errorf("expected 5 outbounds (2 proxy + others group selector + proxy selector + direct), got %d", len(result))
 	}
 
 	tags := make(map[string]bool)
-	var selectorDefaultOutbounds, selectorProxyOutbounds []string
+	var selectorOthersOutbounds, selectorProxyOutbounds []string
 	for _, ob := range result {
 		m, ok := ob.(map[string]any)
 		if !ok {
@@ -257,8 +257,8 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 			tag, _ := m["tag"].(string)
 			arr, _ := m["outbounds"].([]string)
 			switch tag {
-			case "default":
-				selectorDefaultOutbounds = arr
+			case "others":
+				selectorOthersOutbounds = arr
 			case "proxy":
 				selectorProxyOutbounds = arr
 			}
@@ -270,11 +270,11 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 	if !tags["outbound-y#node-a"] {
 		t.Error("expected outbound-y#node-a in result (same region as inbound)")
 	}
-	if len(selectorDefaultOutbounds) != 2 {
-		t.Errorf("selector(default).outbounds should contain 2 tags, got %v", selectorDefaultOutbounds)
+	if len(selectorOthersOutbounds) != 2 {
+		t.Errorf("selector(others).outbounds should contain 2 tags, got %v", selectorOthersOutbounds)
 	}
-	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "default" {
-		t.Errorf("selector(proxy).outbounds should be [\"default\"], got %v", selectorProxyOutbounds)
+	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "others" {
+		t.Errorf("selector(proxy).outbounds should be [\"others\"], got %v", selectorProxyOutbounds)
 	}
 }
 
@@ -952,11 +952,11 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 	}
 
 	if len(result) != 4 {
-		t.Errorf("expected 4 outbounds (1 proxy + default group selector + proxy selector + direct), got %d", len(result))
+		t.Errorf("expected 4 outbounds (1 proxy + others group selector + proxy selector + direct), got %d", len(result))
 	}
 
 	tags := make(map[string]bool)
-	var selectorDefaultOutbounds, selectorProxyOutbounds []string
+	var selectorOthersOutbounds, selectorProxyOutbounds []string
 	for _, ob := range result {
 		m, ok := ob.(map[string]any)
 		if !ok {
@@ -969,8 +969,8 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 			tag, _ := m["tag"].(string)
 			arr, _ := m["outbounds"].([]string)
 			switch tag {
-			case "default":
-				selectorDefaultOutbounds = arr
+			case "others":
+				selectorOthersOutbounds = arr
 			case "proxy":
 				selectorProxyOutbounds = arr
 			}
@@ -981,11 +981,11 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 	if !tags[expectedTag] {
 		t.Errorf("expected proxy outbound tag %q, got %v", expectedTag, tags)
 	}
-	if len(selectorDefaultOutbounds) != 1 || selectorDefaultOutbounds[0] != expectedTag {
-		t.Errorf("selector(default).outbounds should be [%q], got %v", expectedTag, selectorDefaultOutbounds)
+	if len(selectorOthersOutbounds) != 1 || selectorOthersOutbounds[0] != expectedTag {
+		t.Errorf("selector(others).outbounds should be [%q], got %v", expectedTag, selectorOthersOutbounds)
 	}
-	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "default" {
-		t.Errorf("selector(proxy).outbounds should be [\"default\"], got %v", selectorProxyOutbounds)
+	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "others" {
+		t.Errorf("selector(proxy).outbounds should be [\"others\"], got %v", selectorProxyOutbounds)
 	}
 
 	expectedUUID := configengine.DeriveUUID(baseUUID, "node-x")

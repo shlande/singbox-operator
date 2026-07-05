@@ -74,7 +74,7 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 		if len(inboundTags) > 0 {
 			tag := inboundNode.Spec.Tag
 			if tag == "" {
-				tag = "default"
+				tag = "others"
 			}
 			groupOutbounds[tag] = append(groupOutbounds[tag], inboundTags...)
 		}

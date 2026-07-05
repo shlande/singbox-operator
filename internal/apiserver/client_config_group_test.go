@@ -137,11 +137,11 @@ func TestBuildClientConfig_MultiGroup(t *testing.T) {
 }
 
 func TestBuildClientConfig_EmptyGroupNotEmitted(t *testing.T) {
-	// Given: 1 inbound node with no tag (→ "default" group), 1 outbound that is offline
+	// Given: 1 inbound node with no tag (→ "others" group), 1 outbound that is offline
 	inbound := makeInboundNode("in-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
-	// No Spec.Tag set → empty string → "default"
+	// No Spec.Tag set → empty string → "others"
 	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
 	outbound := makeOutboundNode("out-1", "us")
@@ -204,7 +204,7 @@ func TestBuildClientConfig_EmptyGroupNotEmitted(t *testing.T) {
 	}
 }
 
-// TestBuildClientConfig_DefaultGroupMerge: 2 inbound nodes both with no tag (both go to "default" group),
+// TestBuildClientConfig_DefaultGroupMerge: 2 inbound nodes both with no tag (both go to "others" group),
 // each with its own outbound, different regions so no cross-discovery. Assert merged group selector.
 func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
 	inA := makeInboundNode("in-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
@@ -238,7 +238,7 @@ func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
 		t.Fatalf("BuildClientConfig returned error: %v", err)
 	}
 
-	// 2 proxy outbounds + proxy selector + 1 group selector (default) + direct = 5
+	// 2 proxy outbounds + proxy selector + 1 group selector (others) + direct = 5
 	if len(result) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(result))
 	}
@@ -274,31 +274,31 @@ func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
 	if !ok3 {
 		t.Fatal("result[2] outbounds is not []string")
 	}
-	if len(outboundsProxy) != 1 || outboundsProxy[0] != "default" {
-		t.Errorf("proxy outbounds expected [default], got %v", outboundsProxy)
+	if len(outboundsProxy) != 1 || outboundsProxy[0] != "others" {
+		t.Errorf("proxy outbounds expected [others], got %v", outboundsProxy)
 	}
 
-	// Verify group selector for "default" (index 3, after proxy selector)
-	selDefault, ok4 := result[3].(map[string]any)
+	// Verify group selector for "others" (index 3, after proxy selector)
+	selOthers, ok4 := result[3].(map[string]any)
 	if !ok4 {
 		t.Fatal("result[3] is not a map")
 	}
-	if selDefault["type"] != "selector" {
-		t.Errorf("result[3] type expected selector, got %v", selDefault["type"])
+	if selOthers["type"] != "selector" {
+		t.Errorf("result[3] type expected selector, got %v", selOthers["type"])
 	}
-	if selDefault["tag"] != "default" {
-		t.Errorf("result[3] tag expected default, got %v", selDefault["tag"])
+	if selOthers["tag"] != "others" {
+		t.Errorf("result[3] tag expected others, got %v", selOthers["tag"])
 	}
-	outboundsDefault, ok5 := selDefault["outbounds"].([]string)
+	outboundsOthers, ok5 := selOthers["outbounds"].([]string)
 	if !ok5 {
 		t.Fatal("result[3] outbounds is not []string")
 	}
-	if len(outboundsDefault) != 2 {
-		t.Fatalf("expected 2 outbounds in default group, got %v", outboundsDefault)
+	if len(outboundsOthers) != 2 {
+		t.Fatalf("expected 2 outbounds in others group, got %v", outboundsOthers)
 	}
 	// Both outbound tags should appear (sorted)
-	if outboundsDefault[0] != "out-1#in-a" || outboundsDefault[1] != "out-2#in-b" {
-		t.Errorf("default outbounds expected [out-1#in-a out-2#in-b], got %v", outboundsDefault)
+	if outboundsOthers[0] != "out-1#in-a" || outboundsOthers[1] != "out-2#in-b" {
+		t.Errorf("others outbounds expected [out-1#in-a out-2#in-b], got %v", outboundsOthers)
 	}
 
 	// Verify direct (index 4)
@@ -341,7 +341,7 @@ func TestBuildClientConfig_TagOnOutboundIgnored(t *testing.T) {
 		t.Fatalf("BuildClientConfig returned error: %v", err)
 	}
 
-	// 1 proxy outbound + proxy selector + 1 group selector (default) + direct = 4
+	// 1 proxy outbound + proxy selector + 1 group selector (others) + direct = 4
 	if len(result) != 4 {
 		t.Fatalf("expected 4 items, got %d", len(result))
 	}
@@ -367,16 +367,16 @@ func TestBuildClientConfig_TagOnOutboundIgnored(t *testing.T) {
 		t.Errorf("result[1] tag expected proxy, got %v", selProxy["tag"])
 	}
 
-	// Verify group selector is "default" (index 2)
-	selDefault, ok2 := result[2].(map[string]any)
+	// Verify group selector is "others" (index 2)
+	selOthers, ok2 := result[2].(map[string]any)
 	if !ok2 {
 		t.Fatal("result[2] is not a map")
 	}
-	if selDefault["type"] != "selector" {
-		t.Errorf("result[2] type expected selector, got %v", selDefault["type"])
+	if selOthers["type"] != "selector" {
+		t.Errorf("result[2] type expected selector, got %v", selOthers["type"])
 	}
-	if selDefault["tag"] != "default" {
-		t.Errorf("expected group selector tag 'default', got %v", selDefault["tag"])
+	if selOthers["tag"] != "others" {
+		t.Errorf("expected group selector tag 'others', got %v", selOthers["tag"])
 	}
 }
 
