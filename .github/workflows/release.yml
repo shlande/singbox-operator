@@ -198,7 +198,7 @@ jobs:
       - name: Update image tag in values.yaml
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          sed -i "s|tag:.*|tag: \"${VERSION}\"|" charts/singbox-operator/values.yaml || true
+          sed -i "s|tag:.*|tag: \"${VERSION}\"|" charts/singbox-operator/values.yaml
 
       - name: Log in to the Container registry (Helm OCI)
         run: |

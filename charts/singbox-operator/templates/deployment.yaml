@@ -1,3 +1,6 @@
+{{- if and .Values.usageCollector.enabled (not .Values.singbox.image) }}
+{{- fail "usageCollector.enabled=true requires a custom sing-box image with v2ray_api support. The default official image does not include it. Set singbox.image to a custom build, e.g. ghcr.io/shlande/sing-box:X.Y.Z-with_v2ray_api." }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,7 +33,9 @@ spec:
         - --metrics-bind-address=:{{ .Values.operator.metricsPort }}
         - --health-probe-bind-address=:{{ .Values.operator.healthProbePort }}
         - --default-tls-secret={{ .Values.singbox.defaultTLSSecret }}
+        {{- if .Values.singbox.image }}
         - --singbox-image={{ .Values.singbox.image }}
+        {{- end }}
         {{- if .Values.usageCollector.enabled }}
         - --usage-collect-enabled=true
         - --usage-v2rayapi-listen={{ .Values.usageCollector.v2rayAPIListen }}
