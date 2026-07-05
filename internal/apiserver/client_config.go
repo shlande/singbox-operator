@@ -90,6 +90,12 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 	}
 	sort.Strings(groupTags)
 
+	result = append(result, map[string]any{
+		"type":      "selector",
+		"tag":       "proxy",
+		"outbounds": groupTags,
+	})
+
 	// Emit one selector per group tag
 	for _, gt := range groupTags {
 		tags := groupOutbounds[gt]
@@ -102,12 +108,6 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 		})
 	}
 
-	// Emit top-level proxy selector over group tags (emitted even when empty)
-	result = append(result, map[string]any{
-		"type":      "selector",
-		"tag":       "proxy",
-		"outbounds": groupTags,
-	})
 	result = append(result, map[string]any{
 		"type": "direct",
 		"tag":  "direct",
