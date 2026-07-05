@@ -16,6 +16,7 @@ The pipeline builds multi-arch Docker images (amd64 + arm64), pushes a multi-arc
 - Clean or intentionally dirty working tree (will be staged)
 - Write access to the remote `origin`
 - Latest tags fetched: `git fetch --tags`
+- `kubectl` and `helm` available on the local machine (for optional deployment step)
 
 ## Release Workflow
 
@@ -91,6 +92,125 @@ Key outputs:
 - Multi-arch tags (stable only): `ghcr.io/<owner>/sing-box-operator:<MAJOR>`, `<MAJOR.MINOR>`
 - Helm chart: `oci://ghcr.io/<owner>/charts/sing-box-operator --version <version>`
 - GitHub Release: auto-generated release notes with download links
+
+### Step 5: Cluster detection and optional deployment
+
+**This step MUST run after the tag is pushed.** The GitHub Actions pipeline needs time to build images and push the Helm chart before local deployment can pull them. If the pipeline hasn't finished yet, warn the user that deploying now may pull stale images.
+
+#### 5a: Detect available clusters
+
+Check if `kubectl` and `helm` are installed and a cluster is reachable:
+
+```bash
+# Check kubectl
+which kubectl && kubectl version --client --short 2>/dev/null
+
+# Check helm
+which helm && helm version --short 2>/dev/null
+
+# Check for an active cluster
+kubectl config current-context 2>/dev/null && kubectl cluster-info 2>/dev/null | head -1
+```
+
+If `kubectl config current-context` or `kubectl cluster-info` fails, there is no reachable cluster — skip the rest of Step 5 and inform the user.
+
+#### 5b: Check existing deployment
+
+Look for an existing Helm release of this operator:
+
+```bash
+helm list --all-namespaces 2>/dev/null | grep -i sing || echo "NO_HELM_RELEASE"
+```
+
+Also verify the namespace and controller:
+
+```bash
+kubectl get ns sing-box-operator 2>/dev/null
+kubectl get deploy,sts -n sing-box-operator 2>/dev/null | head -10
+```
+
+If an existing deployment is found, note the current version (from `helm list` output) and the controller pod status.
+
+#### 5c: Ask user about deployment
+
+Using the `question` tool (NOT inline text), present a deployment choice.
+
+**Scenario A — Existing deployment found:**
+
+Ask the user:
+
+> "Found existing Helm release `singbox-operator` at version `<CURRENT_VERSION>` in namespace `<NAMESPACE>`. The controller pod is `<STATUS>`.
+>
+> Cluster: `<CONTEXT>` at `<API_SERVER_URL>`
+>
+> New version: `<NEW_VERSION>`
+>
+> What should I do?"
+
+Options:
+- `"Deploy v<NEW_VERSION> via Helm upgrade (Recommended)"` — runs `helm upgrade` with the new version, reusing existing values
+- `"Deploy fresh via Helm install"` — uninstalls existing release first, then installs fresh (⚠️ may cause downtime)
+- `"Skip deployment for now"` — just report the cluster status, the user will deploy manually
+
+**Scenario B — No existing deployment found:**
+
+Ask the user:
+
+> "No existing singbox-operator deployment found. Cluster `<CONTEXT>` is available at `<API_SERVER_URL>`.
+>
+> New version: `<NEW_VERSION>`
+>
+> Should I deploy?"
+
+Options:
+- `"Deploy v<NEW_VERSION> via Helm install"` — installs a fresh Helm release
+- `"Skip deployment for now"` — just report the cluster status
+
+**Scenario C — No cluster available:**
+
+Just report: "No Kubernetes cluster reachable. Skipping deployment. You can deploy manually later with Helm."
+
+Do NOT proceed with deployment without the user's explicit choice. Never deploy automatically.
+
+#### 5d: Deploy the new version
+
+The command to deploy depends on the scenario:
+
+**Helm upgrade (existing release, same namespace):**
+```bash
+helm upgrade <RELEASE_NAME> charts/singbox-operator \
+  --namespace <NAMESPACE> \
+  --set operator.image.tag="<VERSION>" \
+  --reuse-values \
+  --wait \
+  --timeout 5m
+```
+
+**Helm install (fresh deployment):**
+```bash
+helm install <RELEASE_NAME> charts/singbox-operator \
+  --namespace <NAMESPACE> \
+  --create-namespace \
+  --set operator.image.tag="<VERSION>" \
+  --wait \
+  --timeout 5m
+```
+
+After deployment, verify the rollout:
+
+```bash
+kubectl rollout status deployment/singbox-operator-controller-manager -n <NAMESPACE> --timeout=2m
+kubectl get pods -n <NAMESPACE> -l control-plane=controller-manager
+```
+
+Report the final status: new image tag, pod status, and any errors.
+
+**Key details about this project's Helm chart:**
+- Chart name: `singbox-operator`
+- Chart location: `charts/singbox-operator/`
+- Default namespace: `sing-box-operator`
+- Controller deployment: `singbox-operator-controller-manager`
+- Image: `ghcr.io/<owner>/sing-box-operator:<tag>`
 
 ## Tag Naming Convention
 
