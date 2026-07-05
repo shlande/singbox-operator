@@ -16,7 +16,8 @@ The pipeline builds multi-arch Docker images (amd64 + arm64), pushes a multi-arc
 - Clean or intentionally dirty working tree (will be staged)
 - Write access to the remote `origin`
 - Latest tags fetched: `git fetch --tags`
-- `kubectl` and `helm` available on the local machine (for optional deployment step)
+- `gh` CLI authenticated (for CI monitoring in Step 4). If unavailable, fall back to `curl` + GitHub API.
+- `kubectl` and `helm` available on the local machine (for optional deployment in Step 5)
 
 ## Release Workflow
 
@@ -72,30 +73,112 @@ If commits were already pushed, just push the tag:
 git push origin v<VERSION>
 ```
 
-### Step 4: Verify the release
+### Step 4: Monitor the GitHub Actions workflow
 
-After pushing, the GitHub Actions workflow triggers automatically. Tell the user to monitor:
+After pushing, the GitHub Actions release workflow triggers automatically. **Step 5 (deployment) MUST NOT run until Step 4 completes successfully.**
 
+#### 4a: Locate the workflow run
+
+Use the `gh` CLI to find the workflow run triggered by the new tag:
+
+```bash
+gh run list \
+  --repo <owner>/<repo> \
+  --workflow release.yml \
+  --branch <TAG_NAME> \
+  --limit 1 \
+  --json databaseId,status,conclusion,url,headBranch \
+  --jq '.[0]'
 ```
-https://github.com/<owner>/sing-box-operator/actions
+
+If `gh` is not authenticated, fall back to fetching the run via the GitHub API:
+
+```bash
+curl -s "https://api.github.com/repos/<owner>/<repo>/actions/workflows/release.yml/runs?branch=<TAG_NAME>&per_page=1" \
+  | python3 -c "import sys,json; runs=json.load(sys.stdin); r=runs['workflow_runs'][0] if runs.get('workflow_runs') else None; print(json.dumps({'id':r['id'],'status':r['status'],'conclusion':r['conclusion'],'url':r['html_url']},indent=2) if r else 'NOT_FOUND')"
 ```
 
-The release workflow runs these jobs:
-1. `docker-amd64` — builds and pushes amd64 image
-2. `docker-arm64` — builds and pushes arm64 image
-3. `docker-manifest` — creates multi-arch manifest (needs both arch jobs)
-4. `helm` — packages and pushes Helm chart to OCI registry
-5. `release` — creates GitHub Release with auto-generated notes
+Report the run URL to the user:
+```
+https://github.com/<owner>/<repo>/actions/runs/<RUN_ID>
+```
 
-Key outputs:
-- Docker image: `ghcr.io/<owner>/sing-box-operator:<version>`
-- Multi-arch tags (stable only): `ghcr.io/<owner>/sing-box-operator:<MAJOR>`, `<MAJOR.MINOR>`
-- Helm chart: `oci://ghcr.io/<owner>/charts/sing-box-operator --version <version>`
-- GitHub Release: auto-generated release notes with download links
+#### 4b: Monitor until completion
+
+The release workflow has 5 jobs that run with dependencies:
+
+| Job | Depends on | Typical Duration |
+|---|---|---|
+| `docker-amd64` | — | 5-10 min |
+| `docker-arm64` | — | 5-10 min |
+| `docker-manifest` | amd64 + arm64 | <1 min |
+| `helm` | docker-manifest | 1-2 min |
+| `release` | docker-manifest + helm | <1 min |
+
+Poll for completion every 60 seconds. Use `gh`:
+
+```bash
+gh run watch <RUN_ID> --repo <owner>/<repo> --exit-status 2>&1
+```
+
+Or poll manually with the API:
+
+```bash
+# Poll loop — run every 60s until conclusion is non-null
+while true; do
+  STATUS=$(curl -s "https://api.github.com/repos/<owner>/<repo>/actions/runs/<RUN_ID>" \
+    | python3 -c "import sys,json; r=json.load(sys.stdin); print(r.get('status',''), r.get('conclusion',''))")
+  echo "$(date): $STATUS"
+  CONCLUSION=$(echo "$STATUS" | awk '{print $2}')
+  [ "$CONCLUSION" != "None" ] && [ -n "$CONCLUSION" ] && break
+  sleep 60
+done
+```
+
+**Tell the user that you are monitoring and will report back.** The polling loop can take 10-20 minutes — set appropriate timeouts.
+
+#### 4c: Evaluate the result
+
+**If conclusion is `success`:**
+
+Report a summary table of all jobs:
+
+```bash
+gh run view <RUN_ID> --repo <owner>/<repo> --json jobs --jq '.jobs[] | {name, status, conclusion, url: .html_url}'
+```
+
+Then proceed to **Step 5**.
+
+**If conclusion is `failure`:**
+
+1. Do NOT proceed to Step 5. Deployment is BLOCKED.
+2. Fetch the failed job logs to diagnose the root cause:
+
+```bash
+# List failed jobs
+gh run view <RUN_ID> --repo <owner>/<repo> --json jobs \
+  --jq '.jobs[] | select(.conclusion=="failure") | {name, url: .html_url, id: .databaseId}'
+
+# Fetch logs for a specific failed job
+gh run view --repo <owner>/<repo> --job <FAILED_JOB_ID> --log 2>&1 | tail -100
+```
+
+3. Analyze the logs. Common failure modes:
+   - **Docker build failure**: Go compile errors, missing dependencies, Dockerfile syntax
+   - **Docker push failure**: Authentication issue with `GITHUB_TOKEN` or `secrets.GITHUB_TOKEN`
+   - **Helm package failure**: Chart.yaml syntax error, missing files
+   - **Network / timeout**: GitHub Actions runner infrastructure issue — retry by re-pushing the tag
+
+4. If the root cause is clear and fixable (e.g., a code issue in the repo), propose a fix and ask the user whether to patch and re-tag.
+5. If the root cause is unclear or infrastructure-related, report the failure details to the user and suggest manual investigation.
+
+**If `gh` CLI is not available or not authenticated**, fall back to the GitHub API via `curl` and the public runs endpoint. Note that without authentication, API rate limits (60 requests/hour) apply — poll less frequently (every 2-3 minutes).
 
 ### Step 5: Cluster detection and optional deployment
 
-**This step MUST run after the tag is pushed.** The GitHub Actions pipeline needs time to build images and push the Helm chart before local deployment can pull them. If the pipeline hasn't finished yet, warn the user that deploying now may pull stale images.
+**GATE: Only run this step if Step 4 completed with `success`. If Step 4 failed, STOP — deployment is blocked until the CI pipeline is fixed.**
+
+The GitHub Actions pipeline builds and pushes the Docker image and Helm chart. Step 4 ensures these artifacts exist before Step 5 attempts to pull them.
 
 #### 5a: Detect available clusters
 
@@ -226,6 +309,8 @@ Report the final status: new image tag, pod status, and any errors.
 - **NEVER** force-push tags (`git push --force --tags`)
 - **NEVER** skip CI with `[skip ci]` in release commits
 - **NEVER** use lightweight tags for releases — always annotated (`-a`)
+- **NEVER** proceed to Step 5 (deployment) if Step 4 (CI monitoring) failed or is still running
+- **NEVER** deploy without user's explicit confirmation in Step 5c
 
 ## Rollback (if needed)
 
