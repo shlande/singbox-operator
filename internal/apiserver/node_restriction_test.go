@@ -124,3 +124,136 @@ func TestBuildClientConfig_WithNodeRestrictions(t *testing.T) {
 		}
 	})
 }
+
+// TestBuildClientConfig_WithAllowedOutbounds verifies the AllowedOutbounds
+// filtering in resolveOutboundNodes, which restricts which outbound nodes
+// an inbound node may use as upstream.
+//
+// Three scenarios:
+//  1. Whitelist: inbound node-a with AllowedOutbounds=["node-b"] → only
+//     node-b appears, node-c is excluded.
+//  2. Regression: empty/nil AllowedOutbounds → all same-region outbounds
+//     appear (backward compatible).
+//  3. Self-as-outbound: dual-role node-a with AllowedOutbounds=["node-a"]
+//     → only self outbound (tag "node-a") appears, other same-region
+//     outbound node-b excluded.
+func TestBuildClientConfig_WithAllowedOutbounds(t *testing.T) {
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+	user := makeUser("user-alice", "secret-alice")
+	userCred := credmanager.UserCredential{UUID: baseUUID}
+
+	t.Run("whitelist-allowed-outbounds", func(t *testing.T) {
+		inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+			{Protocol: "vless", Port: 10443},
+		})
+		inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+		inbound.Spec.AllowedOutbounds = []string{"node-b"}
+
+		outboundB := makeOutboundNode("node-b", "us")
+		outboundC := makeOutboundNode("node-c", "us")
+
+		input := ClientConfigInput{
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+				"node-b": outboundB,
+				"node-c": outboundC,
+			},
+		}
+
+		result, err := BuildClientConfig(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		tags := collectTags(result)
+
+		if !tags["node-b#node-a"] {
+			t.Errorf("node-b#node-a should be present (node-b is in AllowedOutbounds), got tags: %v", tags)
+		}
+		if tags["node-c#node-a"] {
+			t.Errorf("node-c#node-a should be absent (node-c not in AllowedOutbounds), got tags: %v", tags)
+		}
+		if n := countProxyOutbounds(result); n != 1 {
+			t.Errorf("expected 1 proxy outbound (node-b only), got %d", n)
+		}
+	})
+
+	t.Run("empty-allowed-outbounds-allows-all-regression", func(t *testing.T) {
+		inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+			{Protocol: "vless", Port: 10443},
+		})
+		inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+		outboundB := makeOutboundNode("node-b", "us")
+		outboundC := makeOutboundNode("node-c", "us")
+
+		input := ClientConfigInput{
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+				"node-b": outboundB,
+				"node-c": outboundC,
+			},
+		}
+
+		result, err := BuildClientConfig(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		tags := collectTags(result)
+
+		if !tags["node-b#node-a"] {
+			t.Errorf("node-b#node-a should be present with empty AllowedOutbounds, got tags: %v", tags)
+		}
+		if !tags["node-c#node-a"] {
+			t.Errorf("node-c#node-a should be present with empty AllowedOutbounds, got tags: %v", tags)
+		}
+		if n := countProxyOutbounds(result); n != 2 {
+			t.Errorf("expected 2 proxy outbounds with no restrictions, got %d", n)
+		}
+	})
+
+	t.Run("self-allowed-outbounds-dual-role-includes-only-self", func(t *testing.T) {
+		node := makeDualRoleNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+			{Protocol: "vless", Port: 10443},
+		})
+		node.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+		node.Spec.AllowedOutbounds = []string{"node-a"}
+
+		outboundB := makeOutboundNode("node-b", "us")
+
+		input := ClientConfigInput{
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{node},
+			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+				"node-b": outboundB,
+			},
+		}
+
+		result, err := BuildClientConfig(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		tags := collectTags(result)
+
+		if !tags["node-a"] {
+			t.Errorf("node-a (self tag) should be present, got tags: %v", tags)
+		}
+		if tags["node-b#node-a"] {
+			t.Errorf("node-b#node-a should be absent (node-b not in AllowedOutbounds), got tags: %v", tags)
+		}
+		if n := countProxyOutbounds(result); n != 1 {
+			t.Errorf("expected 1 proxy outbound (self only), got %d", n)
+		}
+	})
+}

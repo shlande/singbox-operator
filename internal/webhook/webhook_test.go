@@ -365,6 +365,96 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 		}
 	})
 
+	t.Run("accepts AllowedOutbounds with valid entry", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:          "node-1",
+				Address:          "1.2.3.4",
+				Region:           "us-west",
+				Roles:            []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				AllowedOutbounds: []string{"B"},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected no error for AllowedOutbounds=[\"B\"], got: %v", err)
+		}
+	})
+
+	t.Run("rejects AllowedOutbounds with empty string entry", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:          "node-1",
+				Address:          "1.2.3.4",
+				Region:           "us-west",
+				Roles:            []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				AllowedOutbounds: []string{""},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err == nil {
+			t.Error("Expected error for AllowedOutbounds with empty string entry, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "allowedOutbounds") {
+			t.Errorf("Expected error to mention 'allowedOutbounds', got: %v", err)
+		}
+	})
+
+	t.Run("rejects AllowedOutbounds with duplicate entries", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:          "node-1",
+				Address:          "1.2.3.4",
+				Region:           "us-west",
+				Roles:            []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				AllowedOutbounds: []string{"B", "B"},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err == nil {
+			t.Error("Expected error for duplicate AllowedOutbounds entries, got nil")
+		}
+		if err != nil && !strings.Contains(err.Error(), "allowedOutbounds") {
+			t.Errorf("Expected error to mention 'allowedOutbounds', got: %v", err)
+		}
+	})
+
+	t.Run("accepts AllowedOutbounds with non-existent node name", func(t *testing.T) {
+		node := &v1alpha1.SingBoxNode{
+			Spec: v1alpha1.SingBoxNodeSpec{
+				NodeRef:          "node-1",
+				Address:          "1.2.3.4",
+				Region:           "us-west",
+				Roles:            []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				AllowedOutbounds: []string{"NonExistentNode"},
+			},
+		}
+		_, err := w.ValidateCreate(ctx, node)
+		if err != nil {
+			t.Errorf("Expected no error for AllowedOutbounds with non-existent node name, got: %v", err)
+		}
+	})
+
+	t.Run("accepts AllowedOutbounds nil or empty (backward compat)", func(t *testing.T) {
+		for name, allowed := range map[string][]string{"nil": nil, "empty": {}} {
+			t.Run(name, func(t *testing.T) {
+				node := &v1alpha1.SingBoxNode{
+					Spec: v1alpha1.SingBoxNodeSpec{
+						NodeRef:          "node-1",
+						Address:          "1.2.3.4",
+						Region:           "us-west",
+						Roles:            []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+						AllowedOutbounds: allowed,
+					},
+				}
+				_, err := w.ValidateCreate(ctx, node)
+				if err != nil {
+					t.Errorf("Expected no error for AllowedOutbounds=%v, got: %v", allowed, err)
+				}
+			})
+		}
+	})
+
 	t.Run("accepts both inbound and outbound roles", func(t *testing.T) {
 		node := &v1alpha1.SingBoxNode{
 			Spec: v1alpha1.SingBoxNodeSpec{

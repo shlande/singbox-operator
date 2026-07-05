@@ -13,3 +13,10 @@ spec:
   # # When set, only the listed inbound node names may use this node as outbound.
   # allowedInbounds:
   #   - "my-inbound-node"
+
+  # # Example: restrict which outbound nodes this inbound node may use.
+  # # Empty or omitted = allow all same-region outbounds (backward compatible).
+  # # When set, ALL outbound paths (same-region auto-discovery AND CustomRoute)
+  # # are gated by this whitelist.
+  # allowedOutbounds:
+  #   - "my-outbound-node"
