@@ -1,0 +1,39 @@
+=== F3 Manual QA Evidence ===
+Date: 2026-07-05
+
+1. make manifests generate — SUCCESS
+   - CRD: allowedInbounds field present (type: array, x-kubernetes-list-type: set)
+   - Deepcopy: nil-guarded copy of AllowedInbounds
+
+2. go build ./... — SUCCESS (no errors)
+
+3. go test ./internal/... ./api/... -count=1 — ALL PASS
+   - internal/apiserver: ok
+   - internal/configengine: ok (34 tests)
+   - internal/controller: ok (25+ specs, 10.7s)
+   - internal/credmanager: ok
+   - internal/usagecollector: ok
+   - internal/webhook: ok
+   - api/v1alpha1: ok
+
+4. kubectl apply --dry-run=client -f config/samples/ — SUCCESS
+   - singboxnode.singboxoperator.shlande.top/singboxnode-sample created (dry run)
+
+5. Test scenario coverage:
+   - (a) backward compat: AllowedInbounds=[] → outbound collected ✓
+   - (b) match: AllowedInbounds=[B] → B collects A ✓
+   - (c) mismatch: AllowedInbounds=[Other] → B does NOT collect A ✓
+   - (d) CustomRoute skipped when binding excludes inbound ✓
+   - (e) cross-region reconcile on AllowedInbounds change ✓
+   - (e2) self-outbound with AllowedInbounds=[S] excludes other inbound X ✓
+   - (f) covered by scenario (e) ✓
+
+6. Git log (6 atomic commits):
+   - 176a918 feat(api): add AllowedInbounds to SingBoxNodeSpec
+   - 8447572 feat(controller): enforce AllowedInbounds binding + cross-region reconcile
+   - 37df1ce feat(configengine): add defensive AllowedInbounds filter
+   - f5709ec feat(webhook): validate AllowedInbounds entries
+   - 7887184 test: add e2e coverage for AllowedInbounds binding
+   - 8070616 docs: document AllowedInbounds binding
+
+F3 VERDICT: APPROVE
