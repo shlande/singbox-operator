@@ -33,10 +33,10 @@ type ClientConfigInput struct {
 }
 
 // BuildClientConfig generates the outbounds array for a client sing-box config.
-// Returns: proxy outbounds + selector("proxy") + direct
+// Returns: proxy outbounds + per-inbound-tag selectors + selector("proxy") + direct
 func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 	var proxyOutbounds []any
-	var proxyTags []string
+	groupOutbounds := make(map[string][]string)
 
 	for _, inboundNode := range input.InboundNodes {
 		if input.OfflineNodeNames[inboundNode.Name] {
@@ -57,6 +57,7 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 
 		outboundNodes := resolveOutboundNodes(input, inboundNode.Name)
 
+		var inboundTags []string
 		for _, outboundNode := range outboundNodes {
 			var tag string
 			if outboundNode.Name == inboundNode.Name {
@@ -66,16 +67,46 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 			}
 			ob := buildProxyOutbound(tag, address, port, protocol, input.User.Name, outboundNode.Name, inboundNode.Status.TLSServerName, input.UserCred)
 			proxyOutbounds = append(proxyOutbounds, ob)
-			proxyTags = append(proxyTags, tag)
+			inboundTags = append(inboundTags, tag)
+		}
+
+		// Only record a group if the inbound produced at least one proxy outbound
+		if len(inboundTags) > 0 {
+			tag := inboundNode.Spec.Tag
+			if tag == "" {
+				tag = "default"
+			}
+			groupOutbounds[tag] = append(groupOutbounds[tag], inboundTags...)
 		}
 	}
 
 	var result []any
 	result = append(result, proxyOutbounds...)
+
+	// Sort group tags in dictionary order
+	groupTags := make([]string, 0, len(groupOutbounds))
+	for k := range groupOutbounds {
+		groupTags = append(groupTags, k)
+	}
+	sort.Strings(groupTags)
+
+	// Emit one selector per group tag
+	for _, gt := range groupTags {
+		tags := groupOutbounds[gt]
+		sort.Strings(tags)
+		tags = slices.Compact(tags)
+		result = append(result, map[string]any{
+			"type":      "selector",
+			"tag":       gt,
+			"outbounds": tags,
+		})
+	}
+
+	// Emit top-level proxy selector over group tags (emitted even when empty)
 	result = append(result, map[string]any{
 		"type":      "selector",
 		"tag":       "proxy",
-		"outbounds": proxyTags,
+		"outbounds": groupTags,
 	})
 	result = append(result, map[string]any{
 		"type": "direct",
