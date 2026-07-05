@@ -115,7 +115,7 @@ func Compute(input Input) (Output, error) {
 		}
 		outbounds = append(outbounds, buildOutboundNodeOutbounds(input, myRoutes)...)
 		outbounds = append(outbounds, buildRouteOutbounds(input, myRoutes)...)
-		if isSelfOutbound {
+		if isSelfOutbound && (len(node.Spec.AllowedOutbounds) == 0 || slices.Contains(node.Spec.AllowedOutbounds, node.Name)) {
 			outbounds = append(outbounds, map[string]any{
 				"type": "direct",
 				"tag":  fmt.Sprintf("outbound-%s", node.Name),
@@ -463,6 +463,12 @@ func buildOutboundNodeOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) [
 		if len(outNode.Spec.AllowedInbounds) > 0 && !slices.Contains(outNode.Spec.AllowedInbounds, input.Node.Name) {
 			continue
 		}
+		// Defensive: skip outbound nodes not in this inbound node's AllowedOutbounds whitelist.
+		// Controller already filters in collectInput; this is a belt-and-suspenders guard
+		// matching the AllowedInbounds defensive pattern above.
+		if len(input.Node.Spec.AllowedOutbounds) > 0 && !slices.Contains(input.Node.Spec.AllowedOutbounds, outNode.Name) {
+			continue
+		}
 		if outNode.Spec.RelayPort == 0 {
 			continue
 		}
@@ -493,6 +499,11 @@ func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []any {
 		// Controller already filters CustomRoutes in collectInput; belt-and-suspenders
 		// matching the UserNodeRestrictions defensive pattern.
 		if len(outNode.Spec.AllowedInbounds) > 0 && !slices.Contains(outNode.Spec.AllowedInbounds, input.Node.Name) {
+			continue
+		}
+		// Defensive: skip outbound nodes not in this inbound node's AllowedOutbounds whitelist.
+		// Controller already filters CustomRoutes in collectInput; belt-and-suspenders.
+		if len(input.Node.Spec.AllowedOutbounds) > 0 && !slices.Contains(input.Node.Spec.AllowedOutbounds, outNode.Name) {
 			continue
 		}
 		// Skip outbound entries where every user is denied from this node.
