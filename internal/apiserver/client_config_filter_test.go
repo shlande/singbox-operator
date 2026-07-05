@@ -243,8 +243,8 @@ func TestNodeReadiness_MultipleUnhealthyNodes_AllExcluded(t *testing.T) {
 	if !tags["node-b3#node-a"] {
 		t.Errorf("tag 'node-b3#node-a' should be included (node-b3 is healthy)")
 	}
-	if len(result) != 3 {
-		t.Errorf("expected exactly 3 items (1 proxy + selector + direct), got %d", len(result))
+	if len(result) != 4 {
+		t.Errorf("expected exactly 4 items (1 proxy + default group selector + proxy selector + direct), got %d", len(result))
 	}
 	if n := countProxyOutbounds(result); n != 1 {
 		t.Errorf("expected 1 proxy outbound, got %d", n)
