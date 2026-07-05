@@ -97,6 +97,14 @@ type SingBoxNodeSpec struct {
 	// +optional
 	// +listType=set
 	AllowedOutbounds []string `json:"allowedOutbounds,omitempty"`
+	// Tag is an optional grouping label for inbound nodes. When set, client configs
+	// group outbounds that use this node as inbound under a selector named after this tag.
+	// Empty means the "default" group. Must not be "default" (reserved).
+	// Only meaningful for nodes with the inbound role.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Tag string `json:"tag,omitempty"`
 	// TLSSecretName overrides the default TLS secret for this node.
 	// When set, the named kubernetes.io/tls Secret is mounted and used for all
 	// TLS-requiring protocols (e.g. hysteria2). Falls back to the operator-wide

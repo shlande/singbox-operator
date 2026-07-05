@@ -158,6 +158,15 @@ spec:
                   - protocol
                   type: object
                 type: array
+              tag:
+                description: |-
+                  Tag is an optional grouping label for inbound nodes. When set, client configs
+                  group outbounds that use this node as inbound under a selector named after this tag.
+                  Empty means the "default" group. Must not be "default" (reserved).
+                  Only meaningful for nodes with the inbound role.
+                maxLength: 63
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               tlsSecretName:
                 description: |-
                   TLSSecretName overrides the default TLS secret for this node.
