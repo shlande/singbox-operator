@@ -1,0 +1,12 @@
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_inbound_node_with_tag=default
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_inbound_node_with_custom_tag
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_inbound_node_with_empty_tag
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_outbound-only_node_with_tag=default
+--- PASS: TestSingBoxNodeWebhook_ValidateCreate (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_inbound_node_with_tag=default (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_inbound_node_with_custom_tag (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_inbound_node_with_empty_tag (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_outbound-only_node_with_tag=default (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/webhook	0.316s

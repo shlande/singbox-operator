@@ -1,0 +1,30 @@
+=== TASK 1: Add Tag field to SingBoxNodeSpec ===
+
+=== make manifests generate output ===
+"/Users/shlande/workspace/sing-box-operator/bin/controller-gen" rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+"/Users/shlande/workspace/sing-box-operator/bin/controller-gen" object:headerFile="hack/boilerplate.go.txt",year=2026 paths="./..."
+
+=== go build ./... ===
+BUILD_OK
+
+=== git diff --stat ===
+ .omo/boulder.json                                  | 238 ++-------------------
+ .omo/evidence/task-1-build.txt                     |   3 -
+ api/v1alpha1/singboxnode_types.go                  |   8 +
+ .../singboxoperator.shlande.top_singboxnodes.yaml  |   9 +
+ 4 files changed, 37 insertions(+), 221 deletions(-)
+
+=== CRD tag field verification ===
+              tag:
+                description: |-
+                  Tag is an optional grouping label for inbound nodes. When set, client configs
+                  group outbounds that use this node as inbound under a selector named after this tag.
+                  Empty means the "default" group. Must not be "default" (reserved).
+                  Only meaningful for nodes with the inbound role.
+                maxLength: 63
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              tlsSecretName:
+                description: |-
+
+=== Status: SUCCESS ===

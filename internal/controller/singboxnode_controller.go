@@ -450,6 +450,7 @@ func (r *SingBoxNodeReconciler) reconcilePod(ctx context.Context, node *proxyv1a
 					Args:         []string{"run", "-c", "/etc/sing-box/config.json"},
 					VolumeMounts: volumeMounts,
 					Ports:        buildHostPorts(node),
+					Resources:    resourcesOrDefault(node.Spec.Resources),
 				},
 			},
 			Volumes: volumes,
@@ -737,6 +738,15 @@ func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				predicate.AnnotationChangedPredicate{},
 			))).
 		Complete(r)
+}
+
+// resourcesOrDefault returns the given resource requirements if non-nil,
+// otherwise a zero-value (no requests/limits) ResourceRequirements.
+func resourcesOrDefault(r *corev1.ResourceRequirements) corev1.ResourceRequirements {
+	if r != nil {
+		return *r
+	}
+	return corev1.ResourceRequirements{}
 }
 
 func buildHostPorts(node *proxyv1alpha1.SingBoxNode) []corev1.ContainerPort {

@@ -1,0 +1,15 @@
+ok  	github.com/shlande/singbox-operator/api/v1alpha1	0.446s
+?   	github.com/shlande/singbox-operator/cmd	[no test files]
+?   	github.com/shlande/singbox-operator/cmd/cli	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/apiserver	0.628s
+?   	github.com/shlande/singbox-operator/internal/cli/node	[no test files]
+?   	github.com/shlande/singbox-operator/internal/cli/user	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/configengine	1.014s
+ok  	github.com/shlande/singbox-operator/internal/controller	12.235s
+ok  	github.com/shlande/singbox-operator/internal/credmanager	17.460s
+?   	github.com/shlande/singbox-operator/internal/metrics	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	4.144s
+?   	github.com/shlande/singbox-operator/internal/usagecollector/v2rayapi	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/webhook	2.457s
+?   	github.com/shlande/singbox-operator/test/helpers	[no test files]
+?   	github.com/shlande/singbox-operator/test/utils	[no test files]

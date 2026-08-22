@@ -1,0 +1,151 @@
+=== go test ./internal/apiserver/ -v ===
+=== RUN   TestNodeReadiness_HealthyNode_IncludesOutbound
+--- PASS: TestNodeReadiness_HealthyNode_IncludesOutbound (0.00s)
+=== RUN   TestNodeReadiness_NodeNotReady_ExcludesOutbound
+--- PASS: TestNodeReadiness_NodeNotReady_ExcludesOutbound (0.00s)
+=== RUN   TestNodeReadiness_NodeRecovery_ReincludesOutbound
+--- PASS: TestNodeReadiness_NodeRecovery_ReincludesOutbound (0.00s)
+=== RUN   TestNodeReadiness_AnnotationOffline_ExcludesDespiteReady
+--- PASS: TestNodeReadiness_AnnotationOffline_ExcludesDespiteReady (0.00s)
+=== RUN   TestNodeReadiness_AnnotationRemoval_Reincludes
+--- PASS: TestNodeReadiness_AnnotationRemoval_Reincludes (0.00s)
+=== RUN   TestNodeReadiness_NodeDeleted_Excludes
+--- PASS: TestNodeReadiness_NodeDeleted_Excludes (0.00s)
+=== RUN   TestNodeReadiness_MultipleUnhealthyNodes_AllExcluded
+--- PASS: TestNodeReadiness_MultipleUnhealthyNodes_AllExcluded (0.00s)
+=== RUN   TestNodeReadiness_CustomRouteUnhealthy_Excluded
+--- PASS: TestNodeReadiness_CustomRouteUnhealthy_Excluded (0.00s)
+=== RUN   TestNodeReadiness_DualRoleNodeUnhealthy_ExcludesSelf
+--- PASS: TestNodeReadiness_DualRoleNodeUnhealthy_ExcludesSelf (0.00s)
+=== RUN   TestBuildClientConfig_MultiGroup
+--- PASS: TestBuildClientConfig_MultiGroup (0.00s)
+=== RUN   TestBuildClientConfig_EmptyGroupNotEmitted
+--- PASS: TestBuildClientConfig_EmptyGroupNotEmitted (0.00s)
+=== RUN   TestBuildClientConfig_DefaultGroupMerge
+--- PASS: TestBuildClientConfig_DefaultGroupMerge (0.00s)
+=== RUN   TestBuildClientConfig_TagOnOutboundIgnored
+--- PASS: TestBuildClientConfig_TagOnOutboundIgnored (0.00s)
+=== RUN   TestBuildClientConfig_GroupOrderDeterministic
+--- PASS: TestBuildClientConfig_GroupOrderDeterministic (0.00s)
+=== RUN   TestBuildClientConfig_GroupDedup
+--- PASS: TestBuildClientConfig_GroupDedup (0.00s)
+=== RUN   TestBuildClientConfig_TwoOutboundNodes
+--- PASS: TestBuildClientConfig_TwoOutboundNodes (0.00s)
+=== RUN   TestBuildClientConfig_DerivedUUID
+--- PASS: TestBuildClientConfig_DerivedUUID (0.00s)
+=== RUN   TestBuildClientConfig_TrojanPassword
+--- PASS: TestBuildClientConfig_TrojanPassword (0.00s)
+=== RUN   TestBuildClientConfig_EmptyEntryEndpoints
+--- PASS: TestBuildClientConfig_EmptyEntryEndpoints (0.00s)
+=== RUN   TestBuildClientConfig_ExplicitRoutes
+--- PASS: TestBuildClientConfig_ExplicitRoutes (0.00s)
+=== RUN   TestMergeOutbounds_ReplaceOutbounds
+--- PASS: TestMergeOutbounds_ReplaceOutbounds (0.00s)
+=== RUN   TestMergeOutbounds_PreserveInbounds
+--- PASS: TestMergeOutbounds_PreserveInbounds (0.00s)
+=== RUN   TestMergeOutbounds_InvalidTemplate
+--- PASS: TestMergeOutbounds_InvalidTemplate (0.00s)
+=== RUN   TestHandler_InvalidUUID
+--- PASS: TestHandler_InvalidUUID (0.03s)
+=== RUN   TestHandler_MissingPath
+--- PASS: TestHandler_MissingPath (0.00s)
+=== RUN   TestHandler_UUIDNotFound
+--- PASS: TestHandler_UUIDNotFound (0.00s)
+=== RUN   TestHandler_Success
+--- PASS: TestHandler_Success (0.00s)
+=== RUN   TestBuildClientConfig_Socks5Password
+--- PASS: TestBuildClientConfig_Socks5Password (0.00s)
+=== RUN   TestBuildClientConfig_HTTPPassword
+--- PASS: TestBuildClientConfig_HTTPPassword (0.00s)
+=== RUN   TestHandler_TemplateRef_InvalidFormat
+--- PASS: TestHandler_TemplateRef_InvalidFormat (0.00s)
+=== RUN   TestHandler_TemplateRef_MissingConfigMap
+--- PASS: TestHandler_TemplateRef_MissingConfigMap (0.00s)
+=== RUN   TestHandler_TemplateRef_WithConfigMap
+--- PASS: TestHandler_TemplateRef_WithConfigMap (0.00s)
+=== RUN   TestBuildClientConfig_UnsupportedProtocol
+--- PASS: TestBuildClientConfig_UnsupportedProtocol (0.00s)
+=== RUN   TestBuildClientConfig_BadEndpointFormat
+--- PASS: TestBuildClientConfig_BadEndpointFormat (0.00s)
+=== RUN   TestBuildClientConfig_NullInboundInResolve
+--- PASS: TestBuildClientConfig_NullInboundInResolve (0.00s)
+=== RUN   TestHandler_TemplateRef_ConfigMapMissingKey
+--- PASS: TestHandler_TemplateRef_ConfigMapMissingKey (0.00s)
+=== RUN   TestWriteInternalError
+--- PASS: TestWriteInternalError (0.00s)
+=== RUN   TestBuildClientConfig_RouteWithMissingOutbound
+--- PASS: TestBuildClientConfig_RouteWithMissingOutbound (0.00s)
+=== RUN   TestBuildClientConfig_DualRoleNode_IncludesSelf
+--- PASS: TestBuildClientConfig_DualRoleNode_IncludesSelf (0.00s)
+=== RUN   TestHandler_MultipleUsersMatchUUID
+--- PASS: TestHandler_MultipleUsersMatchUUID (0.00s)
+=== RUN   TestBuildClientConfig_NaiveOutbound
+--- PASS: TestBuildClientConfig_NaiveOutbound (0.00s)
+=== RUN   TestBuildClientConfig_AnyTLSOutbound
+--- PASS: TestBuildClientConfig_AnyTLSOutbound (0.00s)
+=== RUN   TestBuildClientConfig_TUICOutbound
+--- PASS: TestBuildClientConfig_TUICOutbound (0.00s)
+=== RUN   TestBuildClientConfig_WithNodeRestrictions
+=== RUN   TestBuildClientConfig_WithNodeRestrictions/DeniedNodeNames_excludes_denied_outbound_node-b,_keeps_node-c
+=== RUN   TestBuildClientConfig_WithNodeRestrictions/nil_AllowedNodeNames_and_DeniedNodeNames_allow_all_outbounds_(regression)
+=== RUN   TestBuildClientConfig_WithNodeRestrictions/AllowedNodeNames_keeps_only_node-b_outbound,_excludes_node-c
+--- PASS: TestBuildClientConfig_WithNodeRestrictions (0.00s)
+    --- PASS: TestBuildClientConfig_WithNodeRestrictions/DeniedNodeNames_excludes_denied_outbound_node-b,_keeps_node-c (0.00s)
+    --- PASS: TestBuildClientConfig_WithNodeRestrictions/nil_AllowedNodeNames_and_DeniedNodeNames_allow_all_outbounds_(regression) (0.00s)
+    --- PASS: TestBuildClientConfig_WithNodeRestrictions/AllowedNodeNames_keeps_only_node-b_outbound,_excludes_node-c (0.00s)
+=== RUN   TestBuildClientConfig_WithAllowedOutbounds
+=== RUN   TestBuildClientConfig_WithAllowedOutbounds/whitelist-allowed-outbounds
+=== RUN   TestBuildClientConfig_WithAllowedOutbounds/empty-allowed-outbounds-allows-all-regression
+=== RUN   TestBuildClientConfig_WithAllowedOutbounds/self-allowed-outbounds-dual-role-includes-only-self
+--- PASS: TestBuildClientConfig_WithAllowedOutbounds (0.00s)
+    --- PASS: TestBuildClientConfig_WithAllowedOutbounds/whitelist-allowed-outbounds (0.00s)
+    --- PASS: TestBuildClientConfig_WithAllowedOutbounds/empty-allowed-outbounds-allows-all-regression (0.00s)
+    --- PASS: TestBuildClientConfig_WithAllowedOutbounds/self-allowed-outbounds-dual-role-includes-only-self (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/apiserver	(cached)
+
+=== go test ./internal/... ===
+ok  	github.com/shlande/singbox-operator/internal/apiserver	(cached)
+?   	github.com/shlande/singbox-operator/internal/cli/node	[no test files]
+?   	github.com/shlande/singbox-operator/internal/cli/user	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/configengine	(cached)
+ok  	github.com/shlande/singbox-operator/internal/controller	(cached)
+ok  	github.com/shlande/singbox-operator/internal/credmanager	(cached)
+?   	github.com/shlande/singbox-operator/internal/metrics	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/usagecollector	3.411s
+?   	github.com/shlande/singbox-operator/internal/usagecollector/v2rayapi	[no test files]
+ok  	github.com/shlande/singbox-operator/internal/webhook	(cached)
+
+=== grep -rn 'len(result)' internal/apiserver/*_test.go ===
+internal/apiserver/client_config_filter_test.go:92:	if len(result) != 2 {
+internal/apiserver/client_config_filter_test.go:93:		t.Errorf("expected exactly 2 items (selector + direct), got %d", len(result))
+internal/apiserver/client_config_filter_test.go:246:	if len(result) != 4 {
+internal/apiserver/client_config_filter_test.go:247:		t.Errorf("expected exactly 4 items (1 proxy + default group selector + proxy selector + direct), got %d", len(result))
+internal/apiserver/client_config_filter_test.go:319:	if len(result) != 2 {
+internal/apiserver/client_config_filter_test.go:320:		t.Errorf("expected exactly 2 items (selector + direct), got %d", len(result))
+internal/apiserver/client_config_group_test.go:48:	if len(result) != 6 {
+internal/apiserver/client_config_group_test.go:49:		t.Fatalf("expected 6 items, got %d", len(result))
+internal/apiserver/client_config_group_test.go:171:	if len(result) != 2 {
+internal/apiserver/client_config_group_test.go:172:		t.Fatalf("expected 2 items, got %d", len(result))
+internal/apiserver/client_config_group_test.go:242:	if len(result) != 5 {
+internal/apiserver/client_config_group_test.go:243:		t.Fatalf("expected 5 items, got %d", len(result))
+internal/apiserver/client_config_group_test.go:345:	if len(result) != 4 {
+internal/apiserver/client_config_group_test.go:346:		t.Fatalf("expected 4 items, got %d", len(result))
+internal/apiserver/client_config_group_test.go:479:	if len(result) != 5 {
+internal/apiserver/client_config_group_test.go:480:		t.Fatalf("expected 5 items, got %d", len(result))
+internal/apiserver/handler_test.go:54:	if len(result) != 5 {
+internal/apiserver/handler_test.go:55:		t.Errorf("expected 5 outbounds (2 proxy + default group selector + proxy selector + direct), got %d", len(result))
+internal/apiserver/handler_test.go:192:	if len(result) != 2 {
+internal/apiserver/handler_test.go:193:		t.Errorf("expected 2 outbounds (selector+direct) with empty EntryEndpoints, got %d", len(result))
+internal/apiserver/handler_test.go:242:	if len(result) != 5 {
+internal/apiserver/handler_test.go:243:		t.Errorf("expected 5 outbounds (2 proxy + default group selector + proxy selector + direct), got %d", len(result))
+internal/apiserver/handler_test.go:781:	if len(result) != 2 {
+internal/apiserver/handler_test.go:782:		t.Errorf("expected 2 outbounds (selector+direct) when protocol not supported, got %d", len(result))
+internal/apiserver/handler_test.go:812:	if len(result) != 2 {
+internal/apiserver/handler_test.go:813:		t.Errorf("expected 2 outbounds (selector+direct) with bad endpoints, got %d", len(result))
+internal/apiserver/handler_test.go:833:	if len(result) != 2 {
+internal/apiserver/handler_test.go:834:		t.Errorf("expected 2 outbounds (selector+direct) with no inbounds, got %d", len(result))
+internal/apiserver/handler_test.go:927:	if len(result) != 2 {
+internal/apiserver/handler_test.go:928:		t.Errorf("expected 2 outbounds (selector+direct) when route outbound is missing, got %d", len(result))
+internal/apiserver/handler_test.go:954:	if len(result) != 4 {
+internal/apiserver/handler_test.go:955:		t.Errorf("expected 4 outbounds (1 proxy + default group selector + proxy selector + direct), got %d", len(result))

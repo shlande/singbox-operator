@@ -1,233 +1,143 @@
 {
   "schema_version": 2,
-  "active_work_id": "outbound-inbound-binding-86d80f57",
+  "active_work_id": "outbound-grouping-f847772f",
   "works": {
-    "outbound-inbound-binding-86d80f57": {
-      "work_id": "outbound-inbound-binding-86d80f57",
-      "active_plan": "/Users/shlande/workspace/sing-box-operator/.omo/plans/outbound-inbound-binding.md",
-      "plan_name": "outbound-inbound-binding",
+    "outbound-grouping-f847772f": {
+      "work_id": "outbound-grouping-f847772f",
+      "active_plan": "/Users/shlande/workspace/sing-box-operator/.omo/plans/outbound-grouping.md",
+      "plan_name": "outbound-grouping",
       "status": "completed",
-      "started_at": "2026-07-04T17:13:32.073Z",
-      "updated_at": "2026-07-04T17:49:35.342Z",
+      "started_at": "2026-07-05T15:53:06.324Z",
+      "updated_at": "2026-07-05T16:22:56.370Z",
+      "ended_at": "2026-07-05T16:22:56.370Z",
       "session_ids": [
-        "opencode:ses_0d1eadcecffeIKH2mvpNtI6hQc",
-        "opencode:ses_0d1c49350ffdr1vppH9ejvlUGr",
-        "opencode:ses_0d1c466cbffdICsXSlMN9RIJ2l",
-        "opencode:ses_0d1c44274ffdLupyNJx1n04hKO"
+        "opencode:ses_0cd118e76ffeBddFGCj1GhGhqF"
       ],
       "session_origins": {
-        "opencode:ses_0d1eadcecffeIKH2mvpNtI6hQc": "direct",
-        "opencode:ses_0d1c49350ffdr1vppH9ejvlUGr": "appended",
-        "opencode:ses_0d1c466cbffdICsXSlMN9RIJ2l": "appended",
-        "opencode:ses_0d1c44274ffdLupyNJx1n04hKO": "appended"
+        "opencode:ses_0cd118e76ffeBddFGCj1GhGhqF": "direct"
       },
       "agent": "atlas",
       "task_sessions": {
         "todo:1": {
           "task_key": "todo:1",
           "task_label": "1",
-          "task_title": "Add AllowedInbounds field to SingBoxNodeSpec + regenerate",
-          "session_id": "opencode:ses_0d1dfe139ffe2yOHhCTCCdSTBy",
+          "task_title": "Add Tag field to SingBoxNodeSpec + regenerate CRD/deepcopy",
+          "session_id": "opencode:ses_0cd039439ffe0T3yjQ3a3QlFyu",
           "agent": "Sisyphus-Junior",
           "category": "quick",
-          "updated_at": "2026-07-04T17:19:11.639Z",
-          "started_at": "2026-07-04T17:16:24.603Z",
+          "updated_at": "2026-07-05T15:55:47.820Z",
+          "started_at": "2026-07-05T15:55:15.871Z",
           "status": "completed",
-          "ended_at": "2026-07-04T17:19:11.639Z",
-          "elapsed_ms": 167036
+          "ended_at": "2026-07-05T15:55:47.820Z",
+          "elapsed_ms": 31949
         },
         "todo:2": {
           "task_key": "todo:2",
           "task_label": "2",
-          "task_title": "Apply binding filter in collectInput (controller) + extend reconcile trigger for cross-region CustomRoutes",
-          "session_id": "opencode:ses_0d1db048cffe2aSxm5Miymc7EX",
+          "task_title": "Add webhook validation: reject tag==\"default\"",
+          "session_id": "opencode:ses_0cd01236bffex05PeFswQFMhy8",
           "agent": "Sisyphus-Junior",
-          "category": "deep",
-          "updated_at": "2026-07-04T17:26:27.142Z",
-          "started_at": "2026-07-04T17:24:42.281Z",
+          "category": "quick",
+          "updated_at": "2026-07-05T15:58:35.108Z",
+          "started_at": "2026-07-05T15:57:46.748Z",
           "status": "completed",
-          "ended_at": "2026-07-04T17:26:27.142Z",
-          "elapsed_ms": 104861
+          "ended_at": "2026-07-05T15:58:35.108Z",
+          "elapsed_ms": 48360
         },
         "todo:3": {
           "task_key": "todo:3",
           "task_label": "3",
-          "task_title": "Add defensive binding filter in configengine (buildOutboundNodeOutbounds + buildRouteOutbounds only)",
-          "session_id": "opencode:ses_0d1d46fe6ffeZ74gQSk3DUE5o6",
+          "task_title": "Refactor BuildClientConfig to group outbounds by inbound tag (impl + tests together per Metis)",
+          "session_id": "opencode:ses_0ccfe7f18ffeFMFVla6AFLPavp",
           "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-07-04T17:30:50.258Z",
-          "started_at": "2026-07-04T17:29:41.709Z",
+          "category": "unspecified-low",
+          "updated_at": "2026-07-05T16:03:11.947Z",
+          "started_at": "2026-07-05T16:02:02.551Z",
           "status": "completed",
-          "ended_at": "2026-07-04T17:30:50.258Z",
-          "elapsed_ms": 68549
-        },
-        "todo:4": {
-          "task_key": "todo:4",
-          "task_label": "4",
-          "task_title": "Add webhook validation for AllowedInbounds",
-          "session_id": "opencode:ses_0d1d0945cffeIpoIZX9JkyV0Jr",
-          "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-07-04T17:34:32.567Z",
-          "started_at": "2026-07-04T17:33:14.344Z",
-          "status": "completed",
-          "ended_at": "2026-07-04T17:34:32.567Z",
-          "elapsed_ms": 78223
-        },
-        "todo:5": {
-          "task_key": "todo:5",
-          "task_label": "5",
-          "task_title": "Integration tests covering binding end-to-end",
-          "session_id": "opencode:ses_0d1ccf6afffe4E5vI5AQZDESfb",
-          "agent": "Sisyphus-Junior",
-          "category": "deep",
-          "updated_at": "2026-07-04T17:41:02.435Z",
-          "started_at": "2026-07-04T17:39:48.919Z",
-          "status": "completed",
-          "ended_at": "2026-07-04T17:41:02.435Z",
-          "elapsed_ms": 73516
-        },
-        "todo:6": {
-          "task_key": "todo:6",
-          "task_label": "6",
-          "task_title": "Update samples and README documentation",
-          "session_id": "opencode:ses_0d1c745f4ffeAQQUw2yZW9cPTL",
-          "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-07-04T17:43:25.004Z",
-          "started_at": "2026-07-04T17:42:57.011Z",
-          "status": "completed",
-          "ended_at": "2026-07-04T17:43:25.004Z",
-          "elapsed_ms": 27993
+          "ended_at": "2026-07-05T16:03:11.947Z",
+          "elapsed_ms": 69396
         },
         "final-wave:f1": {
           "task_key": "final-wave:f1",
           "task_label": "F1",
           "task_title": "Plan compliance audit",
-          "session_id": "opencode:ses_0d1c44274ffdLupyNJx1n04hKO",
+          "session_id": "opencode:ses_0ccee3c76ffeg3DHZvC7J4s77K",
           "agent": "oracle",
-          "started_at": "2026-07-04T17:46:27.478Z",
+          "updated_at": "2026-07-05T16:22:14.116Z",
+          "started_at": "2026-07-05T16:19:06.956Z",
           "status": "completed",
-          "updated_at": "2026-07-04T17:48:55.456Z",
-          "ended_at": "2026-07-04T17:48:55.456Z",
-          "elapsed_ms": 147978
+          "ended_at": "2026-07-05T16:22:14.116Z",
+          "elapsed_ms": 187160
         }
       },
-      "ended_at": "2026-07-04T17:49:35.342Z",
-      "elapsed_ms": 2163269
+      "elapsed_ms": 1790046
     }
   },
-  "active_plan": "/Users/shlande/workspace/sing-box-operator/.omo/plans/outbound-inbound-binding.md",
-  "started_at": "2026-07-04T17:13:32.073Z",
+  "active_plan": "/Users/shlande/workspace/sing-box-operator/.omo/plans/outbound-grouping.md",
+  "started_at": "2026-07-05T15:53:06.324Z",
   "status": "completed",
-  "updated_at": "2026-07-04T17:49:35.342Z",
+  "updated_at": "2026-07-05T16:22:56.370Z",
   "session_ids": [
-    "opencode:ses_0d1eadcecffeIKH2mvpNtI6hQc",
-    "opencode:ses_0d1c49350ffdr1vppH9ejvlUGr",
-    "opencode:ses_0d1c466cbffdICsXSlMN9RIJ2l",
-    "opencode:ses_0d1c44274ffdLupyNJx1n04hKO"
+    "opencode:ses_0cd118e76ffeBddFGCj1GhGhqF"
   ],
   "session_origins": {
-    "opencode:ses_0d1eadcecffeIKH2mvpNtI6hQc": "direct",
-    "opencode:ses_0d1c49350ffdr1vppH9ejvlUGr": "appended",
-    "opencode:ses_0d1c466cbffdICsXSlMN9RIJ2l": "appended",
-    "opencode:ses_0d1c44274ffdLupyNJx1n04hKO": "appended"
+    "opencode:ses_0cd118e76ffeBddFGCj1GhGhqF": "direct"
   },
-  "plan_name": "outbound-inbound-binding",
+  "plan_name": "outbound-grouping",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Add AllowedInbounds field to SingBoxNodeSpec + regenerate",
-      "session_id": "opencode:ses_0d1dfe139ffe2yOHhCTCCdSTBy",
+      "task_title": "Add Tag field to SingBoxNodeSpec + regenerate CRD/deepcopy",
+      "session_id": "opencode:ses_0cd039439ffe0T3yjQ3a3QlFyu",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-07-04T17:19:11.639Z",
-      "started_at": "2026-07-04T17:16:24.603Z",
+      "updated_at": "2026-07-05T15:55:47.820Z",
+      "started_at": "2026-07-05T15:55:15.871Z",
       "status": "completed",
-      "ended_at": "2026-07-04T17:19:11.639Z",
-      "elapsed_ms": 167036
+      "ended_at": "2026-07-05T15:55:47.820Z",
+      "elapsed_ms": 31949
     },
     "todo:2": {
       "task_key": "todo:2",
       "task_label": "2",
-      "task_title": "Apply binding filter in collectInput (controller) + extend reconcile trigger for cross-region CustomRoutes",
-      "session_id": "opencode:ses_0d1db048cffe2aSxm5Miymc7EX",
+      "task_title": "Add webhook validation: reject tag==\"default\"",
+      "session_id": "opencode:ses_0cd01236bffex05PeFswQFMhy8",
       "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-07-04T17:26:27.142Z",
-      "started_at": "2026-07-04T17:24:42.281Z",
+      "category": "quick",
+      "updated_at": "2026-07-05T15:58:35.108Z",
+      "started_at": "2026-07-05T15:57:46.748Z",
       "status": "completed",
-      "ended_at": "2026-07-04T17:26:27.142Z",
-      "elapsed_ms": 104861
+      "ended_at": "2026-07-05T15:58:35.108Z",
+      "elapsed_ms": 48360
     },
     "todo:3": {
       "task_key": "todo:3",
       "task_label": "3",
-      "task_title": "Add defensive binding filter in configengine (buildOutboundNodeOutbounds + buildRouteOutbounds only)",
-      "session_id": "opencode:ses_0d1d46fe6ffeZ74gQSk3DUE5o6",
+      "task_title": "Refactor BuildClientConfig to group outbounds by inbound tag (impl + tests together per Metis)",
+      "session_id": "opencode:ses_0ccfe7f18ffeFMFVla6AFLPavp",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-07-04T17:30:50.258Z",
-      "started_at": "2026-07-04T17:29:41.709Z",
+      "category": "unspecified-low",
+      "updated_at": "2026-07-05T16:03:11.947Z",
+      "started_at": "2026-07-05T16:02:02.551Z",
       "status": "completed",
-      "ended_at": "2026-07-04T17:30:50.258Z",
-      "elapsed_ms": 68549
-    },
-    "todo:4": {
-      "task_key": "todo:4",
-      "task_label": "4",
-      "task_title": "Add webhook validation for AllowedInbounds",
-      "session_id": "opencode:ses_0d1d0945cffeIpoIZX9JkyV0Jr",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-07-04T17:34:32.567Z",
-      "started_at": "2026-07-04T17:33:14.344Z",
-      "status": "completed",
-      "ended_at": "2026-07-04T17:34:32.567Z",
-      "elapsed_ms": 78223
-    },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "Integration tests covering binding end-to-end",
-      "session_id": "opencode:ses_0d1ccf6afffe4E5vI5AQZDESfb",
-      "agent": "Sisyphus-Junior",
-      "category": "deep",
-      "updated_at": "2026-07-04T17:41:02.435Z",
-      "started_at": "2026-07-04T17:39:48.919Z",
-      "status": "completed",
-      "ended_at": "2026-07-04T17:41:02.435Z",
-      "elapsed_ms": 73516
-    },
-    "todo:6": {
-      "task_key": "todo:6",
-      "task_label": "6",
-      "task_title": "Update samples and README documentation",
-      "session_id": "opencode:ses_0d1c745f4ffeAQQUw2yZW9cPTL",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-07-04T17:43:25.004Z",
-      "started_at": "2026-07-04T17:42:57.011Z",
-      "status": "completed",
-      "ended_at": "2026-07-04T17:43:25.004Z",
-      "elapsed_ms": 27993
+      "ended_at": "2026-07-05T16:03:11.947Z",
+      "elapsed_ms": 69396
     },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "Plan compliance audit",
-      "session_id": "opencode:ses_0d1c44274ffdLupyNJx1n04hKO",
+      "session_id": "opencode:ses_0ccee3c76ffeg3DHZvC7J4s77K",
       "agent": "oracle",
-      "started_at": "2026-07-04T17:46:27.478Z",
+      "updated_at": "2026-07-05T16:22:14.116Z",
+      "started_at": "2026-07-05T16:19:06.956Z",
       "status": "completed",
-      "updated_at": "2026-07-04T17:48:55.456Z",
-      "ended_at": "2026-07-04T17:48:55.456Z",
-      "elapsed_ms": 147978
+      "ended_at": "2026-07-05T16:22:14.116Z",
+      "elapsed_ms": 187160
     }
   },
   "agent": "atlas",
-  "ended_at": "2026-07-04T17:49:35.342Z",
-  "elapsed_ms": 2163269
+  "ended_at": "2026-07-05T16:22:56.370Z",
+  "elapsed_ms": 1790046
 }

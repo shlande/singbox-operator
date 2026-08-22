@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -111,6 +112,11 @@ type SingBoxNodeSpec struct {
 	// default (configurable via --default-tls-secret flag, default: sing-box-tls).
 	// +optional
 	TLSSecretName string `json:"tlsSecretName,omitempty"`
+	// Resources sets the CPU/memory resource requests and limits for the sing-box container.
+	// When set, the scheduler considers these requests when placing the pod,
+	// which can help reserve capacity on the node and prevent overcommitment.
+	// +optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // SingBoxNodeStatus defines the observed state of SingBoxNode

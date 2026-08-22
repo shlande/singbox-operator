@@ -1,0 +1,156 @@
+=== RUN   TestUserGroupWebhook_ValidateCreate
+=== RUN   TestUserGroupWebhook_ValidateCreate/accepts_valid_UserGroup_with_valid_node_names
+=== RUN   TestUserGroupWebhook_ValidateCreate/rejects_UserGroup_with_invalid_node_name_(uppercase)
+=== RUN   TestUserGroupWebhook_ValidateCreate/accepts_UserGroup_with_empty_allowedNodes_and_deniedNodes
+=== RUN   TestUserGroupWebhook_ValidateCreate/rejects_UserGroup_with_invalid_deniedNodes_name_(space)
+--- PASS: TestUserGroupWebhook_ValidateCreate (0.00s)
+    --- PASS: TestUserGroupWebhook_ValidateCreate/accepts_valid_UserGroup_with_valid_node_names (0.00s)
+    --- PASS: TestUserGroupWebhook_ValidateCreate/rejects_UserGroup_with_invalid_node_name_(uppercase) (0.00s)
+    --- PASS: TestUserGroupWebhook_ValidateCreate/accepts_UserGroup_with_empty_allowedNodes_and_deniedNodes (0.00s)
+    --- PASS: TestUserGroupWebhook_ValidateCreate/rejects_UserGroup_with_invalid_deniedNodes_name_(space) (0.00s)
+=== RUN   TestUserGroupWebhook_ValidateUpdate
+=== RUN   TestUserGroupWebhook_ValidateUpdate/validates_new_object_on_update
+=== RUN   TestUserGroupWebhook_ValidateUpdate/accepts_valid_update
+--- PASS: TestUserGroupWebhook_ValidateUpdate (0.00s)
+    --- PASS: TestUserGroupWebhook_ValidateUpdate/validates_new_object_on_update (0.00s)
+    --- PASS: TestUserGroupWebhook_ValidateUpdate/accepts_valid_update (0.00s)
+=== RUN   TestUserWebhook_UserGroupRef
+=== RUN   TestUserWebhook_UserGroupRef/accepts_User_with_valid_userGroupRef
+=== RUN   TestUserWebhook_UserGroupRef/rejects_User_with_invalid_userGroupRef_(contains_space)
+=== RUN   TestUserWebhook_UserGroupRef/accepts_User_with_empty_userGroupRef
+=== RUN   TestUserWebhook_UserGroupRef/accepts_User_with_hyphenated_userGroupRef
+--- PASS: TestUserWebhook_UserGroupRef (0.00s)
+    --- PASS: TestUserWebhook_UserGroupRef/accepts_User_with_valid_userGroupRef (0.00s)
+    --- PASS: TestUserWebhook_UserGroupRef/rejects_User_with_invalid_userGroupRef_(contains_space) (0.00s)
+    --- PASS: TestUserWebhook_UserGroupRef/accepts_User_with_empty_userGroupRef (0.00s)
+    --- PASS: TestUserWebhook_UserGroupRef/accepts_User_with_hyphenated_userGroupRef (0.00s)
+=== RUN   TestSingBoxNodeWebhook_Default
+=== RUN   TestSingBoxNodeWebhook_Default/does_not_override_explicitly_set_protocol_port
+--- PASS: TestSingBoxNodeWebhook_Default (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_Default/does_not_override_explicitly_set_protocol_port (0.00s)
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_empty_address
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_invalid_address_with_spaces
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_relayPort_outside_NodePort_range
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_relayPort_inside_NodePort_range
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_supportedProtocols_port_inside_NodePort_range
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_duplicate_protocols
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_port_conflict_between_two_supportedProtocols
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_port_conflict_between_two_supportedProtocols#01
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_empty_roles
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_invalid_role
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_supportedProtocols_port_outside_NodePort_range
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_valid_SingBoxNode_with_IP
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_valid_SingBoxNode_with_hostname
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_with_valid_entry
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_AllowedInbounds_with_empty_string_entry
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_AllowedInbounds_with_duplicate_entries
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_with_non-existent_node_name
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_nil_or_empty_(backward_compat)
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_nil_or_empty_(backward_compat)/empty
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_nil_or_empty_(backward_compat)/nil
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_with_valid_entry
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_AllowedOutbounds_with_empty_string_entry
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_AllowedOutbounds_with_duplicate_entries
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_with_non-existent_node_name
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_nil_or_empty_(backward_compat)
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_nil_or_empty_(backward_compat)/nil
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_nil_or_empty_(backward_compat)/empty
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_both_inbound_and_outbound_roles
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_inbound_node_with_empty_supportedProtocols
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_inbound_node_when_InboundProtocol_not_in_SupportedProtocols
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/rejects_inbound_node_when_default_hysteria2_not_in_SupportedProtocols
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_inbound_node_with_InboundProtocol_in_SupportedProtocols
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_inbound_node_with_default_hysteria2_in_SupportedProtocols
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/does_not_validate_SupportedProtocols_for_outbound-only_node
+=== RUN   TestSingBoxNodeWebhook_ValidateCreate/accepts_dual-role_node_with_consistent_protocol_config
+--- PASS: TestSingBoxNodeWebhook_ValidateCreate (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_empty_address (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_invalid_address_with_spaces (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_relayPort_outside_NodePort_range (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_relayPort_inside_NodePort_range (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_supportedProtocols_port_inside_NodePort_range (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_duplicate_protocols (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_port_conflict_between_two_supportedProtocols (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_port_conflict_between_two_supportedProtocols#01 (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_empty_roles (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_invalid_role (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_supportedProtocols_port_outside_NodePort_range (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_valid_SingBoxNode_with_IP (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_valid_SingBoxNode_with_hostname (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_with_valid_entry (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_AllowedInbounds_with_empty_string_entry (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_AllowedInbounds_with_duplicate_entries (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_with_non-existent_node_name (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_nil_or_empty_(backward_compat) (0.00s)
+        --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_nil_or_empty_(backward_compat)/empty (0.00s)
+        --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedInbounds_nil_or_empty_(backward_compat)/nil (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_with_valid_entry (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_AllowedOutbounds_with_empty_string_entry (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_AllowedOutbounds_with_duplicate_entries (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_with_non-existent_node_name (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_nil_or_empty_(backward_compat) (0.00s)
+        --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_nil_or_empty_(backward_compat)/nil (0.00s)
+        --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_AllowedOutbounds_nil_or_empty_(backward_compat)/empty (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_both_inbound_and_outbound_roles (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_inbound_node_with_empty_supportedProtocols (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_inbound_node_when_InboundProtocol_not_in_SupportedProtocols (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/rejects_inbound_node_when_default_hysteria2_not_in_SupportedProtocols (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_inbound_node_with_InboundProtocol_in_SupportedProtocols (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_inbound_node_with_default_hysteria2_in_SupportedProtocols (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/does_not_validate_SupportedProtocols_for_outbound-only_node (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateCreate/accepts_dual-role_node_with_consistent_protocol_config (0.00s)
+=== RUN   TestSingBoxNodeWebhook_ValidateUpdate
+=== RUN   TestSingBoxNodeWebhook_ValidateUpdate/validates_new_object_on_update
+=== RUN   TestSingBoxNodeWebhook_ValidateUpdate/rejects_update_that_creates_protocol_mismatch
+--- PASS: TestSingBoxNodeWebhook_ValidateUpdate (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateUpdate/validates_new_object_on_update (0.00s)
+    --- PASS: TestSingBoxNodeWebhook_ValidateUpdate/rejects_update_that_creates_protocol_mismatch (0.00s)
+=== RUN   TestUserWebhook_Default
+=== RUN   TestUserWebhook_Default/Default()_returns_no_error_for_user_with_authSecret
+=== RUN   TestUserWebhook_Default/Default()_does_not_modify_authSecret
+--- PASS: TestUserWebhook_Default (0.00s)
+    --- PASS: TestUserWebhook_Default/Default()_returns_no_error_for_user_with_authSecret (0.00s)
+    --- PASS: TestUserWebhook_Default/Default()_does_not_modify_authSecret (0.00s)
+=== RUN   TestUserWebhook_ValidateCreate
+=== RUN   TestUserWebhook_ValidateCreate/accepts_User_with_valid_authSecret
+=== RUN   TestUserWebhook_ValidateCreate/rejects_invalid_userGroupRef_(contains_space)
+=== RUN   TestUserWebhook_ValidateCreate/rejects_empty_authSecret_name
+=== RUN   TestUserWebhook_ValidateCreate/accepts_valid_User_with_hysteria2
+=== RUN   TestUserWebhook_ValidateCreate/accepts_valid_User_with_vless
+=== RUN   TestUserWebhook_ValidateCreate/accepts_valid_User_with_trojan
+=== RUN   TestUserWebhook_ValidateCreate/accepts_valid_User_with_socks5
+=== RUN   TestUserWebhook_ValidateCreate/accepts_valid_User_with_http
+--- PASS: TestUserWebhook_ValidateCreate (0.00s)
+    --- PASS: TestUserWebhook_ValidateCreate/accepts_User_with_valid_authSecret (0.00s)
+    --- PASS: TestUserWebhook_ValidateCreate/rejects_invalid_userGroupRef_(contains_space) (0.00s)
+    --- PASS: TestUserWebhook_ValidateCreate/rejects_empty_authSecret_name (0.00s)
+    --- PASS: TestUserWebhook_ValidateCreate/accepts_valid_User_with_hysteria2 (0.00s)
+    --- PASS: TestUserWebhook_ValidateCreate/accepts_valid_User_with_vless (0.00s)
+    --- PASS: TestUserWebhook_ValidateCreate/accepts_valid_User_with_trojan (0.00s)
+    --- PASS: TestUserWebhook_ValidateCreate/accepts_valid_User_with_socks5 (0.00s)
+    --- PASS: TestUserWebhook_ValidateCreate/accepts_valid_User_with_http (0.00s)
+=== RUN   TestUserWebhook_ValidateUpdate
+=== RUN   TestUserWebhook_ValidateUpdate/validates_new_object_on_update
+--- PASS: TestUserWebhook_ValidateUpdate (0.00s)
+    --- PASS: TestUserWebhook_ValidateUpdate/validates_new_object_on_update (0.00s)
+=== RUN   TestCustomRouteWebhook_ValidateCreate
+=== RUN   TestCustomRouteWebhook_ValidateCreate/rejects_empty_inboundNode
+=== RUN   TestCustomRouteWebhook_ValidateCreate/rejects_empty_outboundNode
+=== RUN   TestCustomRouteWebhook_ValidateCreate/rejects_both_empty
+=== RUN   TestCustomRouteWebhook_ValidateCreate/accepts_valid_CustomRoute
+--- PASS: TestCustomRouteWebhook_ValidateCreate (0.00s)
+    --- PASS: TestCustomRouteWebhook_ValidateCreate/rejects_empty_inboundNode (0.00s)
+    --- PASS: TestCustomRouteWebhook_ValidateCreate/rejects_empty_outboundNode (0.00s)
+    --- PASS: TestCustomRouteWebhook_ValidateCreate/rejects_both_empty (0.00s)
+    --- PASS: TestCustomRouteWebhook_ValidateCreate/accepts_valid_CustomRoute (0.00s)
+=== RUN   TestCustomRouteWebhook_ValidateUpdate
+=== RUN   TestCustomRouteWebhook_ValidateUpdate/validates_new_object_on_update
+--- PASS: TestCustomRouteWebhook_ValidateUpdate (0.00s)
+    --- PASS: TestCustomRouteWebhook_ValidateUpdate/validates_new_object_on_update (0.00s)
+=== RUN   TestCustomRouteWebhook_ValidateDelete
+=== RUN   TestCustomRouteWebhook_ValidateDelete/allows_delete
+--- PASS: TestCustomRouteWebhook_ValidateDelete (0.00s)
+    --- PASS: TestCustomRouteWebhook_ValidateDelete/allows_delete (0.00s)
+PASS
+ok  	github.com/shlande/singbox-operator/internal/webhook	0.967s

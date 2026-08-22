@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -217,6 +218,11 @@ func (in *SingBoxNodeSpec) DeepCopyInto(out *SingBoxNodeSpec) {
 		in, out := &in.AllowedOutbounds, &out.AllowedOutbounds
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.Resources != nil {
+		in, out := &in.Resources, &out.Resources
+		*out = new(corev1.ResourceRequirements)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
