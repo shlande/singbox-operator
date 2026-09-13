@@ -109,6 +109,23 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		routesByInbound[route.Spec.InboundNode] = append(routesByInbound[route.Spec.InboundNode], route)
 	}
 
+	var externalOutboundList proxyv1alpha1.ExternalOutboundList
+	if err := s.Client.List(ctx, &externalOutboundList, client.InNamespace(namespace)); err != nil {
+		logger.Error(err, "Failed to list ExternalOutbounds", "namespace", namespace)
+		writeInternalError(w)
+		return
+	}
+
+	externalOutboundsByName := make(map[string]*proxyv1alpha1.ExternalOutbound)
+	for i := range externalOutboundList.Items {
+		eob := &externalOutboundList.Items[i]
+		// An outbound SingBoxNode with the same name always wins.
+		if _, taken := outboundsByName[eob.Name]; taken {
+			continue
+		}
+		externalOutboundsByName[eob.Name] = eob
+	}
+
 	var allowedNodeNames, deniedNodeNames map[string]bool
 	if matchedUser.Spec.UserGroupRef != "" {
 		var ug proxyv1alpha1.UserGroup
@@ -136,14 +153,15 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := ClientConfigInput{
-		User:             matchedUser,
-		UserCred:         matchedCred,
-		InboundNodes:     inboundNodes,
-		RoutesByInbound:  routesByInbound,
-		OutboundsByName:  outboundsByName,
-		OfflineNodeNames: offlineNodeNames,
-		AllowedNodeNames: allowedNodeNames,
-		DeniedNodeNames:  deniedNodeNames,
+		User:                    matchedUser,
+		UserCred:                matchedCred,
+		InboundNodes:            inboundNodes,
+		RoutesByInbound:         routesByInbound,
+		OutboundsByName:         outboundsByName,
+		ExternalOutboundsByName: externalOutboundsByName,
+		OfflineNodeNames:        offlineNodeNames,
+		AllowedNodeNames:        allowedNodeNames,
+		DeniedNodeNames:         deniedNodeNames,
 	}
 
 	outbounds, err := BuildClientConfig(input)

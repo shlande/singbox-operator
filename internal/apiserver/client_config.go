@@ -20,6 +20,10 @@ type ClientConfigInput struct {
 	InboundNodes    []*v1alpha1.SingBoxNode
 	RoutesByInbound map[string][]*v1alpha1.CustomRoute
 	OutboundsByName map[string]*v1alpha1.SingBoxNode
+	// ExternalOutboundsByName contains ExternalOutbound resources by name.
+	// They participate in client configs only as names (tags, selector groups
+	// and credential derivation) — clients always connect to the inbound node.
+	ExternalOutboundsByName map[string]*v1alpha1.ExternalOutbound
 	// OfflineNodeNames contains SingBoxNode names that are currently offline
 	// (NodeReady condition is False or absent). These nodes are excluded from
 	// client config outbounds.
@@ -143,7 +147,16 @@ func findEntryEndpoint(endpoints []string, protocol string) (address string, por
 	return "", 0, false
 }
 
-func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alpha1.SingBoxNode {
+// outboundRef is a unified reference to an outbound target of an inbound node:
+// either a SingBoxNode with the outbound role or an ExternalOutbound. Client
+// configs only need the name (for tags, group selectors and credential
+// derivation); AllowedInbounds carries the per-outbound inbound restriction.
+type outboundRef struct {
+	Name            string
+	AllowedInbounds []string
+}
+
+func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboundRef {
 	var inboundNode *v1alpha1.SingBoxNode
 	for _, n := range input.InboundNodes {
 		if n.Name == inboundName {
@@ -153,7 +166,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 	}
 
 	seen := make(map[string]bool)
-	var nodes []*v1alpha1.SingBoxNode
+	var refs []outboundRef
 
 	if inboundNode != nil {
 		for _, n := range input.OutboundsByName {
@@ -162,33 +175,58 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []*v1alph
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
-				nodes = append(nodes, n)
+				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds})
 			}
 		}
 		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] &&
 			configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 			(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, inboundNode.Name)) {
 			seen[inboundNode.Name] = true
-			nodes = append(nodes, inboundNode)
+			refs = append(refs, outboundRef{Name: inboundNode.Name})
+		}
+		// Same-region ExternalOutbounds are auto-discovered like outbound
+		// SingBoxNodes, except that an empty region never auto-discovers and
+		// offline filtering does not apply to them. A name already present as
+		// an outbound SingBoxNode always wins over an ExternalOutbound.
+		for _, eob := range input.ExternalOutboundsByName {
+			if eob.Spec.Region != "" && eob.Spec.Region == inboundNode.Spec.Region && !seen[eob.Name] &&
+				input.OutboundsByName[eob.Name] == nil &&
+				configengine.IsNodeAllowed(eob.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
+				(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
+				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, eob.Name)) {
+				seen[eob.Name] = true
+				refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds})
+			}
 		}
 	}
 
 	if inboundNode != nil {
 		for _, r := range input.RoutesByInbound[inboundName] {
+			if r.EffectiveOutboundKind() == v1alpha1.OutboundKindExternalOutbound {
+				if eob, ok := input.ExternalOutboundsByName[r.Spec.OutboundNode]; ok && !seen[eob.Name] &&
+					input.OutboundsByName[eob.Name] == nil &&
+					configengine.IsNodeAllowed(eob.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
+					(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
+					(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, eob.Name)) {
+					seen[eob.Name] = true
+					refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds})
+				}
+				continue
+			}
 			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
-				nodes = append(nodes, n)
+				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds})
 			}
 		}
 	}
 
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].Name < nodes[j].Name
+	sort.Slice(refs, func(i, j int) bool {
+		return refs[i].Name < refs[j].Name
 	})
-	return nodes
+	return refs
 }
 
 func hasOutboundRole(node *v1alpha1.SingBoxNode) bool {
