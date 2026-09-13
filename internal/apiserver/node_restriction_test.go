@@ -89,8 +89,8 @@ func TestBuildClientConfig_WithNodeRestrictions(t *testing.T) {
 	})
 
 	t.Run("AllowedNodeNames keeps only node-b outbound, excludes node-c", func(t *testing.T) {
-		// AllowedNodeNames must include the inbound node-a as well,
-		// because BuildClientConfig also checks inbound nodes against the allowlist.
+		// The lists only gate relay OUTBOUND candidates, so the inbound node
+		// does not need to be allowlisted to appear in the client config.
 		input := ClientConfigInput{
 			User:            user,
 			UserCred:        userCred,
@@ -121,6 +121,40 @@ func TestBuildClientConfig_WithNodeRestrictions(t *testing.T) {
 		}
 		if n := countProxyOutbounds(result); n != 1 {
 			t.Errorf("expected 1 proxy outbound (node-b only), got %d", n)
+		}
+	})
+
+	t.Run("group lists never hide the inbound node itself", func(t *testing.T) {
+		// node-a is both the inbound entry and in the deny list; relay target
+		// node-b is denied as well. The client entry for node-a must still be
+		// generated (only relay target node-b is filtered out).
+		input := ClientConfigInput{
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+				"node-b": outboundB,
+				"node-c": outboundC,
+			},
+			DeniedNodeNames: map[string]bool{"node-a": true, "node-b": true},
+		}
+
+		result, err := BuildClientConfig(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		tags := collectTags(result)
+
+		if !tags["node-c#node-a"] {
+			t.Errorf("node-c#node-a should be present (relay via inbound node-a), got tags: %v", tags)
+		}
+		if tags["node-b#node-a"] {
+			t.Errorf("node-b#node-a should be absent (relay target denied), got tags: %v", tags)
+		}
+		if n := countProxyOutbounds(result); n != 1 {
+			t.Errorf("expected 1 proxy outbound (node-c only), got %d", n)
 		}
 	})
 }

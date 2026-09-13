@@ -112,9 +112,11 @@ func TestComputeWithUserNodeRestrictions(t *testing.T) {
 			"node-b": nodeB,
 			"node-c": nodeC,
 		},
-		// alice is denied from node-b; bob has no restrictions
+		// alice is denied from node-b and node-a; bob has no restrictions.
+		// node-a is the INBOUND node itself: denying it must NOT remove
+		// alice's base credential (group lists only filter relay targets).
 		UserNodeRestrictions: map[string]map[string]bool{
-			"alice": {"node-b": true},
+			"alice": {"node-b": true, "node-a": true},
 		},
 	}
 
@@ -153,8 +155,142 @@ func TestComputeWithUserNodeRestrictions(t *testing.T) {
 		t.Errorf("bob#node-b should be present (bob has no restrictions), got inbound users: %v", ibUsers)
 	}
 
+	// In the route branch inbound users are per-outbound virtual users; the
+	// deny of node-a (the inbound itself) must not disturb generation of
+	// alice's virtual credentials for allowed targets (asserted above).
+
 	// bob#node-c must be present (bob has no restrictions)
 	if !ibUsers["bob#node-c"] {
 		t.Errorf("bob#node-c should be present (bob has no restrictions), got inbound users: %v", ibUsers)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestComputeWithUserNodeAllowlist — alice's group allowlist restricts relay
+// outbound targets to node-c only; inbound access is unaffected.
+// ---------------------------------------------------------------------------
+func TestComputeWithUserNodeAllowlist(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	nodeC := makeNode("node-c", "9.9.9.9", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 10809,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+
+	alice := &v1alpha1.User{ObjectMeta: metav1.ObjectMeta{Name: "alice"}}
+	bob := &v1alpha1.User{ObjectMeta: metav1.ObjectMeta{Name: "bob"}}
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.User{alice, bob},
+		UserCreds: map[string]configengine.UserCredential{
+			"alice": {UUID: "aaaa-1111"},
+			"bob":   {UUID: "bbbb-2222"},
+		},
+		OutboundNodes: []*v1alpha1.SingBoxNode{nodeB, nodeC},
+		NodeCreds: map[string]configengine.NodeCredential{
+			"node-b": {Username: "ub", Password: "pb"},
+			"node-c": {Username: "uc", Password: "pc"},
+		},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+			"node-b": nodeB,
+			"node-c": nodeC,
+		},
+		UserNodeAllowlist: map[string]map[string]bool{
+			"alice": {"node-c": true},
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg := parseConfig(t, out)
+
+	ibUsers := make(map[string]bool)
+	for _, ib := range inboundsOf(t, cfg) {
+		m, _ := ib.(map[string]any)
+		users, _ := m["users"].([]any)
+		for _, u := range users {
+			um, _ := u.(map[string]any)
+			if name, ok := um["name"].(string); ok {
+				ibUsers[name] = true
+			}
+		}
+	}
+
+	// alice#node-b must be absent (node-b is not in alice's allowlist)
+	if ibUsers["alice#node-b"] {
+		t.Errorf("alice#node-b should be absent (node-b not in allowlist), got inbound users: %v", ibUsers)
+	}
+	// alice#node-c must be present (node-c is allowlisted)
+	if !ibUsers["alice#node-c"] {
+		t.Errorf("alice#node-c should be present (node-c allowlisted), got inbound users: %v", ibUsers)
+	}
+	// bob has no allowlist → sees both relay targets
+	if !ibUsers["bob#node-b"] || !ibUsers["bob#node-c"] {
+		t.Errorf("bob should see both relay targets, got inbound users: %v", ibUsers)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestComputeUserInboundsDenyImmunity — no outbound peers → buildUserInbounds
+// branch: denying the inbound node itself must NOT remove alice's base
+// credential (group lists only filter relay outbound targets).
+// ---------------------------------------------------------------------------
+func TestComputeUserInboundsDenyImmunity(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+
+	alice := &v1alpha1.User{ObjectMeta: metav1.ObjectMeta{Name: "alice"}}
+	bob := &v1alpha1.User{ObjectMeta: metav1.ObjectMeta{Name: "bob"}}
+
+	input := configengine.Input{
+		Node:  nodeA,
+		Users: []*v1alpha1.User{alice, bob},
+		UserCreds: map[string]configengine.UserCredential{
+			"alice": {UUID: "aaaa-1111"},
+			"bob":   {UUID: "bbbb-2222"},
+		},
+		// alice is denied from node-a — the inbound node itself. This must
+		// have no effect: restrictions only apply to relay outbound targets.
+		UserNodeRestrictions: map[string]map[string]bool{
+			"alice": {"node-a": true},
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg := parseConfig(t, out)
+
+	ibUsers := make(map[string]bool)
+	for _, ib := range inboundsOf(t, cfg) {
+		m, _ := ib.(map[string]any)
+		users, _ := m["users"].([]any)
+		for _, u := range users {
+			um, _ := u.(map[string]any)
+			if name, ok := um["name"].(string); ok {
+				ibUsers[name] = true
+			}
+		}
+	}
+
+	if !ibUsers["alice"] {
+		t.Errorf("alice should be present (deny of inbound node must be ignored), got inbound users: %v", ibUsers)
+	}
+	if !ibUsers["bob"] {
+		t.Errorf("bob should be present, got inbound users: %v", ibUsers)
 	}
 }

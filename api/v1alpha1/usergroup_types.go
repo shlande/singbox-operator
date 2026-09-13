@@ -22,16 +22,19 @@ import (
 
 // UserGroupSpec defines the desired state of UserGroup.
 type UserGroupSpec struct {
-	// AllowedNodes is the whitelist of SingBoxNode names (metadata.name) this group may use.
-	// If empty, all nodes are allowed (subject to DeniedNodes).
-	// Deny-wins: if a node appears in both AllowedNodes and DeniedNodes, it is denied.
+	// AllowedNodes is the whitelist of relay outbound target names (metadata.name)
+	// this group's members may relay through. If empty, all targets are allowed
+	// (subject to DeniedNodes). Deny-wins: a node present in both lists is denied.
+	// This only restricts the OUTBOUND direction (relay targets); it never hides
+	// nodes from members' inbound/client node lists.
 	// +listType=set
 	// +optional
 	AllowedNodes []string `json:"allowedNodes,omitempty"`
 
-	// DeniedNodes is the blacklist of SingBoxNode names (metadata.name) this group may NOT use.
-	// Deny-wins: if a node appears in both AllowedNodes and DeniedNodes, it is denied.
-	// Restriction is node-level: a denied node cannot be used as either an inbound or outbound.
+	// DeniedNodes is the blacklist of relay outbound target names (metadata.name)
+	// this group's members may NOT relay through. Deny-wins: a node present in
+	// both lists is denied. This only restricts the OUTBOUND direction; members
+	// can still use a denied node as an inbound entry point.
 	// +listType=set
 	// +optional
 	DeniedNodes []string `json:"deniedNodes,omitempty"`

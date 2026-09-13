@@ -201,6 +201,7 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 		ExternalOutboundsByName: make(map[string]*proxyv1alpha1.ExternalOutbound),
 		ExternalCreds:           make(map[string]configengine.ExternalCredential),
 		UserNodeRestrictions:    make(map[string]map[string]bool),
+		UserNodeAllowlist:       make(map[string]map[string]bool),
 		UsageCollectionEnabled:  r.UsageCollectionEnabled,
 		V2RayAPIListenAddr:      r.V2RayAPIListenAddr,
 	}
@@ -322,16 +323,18 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 			for _, n := range ug.Spec.AllowedNodes {
 				allowedSet[n] = true
 			}
-			// Inbound pre-filter: skip user if the current node is not allowed.
-			if !configengine.IsNodeAllowed(node.Name, allowedSet, deniedSet) {
-				continue
-			}
+			// Group allow/deny lists only filter relay OUTBOUND targets;
+			// they never affect whether the user may use this node as an
+			// inbound entry. Hand both sets to the config engine, which
+			// applies them when building outbound entries/virtual users.
 			input.Users = append(input.Users, user)
 			if cred, credErr := credmanager.GetUserCredential(ctx, r.Client, user); credErr == nil {
 				input.UserCreds[user.Name] = configengine.UserCredential{UUID: cred.UUID}
 			}
-			// Store denied set so configengine can filter outbound virtual users.
 			input.UserNodeRestrictions[user.Name] = deniedSet
+			if len(allowedSet) > 0 {
+				input.UserNodeAllowlist[user.Name] = allowedSet
+			}
 		}
 	}
 

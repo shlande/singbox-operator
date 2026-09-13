@@ -28,11 +28,14 @@ type ClientConfigInput struct {
 	// (NodeReady condition is False or absent). These nodes are excluded from
 	// client config outbounds.
 	OfflineNodeNames map[string]bool
-	// AllowedNodeNames is the whitelist of SingBoxNode names for this user (from UserGroup).
-	// nil means allow all.
+	// AllowedNodeNames is the whitelist of relay outbound target names for
+	// this user (from UserGroup.spec.allowedNodes); nil means allow all.
+	// It only filters which outbounds an entry may relay through; it never
+	// hides inbound nodes from the client config.
 	AllowedNodeNames map[string]bool
-	// DeniedNodeNames is the blacklist of SingBoxNode names for this user (from UserGroup).
-	// nil means deny none.
+	// DeniedNodeNames is the blacklist of relay outbound target names for
+	// this user (from UserGroup.spec.deniedNodes); nil means deny none.
+	// Outbound direction only, never hides inbound nodes.
 	DeniedNodeNames map[string]bool
 }
 
@@ -46,9 +49,8 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 		if input.OfflineNodeNames[inboundNode.Name] {
 			continue
 		}
-		if !configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) {
-			continue
-		}
+		// Group allow/deny lists intentionally do NOT filter inbound nodes:
+		// they only restrict relay outbound targets below.
 		protocol := configengine.EffectiveInboundProtocol(inboundNode)
 		if !supportsProtocol(inboundNode, protocol) {
 			continue

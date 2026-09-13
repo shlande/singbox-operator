@@ -68,11 +68,18 @@ type Input struct {
 	UsageCollectionEnabled bool
 	V2RayAPIListenAddr     string
 
-	// UserNodeRestrictions maps userName → set of denied SingBoxNode names.
-	// A nil or missing entry means no restrictions (allow all nodes).
-	// Only the denied set is stored; the inbound pre-filter in the controller
-	// handles allowlist checks before the config engine is called.
+	// UserNodeRestrictions maps userName → set of denied relay outbound
+	// target names (from the user's UserGroup.spec.deniedNodes). A nil or
+	// missing entry means no restrictions. It only affects which outbound
+	// nodes the user may relay through; it never affects which inbound
+	// nodes the user may connect to. Virtual-user credentials
+	// ("user#outbound") are only generated for non-denied targets.
 	UserNodeRestrictions map[string]map[string]bool
+	// UserNodeAllowlist maps userName → set of allowed relay outbound target
+	// names (from the user's UserGroup.spec.allowedNodes). Nil or empty means
+	// all targets are allowed. Like UserNodeRestrictions, it only applies to
+	// the outbound direction.
+	UserNodeAllowlist map[string]map[string]bool
 }
 
 // Output contains the computed sing-box config.
@@ -387,7 +394,7 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 		var users []map[string]any
 		for _, nodeName := range outboundNames {
 			for _, user := range input.Users {
-				if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
+				if !IsNodeAllowed(nodeName, input.UserNodeAllowlist[user.Name], input.UserNodeRestrictions[user.Name]) {
 					continue
 				}
 				cred := input.UserCreds[user.Name]
@@ -413,7 +420,7 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 		outboundTag := fmt.Sprintf("outbound-%s", nodeName)
 		var authUsers []string
 		for _, user := range input.Users {
-			if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
+			if !IsNodeAllowed(nodeName, input.UserNodeAllowlist[user.Name], input.UserNodeRestrictions[user.Name]) {
 				continue
 			}
 			authUsers = append(authUsers, virtualUserName(user.Name, nodeName))
@@ -432,11 +439,8 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 func buildUsersBlock(input Input, protocol, nodeName string) []map[string]any {
 	var users []map[string]any
 	for _, user := range input.Users {
-		// Defensive: skip users denied from the current inbound node.
-		// Normally pre-filtered by the controller, but guard here as well.
-		if !IsNodeAllowed(nodeName, nil, input.UserNodeRestrictions[user.Name]) {
-			continue
-		}
+		// Group restrictions intentionally do NOT apply here: they only
+		// filter relay outbound targets, never inbound access to this node.
 		cred := input.UserCreds[user.Name]
 		auth := DeriveAuth(protocol, cred.UUID, nodeName)
 		if protocol == "naive" {
@@ -559,11 +563,11 @@ func buildRouteOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []any {
 		if len(input.Node.Spec.AllowedOutbounds) > 0 && !slices.Contains(input.Node.Spec.AllowedOutbounds, outNode.Name) {
 			continue
 		}
-		// Skip outbound entries where every user is denied from this node.
+		// Skip outbound entries where every user is denied from this target.
 		if len(input.Users) > 0 {
 			allDenied := true
 			for _, user := range input.Users {
-				if IsNodeAllowed(outNode.Name, nil, input.UserNodeRestrictions[user.Name]) {
+				if IsNodeAllowed(outNode.Name, input.UserNodeAllowlist[user.Name], input.UserNodeRestrictions[user.Name]) {
 					allDenied = false
 					break
 				}
