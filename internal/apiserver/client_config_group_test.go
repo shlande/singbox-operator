@@ -148,9 +148,9 @@ func TestBuildClientConfig_EmptyGroupNotEmitted(t *testing.T) {
 
 	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
-		User:     user,
-		UserCred: credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-		InboundNodes: []*proxyv1alpha1.SingBoxNode{inbound},
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
 		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
 		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
 			"out-1": outbound,

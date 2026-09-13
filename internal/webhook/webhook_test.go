@@ -496,10 +496,10 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("rejects inbound node with empty supportedProtocols", func(t *testing.T) {
 		node := &v1alpha1.SingBoxNode{
 			Spec: v1alpha1.SingBoxNodeSpec{
-				NodeRef:           "node-1",
-				Address:           "1.2.3.4",
-				Region:            "us-west",
-				Roles:             []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				NodeRef:            "node-1",
+				Address:            "1.2.3.4",
+				Region:             "us-west",
+				Roles:              []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
 				SupportedProtocols: nil,
 			},
 		}
@@ -598,12 +598,12 @@ func TestSingBoxNodeWebhook_ValidateCreate(t *testing.T) {
 	t.Run("does not validate SupportedProtocols for outbound-only node", func(t *testing.T) {
 		node := &v1alpha1.SingBoxNode{
 			Spec: v1alpha1.SingBoxNodeSpec{
-				NodeRef:           "node-1",
-				Address:           "1.2.3.4",
-				Region:            "us-west",
-				Roles:             []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+				NodeRef:            "node-1",
+				Address:            "1.2.3.4",
+				Region:             "us-west",
+				Roles:              []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
 				SupportedProtocols: nil,
-				InboundProtocol:   "naive",
+				InboundProtocol:    "naive",
 			},
 		}
 		_, err := w.ValidateCreate(ctx, node)
