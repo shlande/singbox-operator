@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the sing-box-operator-2 itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- externaloutbound_admin_role.yaml
+- externaloutbound_editor_role.yaml
+- externaloutbound_viewer_role.yaml
 - customroute_admin_role.yaml
 - customroute_editor_role.yaml
 - customroute_viewer_role.yaml

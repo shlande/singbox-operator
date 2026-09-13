@@ -5,27 +5,38 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - singboxoperator.shlande.top
+  - ""
   resources:
-  - usergroups
+  - secrets
   verbs:
-  - create
-  - delete
   - get
   - list
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
   - patch
-  - update
+- apiGroups:
+  - singboxoperator.shlande.top
+  resources:
+  - externaloutbounds
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - singboxoperator.shlande.top
   resources:
-  - usergroups/finalizers
+  - externaloutbounds/finalizers
   verbs:
   - update
 - apiGroups:
   - singboxoperator.shlande.top
   resources:
-  - usergroups/status
+  - externaloutbounds/status
   verbs:
   - get
   - patch

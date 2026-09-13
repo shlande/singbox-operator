@@ -1,0 +1,33 @@
+apiVersion: singboxoperator.shlande.top/v1alpha1
+kind: ExternalOutbound
+metadata:
+  labels:
+    app.kubernetes.io/name: sing-box-operator-2
+    app.kubernetes.io/managed-by: kustomize
+  name: home-hysteria2
+spec:
+  protocol: hysteria2
+  server: 203.0.113.10
+  port: 443
+  credentialsSecretRef:
+    name: home-hysteria2-cred
+  tls:
+    serverName: home.example.com
+  hysteria2:
+    upMbps: 100
+    downMbps: 200
+  # Region opts this outbound into same-region auto-discovery by inbound
+  # SingBoxNodes; remove it to require explicit CustomRoute binding.
+  region: us-west
+  # allowedInbounds: ["edge-in-1"]
+---
+# User-provisioned credentials for the external server above. The operator
+# only reads this Secret; rotating it re-renders affected node configs.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: home-hysteria2-cred
+type: Opaque
+stringData:
+  password: change-me
+  # obfsPassword: change-me-too
