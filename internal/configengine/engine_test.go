@@ -2503,3 +2503,840 @@ func TestConfigEngine_TUICVirtualUsers(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Test: ExternalOutbound per-protocol rendered shape (auto-discovery path)
+// ---------------------------------------------------------------------------
+
+func makeExternalOutbound(name string, protocol v1alpha1.ExternalOutboundProtocol, server string, port int32) *v1alpha1.ExternalOutbound {
+	return &v1alpha1.ExternalOutbound{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: v1alpha1.ExternalOutboundSpec{
+			Protocol: protocol,
+			Server:   server,
+			Port:     port,
+		},
+	}
+}
+
+func outboundByTag(t *testing.T, cfg map[string]any, tag string) map[string]any {
+	t.Helper()
+	for _, ob := range outboundsOf(t, cfg) {
+		m, _ := ob.(map[string]any)
+		if m["tag"] == tag {
+			return m
+		}
+	}
+	return nil
+}
+
+func TestConfigEngine_ExternalOutboundProtocols(t *testing.T) {
+	cases := []struct {
+		name   string
+		eob    *v1alpha1.ExternalOutbound
+		creds  configengine.ExternalCredential
+		verify func(t *testing.T, ob map[string]any)
+	}{
+		{
+			name:  "socks5-no-auth",
+			eob:   makeExternalOutbound("ext-socks", v1alpha1.ExternalProtocolSocks5, "10.1.1.1", 1080),
+			creds: configengine.ExternalCredential{},
+			verify: func(t *testing.T, ob map[string]any) {
+				if ob["type"] != "socks" {
+					t.Errorf("expected type=socks, got %v", ob["type"])
+				}
+				if ob["version"] != "5" {
+					t.Errorf("expected version=5, got %v", ob["version"])
+				}
+				if _, ok := ob["username"]; ok {
+					t.Errorf("socks5 outbound without creds must not have username, got %v", ob["username"])
+				}
+				if _, ok := ob["password"]; ok {
+					t.Errorf("socks5 outbound without creds must not have password, got %v", ob["password"])
+				}
+			},
+		},
+		{
+			name:  "socks5-with-auth",
+			eob:   makeExternalOutbound("ext-socks", v1alpha1.ExternalProtocolSocks5, "10.1.1.1", 1080),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyUsername: "u1", v1alpha1.CredKeyPassword: "p1"},
+			verify: func(t *testing.T, ob map[string]any) {
+				if ob["type"] != "socks" {
+					t.Errorf("expected type=socks, got %v", ob["type"])
+				}
+				if ob["username"] != "u1" {
+					t.Errorf("expected username=u1, got %v", ob["username"])
+				}
+				if ob["password"] != "p1" {
+					t.Errorf("expected password=p1, got %v", ob["password"])
+				}
+			},
+		},
+		{
+			name:  "http-no-tls",
+			eob:   makeExternalOutbound("ext-http", v1alpha1.ExternalProtocolHTTP, "10.1.1.2", 8080),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyUsername: "u2", v1alpha1.CredKeyPassword: "p2"},
+			verify: func(t *testing.T, ob map[string]any) {
+				if ob["type"] != "http" {
+					t.Errorf("expected type=http, got %v", ob["type"])
+				}
+				if ob["username"] != "u2" || ob["password"] != "p2" {
+					t.Errorf("expected username=u2 password=p2, got %v/%v", ob["username"], ob["password"])
+				}
+				if _, ok := ob["tls"]; ok {
+					t.Error("http outbound without spec.tls must not have a tls block")
+				}
+			},
+		},
+		{
+			name: "http-with-tls",
+			eob: func() *v1alpha1.ExternalOutbound {
+				e := makeExternalOutbound("ext-http", v1alpha1.ExternalProtocolHTTP, "10.1.1.2", 8443)
+				e.Spec.TLS = &v1alpha1.ExternalOutboundTLS{ServerName: "example.com", Insecure: true}
+				return e
+			}(),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyUsername: "u2", v1alpha1.CredKeyPassword: "p2"},
+			verify: func(t *testing.T, ob map[string]any) {
+				tls, ok := ob["tls"].(map[string]any)
+				if !ok {
+					t.Fatal("expected tls block in http outbound")
+				}
+				if tls["enabled"] != true {
+					t.Errorf("expected tls.enabled=true, got %v", tls["enabled"])
+				}
+				if tls["server_name"] != "example.com" {
+					t.Errorf("expected tls.server_name=example.com, got %v", tls["server_name"])
+				}
+				if tls["insecure"] != true {
+					t.Errorf("expected tls.insecure=true, got %v", tls["insecure"])
+				}
+			},
+		},
+		{
+			name:  "shadowsocks",
+			eob:   makeExternalOutbound("ext-ss", v1alpha1.ExternalProtocolShadowsocks, "10.1.1.3", 8388),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyMethod: "2022-blake3-aes-128-gcm", v1alpha1.CredKeyPassword: "ss-pass"},
+			verify: func(t *testing.T, ob map[string]any) {
+				if ob["type"] != "shadowsocks" {
+					t.Errorf("expected type=shadowsocks, got %v", ob["type"])
+				}
+				if ob["method"] != "2022-blake3-aes-128-gcm" {
+					t.Errorf("expected method=2022-blake3-aes-128-gcm, got %v", ob["method"])
+				}
+				if ob["password"] != "ss-pass" {
+					t.Errorf("expected password=ss-pass, got %v", ob["password"])
+				}
+			},
+		},
+		{
+			name: "trojan",
+			eob: func() *v1alpha1.ExternalOutbound {
+				e := makeExternalOutbound("ext-trojan", v1alpha1.ExternalProtocolTrojan, "10.1.1.4", 443)
+				e.Spec.TLS = &v1alpha1.ExternalOutboundTLS{ServerName: "trojan.example.com"}
+				return e
+			}(),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyPassword: "trojan-pass"},
+			verify: func(t *testing.T, ob map[string]any) {
+				if ob["type"] != "trojan" {
+					t.Errorf("expected type=trojan, got %v", ob["type"])
+				}
+				if ob["password"] != "trojan-pass" {
+					t.Errorf("expected password=trojan-pass, got %v", ob["password"])
+				}
+				tls, ok := ob["tls"].(map[string]any)
+				if !ok {
+					t.Fatal("expected tls block in trojan outbound")
+				}
+				if tls["enabled"] != true || tls["server_name"] != "trojan.example.com" {
+					t.Errorf("expected tls enabled with server_name=trojan.example.com, got %v", tls)
+				}
+				if _, ok := tls["insecure"]; ok {
+					t.Errorf("tls.insecure must be omitted when false, got %v", tls["insecure"])
+				}
+			},
+		},
+		{
+			name: "hysteria2",
+			eob: func() *v1alpha1.ExternalOutbound {
+				e := makeExternalOutbound("ext-hy2", v1alpha1.ExternalProtocolHysteria2, "10.1.1.5", 30443)
+				e.Spec.TLS = &v1alpha1.ExternalOutboundTLS{ServerName: "hy2.example.com"}
+				e.Spec.Hysteria2 = &v1alpha1.Hysteria2Options{UpMbps: 100, DownMbps: 200, Obfs: true}
+				return e
+			}(),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyPassword: "hy2-pass", v1alpha1.CredKeyObfsPassword: "obfs-pass"},
+			verify: func(t *testing.T, ob map[string]any) {
+				if ob["type"] != "hysteria2" {
+					t.Errorf("expected type=hysteria2, got %v", ob["type"])
+				}
+				if ob["password"] != "hy2-pass" {
+					t.Errorf("expected password=hy2-pass, got %v", ob["password"])
+				}
+				if ob["up_mbps"].(float64) != 100 {
+					t.Errorf("expected up_mbps=100, got %v", ob["up_mbps"])
+				}
+				if ob["down_mbps"].(float64) != 200 {
+					t.Errorf("expected down_mbps=200, got %v", ob["down_mbps"])
+				}
+				obfs, ok := ob["obfs"].(map[string]any)
+				if !ok {
+					t.Fatal("expected obfs block in hysteria2 outbound")
+				}
+				if obfs["type"] != "salamander" || obfs["password"] != "obfs-pass" {
+					t.Errorf("expected obfs type=salamander password=obfs-pass, got %v", obfs)
+				}
+				tls, ok := ob["tls"].(map[string]any)
+				if !ok || tls["server_name"] != "hy2.example.com" {
+					t.Errorf("expected tls block with server_name=hy2.example.com, got %v", ob["tls"])
+				}
+			},
+		},
+		{
+			name: "hysteria2-no-bandwidth-no-obfs",
+			eob: func() *v1alpha1.ExternalOutbound {
+				e := makeExternalOutbound("ext-hy2", v1alpha1.ExternalProtocolHysteria2, "10.1.1.5", 30443)
+				e.Spec.TLS = &v1alpha1.ExternalOutboundTLS{ServerName: "hy2.example.com"}
+				e.Spec.Hysteria2 = &v1alpha1.Hysteria2Options{}
+				return e
+			}(),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyPassword: "hy2-pass"},
+			verify: func(t *testing.T, ob map[string]any) {
+				if _, ok := ob["up_mbps"]; ok {
+					t.Errorf("up_mbps must be omitted when 0, got %v", ob["up_mbps"])
+				}
+				if _, ok := ob["down_mbps"]; ok {
+					t.Errorf("down_mbps must be omitted when 0, got %v", ob["down_mbps"])
+				}
+				if _, ok := ob["obfs"]; ok {
+					t.Error("obfs must be omitted when disabled")
+				}
+			},
+		},
+		{
+			name: "tuic",
+			eob: func() *v1alpha1.ExternalOutbound {
+				e := makeExternalOutbound("ext-tuic", v1alpha1.ExternalProtocolTUIC, "10.1.1.6", 10443)
+				e.Spec.TLS = &v1alpha1.ExternalOutboundTLS{ServerName: "tuic.example.com"}
+				return e
+			}(),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyUUID: "tuic-uuid", v1alpha1.CredKeyPassword: "tuic-pass"},
+			verify: func(t *testing.T, ob map[string]any) {
+				if ob["type"] != "tuic" {
+					t.Errorf("expected type=tuic, got %v", ob["type"])
+				}
+				if ob["uuid"] != "tuic-uuid" {
+					t.Errorf("expected uuid=tuic-uuid, got %v", ob["uuid"])
+				}
+				if ob["password"] != "tuic-pass" {
+					t.Errorf("expected password=tuic-pass, got %v", ob["password"])
+				}
+				tls, ok := ob["tls"].(map[string]any)
+				if !ok || tls["server_name"] != "tuic.example.com" {
+					t.Errorf("expected tls block with server_name=tuic.example.com, got %v", ob["tls"])
+				}
+			},
+		},
+		{
+			name: "anytls",
+			eob: func() *v1alpha1.ExternalOutbound {
+				e := makeExternalOutbound("ext-anytls", v1alpha1.ExternalProtocolAnyTLS, "10.1.1.7", 11443)
+				e.Spec.TLS = &v1alpha1.ExternalOutboundTLS{ServerName: "anytls.example.com"}
+				return e
+			}(),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyPassword: "anytls-pass"},
+			verify: func(t *testing.T, ob map[string]any) {
+				if ob["type"] != "anytls" {
+					t.Errorf("expected type=anytls, got %v", ob["type"])
+				}
+				if ob["password"] != "anytls-pass" {
+					t.Errorf("expected password=anytls-pass, got %v", ob["password"])
+				}
+				tls, ok := ob["tls"].(map[string]any)
+				if !ok || tls["server_name"] != "anytls.example.com" {
+					t.Errorf("expected tls block with server_name=anytls.example.com, got %v", ob["tls"])
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+				[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+				10808,
+			)
+			nodeA.Spec.InboundProtocol = "vless"
+			user := makeUser("user-alice")
+
+			input := configengine.Input{
+				Node:                    nodeA,
+				Users:                   []*v1alpha1.User{user},
+				UserCreds:               map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+				OutboundNodesByName:     map[string]*v1alpha1.SingBoxNode{},
+				ExternalOutbounds:       []*v1alpha1.ExternalOutbound{tc.eob},
+				ExternalOutboundsByName: map[string]*v1alpha1.ExternalOutbound{tc.eob.Name: tc.eob},
+				ExternalCreds:           map[string]configengine.ExternalCredential{tc.eob.Name: tc.creds},
+			}
+
+			out, err := configengine.Compute(input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			cfg := parseConfig(t, out)
+
+			tag := "outbound-" + tc.eob.Name
+			ob := outboundByTag(t, cfg, tag)
+			if ob == nil {
+				t.Fatalf("missing outbound %q, got %v", tag, outboundTags(t, cfg))
+			}
+			if ob["server"] != tc.eob.Spec.Server {
+				t.Errorf("expected server=%s, got %v", tc.eob.Spec.Server, ob["server"])
+			}
+			if ob["server_port"].(float64) != float64(tc.eob.Spec.Port) {
+				t.Errorf("expected server_port=%d, got %v", tc.eob.Spec.Port, ob["server_port"])
+			}
+			tc.verify(t, ob)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: ExternalOutbound with missing required credentials is skipped entirely
+// (no outbound entry, no virtual users, no route rules)
+// ---------------------------------------------------------------------------
+func TestConfigEngine_ExternalOutboundMissingCreds(t *testing.T) {
+	cases := []struct {
+		name  string
+		eob   *v1alpha1.ExternalOutbound
+		creds configengine.ExternalCredential
+	}{
+		{
+			name:  "shadowsocks-missing-method",
+			eob:   makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolShadowsocks, "10.2.1.1", 8388),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyPassword: "ss-pass"},
+		},
+		{
+			name:  "shadowsocks-missing-password",
+			eob:   makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolShadowsocks, "10.2.1.1", 8388),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyMethod: "aes-128-gcm"},
+		},
+		{
+			name:  "trojan-missing-password",
+			eob:   makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolTrojan, "10.2.1.2", 443),
+			creds: configengine.ExternalCredential{},
+		},
+		{
+			name:  "hysteria2-missing-password",
+			eob:   makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolHysteria2, "10.2.1.3", 30443),
+			creds: configengine.ExternalCredential{},
+		},
+		{
+			name: "hysteria2-obfs-missing-obfs-password",
+			eob: func() *v1alpha1.ExternalOutbound {
+				e := makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolHysteria2, "10.2.1.3", 30443)
+				e.Spec.Hysteria2 = &v1alpha1.Hysteria2Options{Obfs: true}
+				return e
+			}(),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyPassword: "hy2-pass"},
+		},
+		{
+			name:  "tuic-missing-uuid",
+			eob:   makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolTUIC, "10.2.1.4", 10443),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyPassword: "tuic-pass"},
+		},
+		{
+			name:  "tuic-missing-password",
+			eob:   makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolTUIC, "10.2.1.4", 10443),
+			creds: configengine.ExternalCredential{v1alpha1.CredKeyUUID: "tuic-uuid"},
+		},
+		{
+			name:  "anytls-missing-password",
+			eob:   makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolAnyTLS, "10.2.1.5", 11443),
+			creds: configengine.ExternalCredential{},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+				[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+				[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+				10808,
+			)
+			nodeA.Spec.InboundProtocol = "vless"
+			user := makeUser("user-alice")
+
+			input := configengine.Input{
+				Node:                nodeA,
+				Users:               []*v1alpha1.User{user},
+				UserCreds:           map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+				OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+				ExternalOutbounds:   []*v1alpha1.ExternalOutbound{tc.eob},
+				ExternalOutboundsByName: map[string]*v1alpha1.ExternalOutbound{
+					tc.eob.Name: tc.eob,
+				},
+				ExternalCreds:          map[string]configengine.ExternalCredential{tc.eob.Name: tc.creds},
+				UsageCollectionEnabled: true,
+			}
+
+			out, err := configengine.Compute(input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			cfg := parseConfig(t, out)
+
+			// No outbound entry for the broken external.
+			obs := outboundTags(t, cfg)
+			if containsTag(obs, "outbound-ext-bad") {
+				t.Errorf("outbound-ext-bad must NOT appear when required creds are missing, got %v", obs)
+			}
+
+			// No route rules may point at the nonexistent outbound.
+			rules := routeRulesOf(t, cfg)
+			for _, rule := range rules {
+				m := rule.(map[string]any)
+				if m["outbound"] == "outbound-ext-bad" {
+					t.Errorf("route rule must not point at skipped outbound-ext-bad: %v", m)
+				}
+			}
+
+			// With the only outbound peer skipped the node falls back to plain
+			// user inbounds (no virtual users).
+			for _, ib := range inboundsOf(t, cfg) {
+				m := ib.(map[string]any)
+				users, _ := m["users"].([]any)
+				for _, vu := range users {
+					u := vu.(map[string]any)
+					if u["name"] == "user-alice#ext-bad" {
+						t.Errorf("virtual user user-alice#ext-bad must NOT appear for skipped outbound")
+					}
+				}
+			}
+
+			// No v2ray stats user for the skipped outbound either.
+			exp, ok := cfg["experimental"].(map[string]any)
+			if !ok {
+				t.Fatal("expected experimental key in config")
+			}
+			stats := exp["v2ray_api"].(map[string]any)["stats"].(map[string]any)
+			rawUsers, _ := stats["users"].([]any)
+			for _, u := range rawUsers {
+				if u.(string) == "user-alice#ext-bad" {
+					t.Errorf("stats user user-alice#ext-bad must NOT appear for skipped outbound")
+				}
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: ExternalOutbound name collision — the SingBoxNode always wins
+// ---------------------------------------------------------------------------
+func TestConfigEngine_ExternalOutboundNameCollision(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	user := makeUser("user-alice")
+
+	// Collides with outbound peer node-b and with the node itself (node-a).
+	extPeer := makeExternalOutbound("node-b", v1alpha1.ExternalProtocolTrojan, "9.9.9.9", 443)
+	extSelf := makeExternalOutbound("node-a", v1alpha1.ExternalProtocolTrojan, "8.8.8.8", 443)
+
+	input := configengine.Input{
+		Node:                nodeA,
+		Users:               []*v1alpha1.User{user},
+		UserCreds:           map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+		OutboundNodes:       []*v1alpha1.SingBoxNode{nodeB},
+		NodeCreds:           map[string]configengine.NodeCredential{"node-b": {Username: "ru", Password: "rp"}},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-b": nodeB},
+		ExternalOutbounds:   []*v1alpha1.ExternalOutbound{extPeer, extSelf},
+		ExternalOutboundsByName: map[string]*v1alpha1.ExternalOutbound{
+			"node-b": extPeer,
+			"node-a": extSelf,
+		},
+		ExternalCreds: map[string]configengine.ExternalCredential{
+			"node-b": {v1alpha1.CredKeyPassword: "ext-pass"},
+			"node-a": {v1alpha1.CredKeyPassword: "ext-pass"},
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg := parseConfig(t, out)
+
+	// Exactly one outbound-node-b, and it must be the SingBoxNode relay entry.
+	ob := outboundByTag(t, cfg, "outbound-node-b")
+	if ob == nil {
+		t.Fatal("missing outbound-node-b (SingBoxNode relay)")
+	}
+	if ob["type"] != "socks" {
+		t.Errorf("collision: outbound-node-b must be the socks relay entry, got type=%v", ob["type"])
+	}
+	if ob["server"] != "5.6.7.8" {
+		t.Errorf("collision: outbound-node-b server must be the SingBoxNode address 5.6.7.8, got %v", ob["server"])
+	}
+	if ob["username"] != "ru" || ob["password"] != "rp" {
+		t.Errorf("collision: outbound-node-b must carry the relay credentials, got %v/%v", ob["username"], ob["password"])
+	}
+
+	// The external node-a entry must be suppressed entirely.
+	if ob := outboundByTag(t, cfg, "outbound-node-a"); ob != nil {
+		t.Errorf("collision: external outbound-node-a must be skipped, got %v", ob)
+	}
+
+	// No route rule or virtual user may reference the external trojan server.
+	count := 0
+	for _, tag := range outboundTags(t, cfg) {
+		if tag == "outbound-node-b" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected outbound-node-b exactly once, got %d", count)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: ExternalOutbound bound via kind=ExternalOutbound CustomRoute end-to-end
+// ---------------------------------------------------------------------------
+func TestConfigEngine_ExternalOutboundRouteBinding(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+	user := makeUser("user-alice")
+
+	eob := makeExternalOutbound("ext-1", v1alpha1.ExternalProtocolTrojan, "10.3.1.1", 443)
+	eob.Spec.TLS = &v1alpha1.ExternalOutboundTLS{ServerName: "ext.example.com"}
+
+	route := makeRoute("route-a-to-ext", "node-a", "ext-1")
+	route.Spec.OutboundKind = v1alpha1.OutboundKindExternalOutbound
+
+	input := configengine.Input{
+		Node:                nodeA,
+		Users:               []*v1alpha1.User{user},
+		UserCreds:           map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+		Routes:              []*v1alpha1.CustomRoute{route},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+		// Route-only external: not present in the auto-discovery list.
+		ExternalOutboundsByName: map[string]*v1alpha1.ExternalOutbound{"ext-1": eob},
+		ExternalCreds:           map[string]configengine.ExternalCredential{"ext-1": {v1alpha1.CredKeyPassword: "ext-pass"}},
+		UsageCollectionEnabled:  true,
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg := parseConfig(t, out)
+	ibs := inboundTags(t, cfg)
+	obs := outboundTags(t, cfg)
+
+	if !containsTag(ibs, "inbound-vless") {
+		t.Errorf("missing inbound-vless, got %v", ibs)
+	}
+	if !containsTag(obs, "outbound-ext-1") {
+		t.Fatalf("missing outbound-ext-1, got %v", obs)
+	}
+
+	ob := outboundByTag(t, cfg, "outbound-ext-1")
+	if ob["type"] != "trojan" {
+		t.Errorf("expected type=trojan, got %v", ob["type"])
+	}
+	if ob["server"] != "10.3.1.1" {
+		t.Errorf("expected server=10.3.1.1, got %v", ob["server"])
+	}
+	if ob["password"] != "ext-pass" {
+		t.Errorf("expected password=ext-pass, got %v", ob["password"])
+	}
+	if _, ok := ob["tls"].(map[string]any); !ok {
+		t.Error("expected tls block in trojan outbound")
+	}
+
+	// Virtual user for the external outbound.
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		if m["tag"] != "inbound-vless" {
+			continue
+		}
+		users := m["users"].([]any)
+		if len(users) != 1 {
+			t.Fatalf("expected 1 virtual user, got %d", len(users))
+		}
+		u := users[0].(map[string]any)
+		if u["name"] != "user-alice#ext-1" {
+			t.Errorf("expected virtual user user-alice#ext-1, got %v", u["name"])
+		}
+	}
+
+	// Route rule auth_user -> outbound-ext-1.
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 1 {
+		t.Fatalf("expected 1 routing rule, got %d", len(rules))
+	}
+	rule := rules[0].(map[string]any)
+	if rule["outbound"] != "outbound-ext-1" {
+		t.Errorf("expected rule outbound=outbound-ext-1, got %v", rule["outbound"])
+	}
+	authUsers, _ := rule["auth_user"].([]any)
+	if len(authUsers) != 1 || authUsers[0].(string) != "user-alice#ext-1" {
+		t.Errorf("expected auth_user=[user-alice#ext-1], got %v", authUsers)
+	}
+
+	// v2ray stats users include the external virtual user.
+	exp := cfg["experimental"].(map[string]any)
+	stats := exp["v2ray_api"].(map[string]any)["stats"].(map[string]any)
+	rawUsers, _ := stats["users"].([]any)
+	found := false
+	for _, u := range rawUsers {
+		if u.(string) == "user-alice#ext-1" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("missing stats user user-alice#ext-1, got %v", rawUsers)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: ExternalOutbound auto-discovery — the engine trusts the controller's
+// region/allowedInbounds pre-filter: whatever lands in input.ExternalOutbounds
+// is rendered, regardless of spec.region.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_ExternalOutboundAutoDiscovery(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+	nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962,
+	)
+	user := makeUser("user-alice")
+
+	// Same region as node-a — normal auto-discovery case.
+	extSame := makeExternalOutbound("ext-auto", v1alpha1.ExternalProtocolSocks5, "10.4.1.1", 1080)
+	extSame.Spec.Region = "us-west"
+	// Different region — must STILL be rendered: the controller pre-filters,
+	// the engine does not re-check spec.region.
+	extOther := makeExternalOutbound("ext-other-region", v1alpha1.ExternalProtocolSocks5, "10.4.1.2", 1080)
+	extOther.Spec.Region = "eu-central"
+
+	input := configengine.Input{
+		Node:                nodeA,
+		Users:               []*v1alpha1.User{user},
+		UserCreds:           map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+		OutboundNodes:       []*v1alpha1.SingBoxNode{nodeB},
+		NodeCreds:           map[string]configengine.NodeCredential{"node-b": {Username: "ru", Password: "rp"}},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"node-b": nodeB},
+		ExternalOutbounds:   []*v1alpha1.ExternalOutbound{extSame, extOther},
+		ExternalOutboundsByName: map[string]*v1alpha1.ExternalOutbound{
+			"ext-auto":         extSame,
+			"ext-other-region": extOther,
+		},
+		ExternalCreds:          map[string]configengine.ExternalCredential{},
+		UsageCollectionEnabled: true,
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	if !containsTag(obs, "outbound-ext-auto") {
+		t.Errorf("missing outbound-ext-auto, got %v", obs)
+	}
+	if !containsTag(obs, "outbound-ext-other-region") {
+		t.Errorf("engine must trust the controller pre-filter and render ext-other-region, got %v", obs)
+	}
+
+	// Virtual users: SingBoxNode names first, external names after, in order.
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		if m["tag"] != "inbound-vless" {
+			continue
+		}
+		users := m["users"].([]any)
+		if len(users) != 3 {
+			t.Fatalf("expected 3 virtual users, got %d", len(users))
+		}
+		wantOrder := []string{"user-alice#node-b", "user-alice#ext-auto", "user-alice#ext-other-region"}
+		for i, want := range wantOrder {
+			got := users[i].(map[string]any)["name"]
+			if got != want {
+				t.Errorf("virtual user %d: expected %q, got %v", i, want, got)
+			}
+		}
+	}
+
+	// One route rule per outbound.
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 3 {
+		t.Fatalf("expected 3 routing rules, got %d", len(rules))
+	}
+	ruleTargets := make(map[string]bool)
+	for _, rule := range rules {
+		m := rule.(map[string]any)
+		ruleTargets[m["outbound"].(string)] = true
+	}
+	for _, want := range []string{"outbound-node-b", "outbound-ext-auto", "outbound-ext-other-region"} {
+		if !ruleTargets[want] {
+			t.Errorf("missing routing rule for %s", want)
+		}
+	}
+
+	// Stats users cover the external outbounds too.
+	exp := cfg["experimental"].(map[string]any)
+	stats := exp["v2ray_api"].(map[string]any)["stats"].(map[string]any)
+	rawUsers, _ := stats["users"].([]any)
+	if len(rawUsers) != 3 {
+		t.Fatalf("expected 3 stats users, got %d: %v", len(rawUsers), rawUsers)
+	}
+	userSet := make(map[string]bool)
+	for _, u := range rawUsers {
+		userSet[u.(string)] = true
+	}
+	for _, want := range []string{"user-alice#node-b", "user-alice#ext-auto", "user-alice#ext-other-region"} {
+		if !userSet[want] {
+			t.Errorf("missing stats user %q, got %v", want, userSet)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: kind=ExternalOutbound route referencing an unresolved ExternalOutbound
+// is skipped — no outbound entry, no virtual user, no route rule.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_ExternalOutboundUnresolvedRoute(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+	user := makeUser("user-alice")
+
+	route := makeRoute("route-a-to-missing", "node-a", "ext-missing")
+	route.Spec.OutboundKind = v1alpha1.OutboundKindExternalOutbound
+
+	input := configengine.Input{
+		Node:                    nodeA,
+		Users:                   []*v1alpha1.User{user},
+		UserCreds:               map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+		Routes:                  []*v1alpha1.CustomRoute{route},
+		OutboundNodesByName:     map[string]*v1alpha1.SingBoxNode{},
+		ExternalOutboundsByName: map[string]*v1alpha1.ExternalOutbound{},
+		ExternalCreds:           map[string]configengine.ExternalCredential{},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg := parseConfig(t, out)
+
+	obs := outboundTags(t, cfg)
+	if containsTag(obs, "outbound-ext-missing") {
+		t.Errorf("outbound-ext-missing must NOT appear for an unresolved route, got %v", obs)
+	}
+
+	rules := routeRulesOf(t, cfg)
+	for _, rule := range rules {
+		m := rule.(map[string]any)
+		if m["outbound"] == "outbound-ext-missing" {
+			t.Errorf("route rule must not point at unresolved outbound-ext-missing: %v", m)
+		}
+	}
+
+	for _, ib := range inboundsOf(t, cfg) {
+		m := ib.(map[string]any)
+		users, _ := m["users"].([]any)
+		for _, vu := range users {
+			u := vu.(map[string]any)
+			if u["name"] == "user-alice#ext-missing" {
+				t.Errorf("virtual user user-alice#ext-missing must NOT appear for unresolved route")
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: mixed valid and broken auto-discovered ExternalOutbounds — only the
+// usable one is rendered; its dedup against a SingBoxNode-kind route works.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_ExternalOutboundMixedValidBroken(t *testing.T) {
+	nodeA := makeNode("node-a", "1.2.3.4", "us-west",
+		[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+		[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}},
+		10808,
+	)
+	nodeA.Spec.InboundProtocol = "vless"
+	user := makeUser("user-alice")
+
+	extGood := makeExternalOutbound("ext-good", v1alpha1.ExternalProtocolHysteria2, "10.5.1.1", 30443)
+	extGood.Spec.TLS = &v1alpha1.ExternalOutboundTLS{ServerName: "good.example.com"}
+	extBad := makeExternalOutbound("ext-bad", v1alpha1.ExternalProtocolShadowsocks, "10.5.1.2", 8388)
+
+	// Also bind ext-good by an explicit route: it must appear exactly once.
+	route := makeRoute("route-a-to-good", "node-a", "ext-good")
+	route.Spec.OutboundKind = v1alpha1.OutboundKindExternalOutbound
+
+	input := configengine.Input{
+		Node:                nodeA,
+		Users:               []*v1alpha1.User{user},
+		UserCreds:           map[string]configengine.UserCredential{"user-alice": {UUID: "aaaa-1111"}},
+		Routes:              []*v1alpha1.CustomRoute{route},
+		OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+		ExternalOutbounds:   []*v1alpha1.ExternalOutbound{extGood, extBad},
+		ExternalOutboundsByName: map[string]*v1alpha1.ExternalOutbound{
+			"ext-good": extGood,
+			"ext-bad":  extBad,
+		},
+		ExternalCreds: map[string]configengine.ExternalCredential{
+			"ext-good": {v1alpha1.CredKeyPassword: "good-pass"},
+			// ext-bad: only a password, method missing → skipped.
+			"ext-bad": {v1alpha1.CredKeyPassword: "bad-pass"},
+		},
+	}
+
+	out, err := configengine.Compute(input)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cfg := parseConfig(t, out)
+	obs := outboundTags(t, cfg)
+
+	count := 0
+	for _, tag := range obs {
+		if tag == "outbound-ext-good" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected outbound-ext-good exactly once (auto+route dedup), got %d in %v", count, obs)
+	}
+	if containsTag(obs, "outbound-ext-bad") {
+		t.Errorf("outbound-ext-bad must NOT appear (missing method cred), got %v", obs)
+	}
+
+	rules := routeRulesOf(t, cfg)
+	if len(rules) != 1 {
+		t.Fatalf("expected exactly 1 routing rule, got %d", len(rules))
+	}
+	if rules[0].(map[string]any)["outbound"] != "outbound-ext-good" {
+		t.Errorf("expected rule for outbound-ext-good, got %v", rules[0])
+	}
+}

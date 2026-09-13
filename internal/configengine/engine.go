@@ -26,6 +26,10 @@ type NodeCredential struct {
 	Password string
 }
 
+// ExternalCredential carries the resolved non-empty credentials of an
+// ExternalOutbound, as secret-data key/value pairs (see v1alpha1.CredKey*).
+type ExternalCredential map[string]string
+
 // Input contains all data needed to compute a node's sing-box config.
 type Input struct {
 	Node                *v1alpha1.SingBoxNode
@@ -35,6 +39,15 @@ type Input struct {
 	Routes              []*v1alpha1.CustomRoute
 	NodeCreds           map[string]NodeCredential
 	OutboundNodesByName map[string]*v1alpha1.SingBoxNode
+
+	// ExternalOutbounds are auto-discovered ExternalOutbounds, pre-filtered by
+	// the controller (region match + allowedInbounds/allowedOutbounds gates).
+	ExternalOutbounds []*v1alpha1.ExternalOutbound
+	// ExternalOutboundsByName indexes every resolved ExternalOutbound by name,
+	// including those referenced only by kind=ExternalOutbound CustomRoutes.
+	ExternalOutboundsByName map[string]*v1alpha1.ExternalOutbound
+	// ExternalCreds maps ExternalOutbound name to its resolved credentials.
+	ExternalCreds map[string]ExternalCredential
 
 	UsageCollectionEnabled bool
 	V2RayAPIListenAddr     string
@@ -105,7 +118,8 @@ func Compute(input Input) (Output, error) {
 	var rules []routeRule
 
 	if isInbound {
-		hasOutboundPeers := len(input.OutboundNodes) > 0 || len(myRoutes) > 0 || isSelfOutbound
+		hasOutboundPeers := len(input.OutboundNodes) > 0 || len(myRoutes) > 0 || isSelfOutbound ||
+			len(resolveExternalOutbounds(input, myRoutes)) > 0
 		if hasOutboundPeers {
 			ibs, rls := buildRouteInbounds(input, myRoutes, isSelfOutbound)
 			inbounds = append(inbounds, ibs...)
@@ -115,6 +129,7 @@ func Compute(input Input) (Output, error) {
 		}
 		outbounds = append(outbounds, buildOutboundNodeOutbounds(input, myRoutes)...)
 		outbounds = append(outbounds, buildRouteOutbounds(input, myRoutes)...)
+		outbounds = append(outbounds, buildExternalOutbounds(input, myRoutes)...)
 		if isSelfOutbound && (len(node.Spec.AllowedOutbounds) == 0 || slices.Contains(node.Spec.AllowedOutbounds, node.Name)) {
 			outbounds = append(outbounds, map[string]any{
 				"type": "direct",
@@ -316,6 +331,9 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 		}
 	}
 	for _, r := range routes {
+		if r.EffectiveOutboundKind() != v1alpha1.OutboundKindSingBoxNode {
+			continue
+		}
 		if !seen[r.Spec.OutboundNode] {
 			seen[r.Spec.OutboundNode] = true
 			outboundNames = append(outboundNames, r.Spec.OutboundNode)
@@ -324,6 +342,14 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 	if includeSelf && !seen[input.Node.Name] {
 		seen[input.Node.Name] = true
 		outboundNames = append(outboundNames, input.Node.Name)
+	}
+	// Usable ExternalOutbounds come last; on a name clash the SingBoxNode
+	// entry above already holds the seen slot, so the SingBoxNode wins.
+	for _, eob := range resolveExternalOutbounds(input, routes) {
+		if !seen[eob.Name] {
+			seen[eob.Name] = true
+			outboundNames = append(outboundNames, eob.Name)
+		}
 	}
 
 	proto := EffectiveInboundProtocol(input.Node)
@@ -539,6 +565,184 @@ func buildDirectOutbound() any {
 	}
 }
 
+// resolveExternalOutbounds computes the ordered, deduplicated set of usable
+// ExternalOutbounds for this node. Order: the auto-discovery list first, then
+// kind=ExternalOutbound CustomRoutes (in route order); first occurrence of a
+// name wins. An entry is skipped when:
+//   - its name collides with an outbound SingBoxNode or this node itself
+//     (they share the outbound-<name> tag; the SingBoxNode wins), or
+//   - its resolved credentials miss a key required by its protocol
+//     (a route rule pointing at a nonexistent outbound is invalid).
+func resolveExternalOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []*v1alpha1.ExternalOutbound {
+	seen := make(map[string]bool)
+	var result []*v1alpha1.ExternalOutbound
+	add := func(eob *v1alpha1.ExternalOutbound) {
+		if eob == nil || seen[eob.Name] {
+			return
+		}
+		seen[eob.Name] = true
+		if externalNameCollidesWithNode(input, eob.Name) {
+			return
+		}
+		if !hasRequiredExternalCreds(eob, input.ExternalCreds[eob.Name]) {
+			return
+		}
+		result = append(result, eob)
+	}
+	for _, eob := range input.ExternalOutbounds {
+		add(eob)
+	}
+	for _, r := range myRoutes {
+		if r.EffectiveOutboundKind() != v1alpha1.OutboundKindExternalOutbound {
+			continue
+		}
+		eob, ok := input.ExternalOutboundsByName[r.Spec.OutboundNode]
+		if !ok {
+			continue
+		}
+		add(eob)
+	}
+	return result
+}
+
+// externalNameCollidesWithNode reports whether name belongs to a SingBoxNode
+// visible to this node (a relay peer or the node itself).
+func externalNameCollidesWithNode(input Input, name string) bool {
+	if name == input.Node.Name {
+		return true
+	}
+	if _, ok := input.OutboundNodesByName[name]; ok {
+		return true
+	}
+	for _, n := range input.OutboundNodes {
+		if n.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// hasRequiredExternalCreds reports whether creds contains every key required
+// by the ExternalOutbound's protocol.
+func hasRequiredExternalCreds(eob *v1alpha1.ExternalOutbound, creds ExternalCredential) bool {
+	required := func(keys ...string) bool {
+		for _, k := range keys {
+			if creds[k] == "" {
+				return false
+			}
+		}
+		return true
+	}
+	switch eob.Spec.Protocol {
+	case v1alpha1.ExternalProtocolShadowsocks:
+		return required(v1alpha1.CredKeyMethod, v1alpha1.CredKeyPassword)
+	case v1alpha1.ExternalProtocolTUIC:
+		return required(v1alpha1.CredKeyUUID, v1alpha1.CredKeyPassword)
+	case v1alpha1.ExternalProtocolTrojan, v1alpha1.ExternalProtocolHysteria2, v1alpha1.ExternalProtocolAnyTLS:
+		if !required(v1alpha1.CredKeyPassword) {
+			return false
+		}
+	}
+	if eob.Spec.Protocol == v1alpha1.ExternalProtocolHysteria2 &&
+		eob.Spec.Hysteria2 != nil && eob.Spec.Hysteria2.Obfs &&
+		creds[v1alpha1.CredKeyObfsPassword] == "" {
+		return false
+	}
+	return true
+}
+
+// buildExternalOutbounds renders this node's usable ExternalOutbounds into
+// sing-box outbound entries tagged outbound-<name>.
+func buildExternalOutbounds(input Input, myRoutes []*v1alpha1.CustomRoute) []any {
+	var result []any
+	for _, eob := range resolveExternalOutbounds(input, myRoutes) {
+		result = append(result, buildExternalOutboundEntry(eob, input.ExternalCreds[eob.Name]))
+	}
+	return result
+}
+
+func buildExternalOutboundEntry(eob *v1alpha1.ExternalOutbound, creds ExternalCredential) map[string]any {
+	spec := eob.Spec
+	entry := map[string]any{
+		"tag":         fmt.Sprintf("outbound-%s", eob.Name),
+		"server":      spec.Server,
+		"server_port": spec.Port,
+	}
+	switch spec.Protocol {
+	case v1alpha1.ExternalProtocolSocks5:
+		entry["type"] = "socks"
+		entry["version"] = "5"
+		if u := creds[v1alpha1.CredKeyUsername]; u != "" {
+			entry["username"] = u
+		}
+		if p := creds[v1alpha1.CredKeyPassword]; p != "" {
+			entry["password"] = p
+		}
+	case v1alpha1.ExternalProtocolHTTP:
+		entry["type"] = "http"
+		if u := creds[v1alpha1.CredKeyUsername]; u != "" {
+			entry["username"] = u
+		}
+		if p := creds[v1alpha1.CredKeyPassword]; p != "" {
+			entry["password"] = p
+		}
+		if spec.TLS != nil {
+			entry["tls"] = externalTLSEntry(spec.TLS)
+		}
+	case v1alpha1.ExternalProtocolShadowsocks:
+		entry["type"] = "shadowsocks"
+		entry["method"] = creds[v1alpha1.CredKeyMethod]
+		entry["password"] = creds[v1alpha1.CredKeyPassword]
+	case v1alpha1.ExternalProtocolTrojan:
+		entry["type"] = "trojan"
+		entry["password"] = creds[v1alpha1.CredKeyPassword]
+		entry["tls"] = externalTLSEntry(spec.TLS)
+	case v1alpha1.ExternalProtocolHysteria2:
+		entry["type"] = "hysteria2"
+		entry["password"] = creds[v1alpha1.CredKeyPassword]
+		if spec.Hysteria2 != nil {
+			if spec.Hysteria2.UpMbps > 0 {
+				entry["up_mbps"] = spec.Hysteria2.UpMbps
+			}
+			if spec.Hysteria2.DownMbps > 0 {
+				entry["down_mbps"] = spec.Hysteria2.DownMbps
+			}
+			if spec.Hysteria2.Obfs {
+				entry["obfs"] = map[string]any{
+					"type":     "salamander",
+					"password": creds[v1alpha1.CredKeyObfsPassword],
+				}
+			}
+		}
+		entry["tls"] = externalTLSEntry(spec.TLS)
+	case v1alpha1.ExternalProtocolTUIC:
+		entry["type"] = "tuic"
+		entry["uuid"] = creds[v1alpha1.CredKeyUUID]
+		entry["password"] = creds[v1alpha1.CredKeyPassword]
+		entry["tls"] = externalTLSEntry(spec.TLS)
+	case v1alpha1.ExternalProtocolAnyTLS:
+		entry["type"] = "anytls"
+		entry["password"] = creds[v1alpha1.CredKeyPassword]
+		entry["tls"] = externalTLSEntry(spec.TLS)
+	}
+	return entry
+}
+
+// externalTLSEntry renders the sing-box tls block of an ExternalOutbound.
+func externalTLSEntry(tls *v1alpha1.ExternalOutboundTLS) map[string]any {
+	entry := map[string]any{"enabled": true}
+	if tls == nil {
+		return entry
+	}
+	if tls.ServerName != "" {
+		entry["server_name"] = tls.ServerName
+	}
+	if tls.Insecure {
+		entry["insecure"] = true
+	}
+	return entry
+}
+
 func deduplicateByTag(outbounds []any) []any {
 	seen := make(map[string]bool)
 	var result []any
@@ -573,7 +777,11 @@ func buildExperimentalConfig(input Input) *experimentalConfig {
 			outboundNames = append(outboundNames, n.Name)
 		}
 	}
-	for _, r := range routesForNode(input) {
+	myRoutes := routesForNode(input)
+	for _, r := range myRoutes {
+		if r.EffectiveOutboundKind() != v1alpha1.OutboundKindSingBoxNode {
+			continue
+		}
 		if !seen[r.Spec.OutboundNode] {
 			seen[r.Spec.OutboundNode] = true
 			outboundNames = append(outboundNames, r.Spec.OutboundNode)
@@ -584,6 +792,14 @@ func buildExperimentalConfig(input Input) *experimentalConfig {
 	if isInbound && isOutbound && !seen[input.Node.Name] {
 		seen[input.Node.Name] = true
 		outboundNames = append(outboundNames, input.Node.Name)
+	}
+	// Same dedup/precedence as buildRouteInbounds: usable ExternalOutbounds
+	// come last and lose to SingBoxNodes on a name clash.
+	for _, eob := range resolveExternalOutbounds(input, myRoutes) {
+		if !seen[eob.Name] {
+			seen[eob.Name] = true
+			outboundNames = append(outboundNames, eob.Name)
+		}
 	}
 
 	var userSet = make(map[string]bool)
