@@ -79,6 +79,13 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              clientRegion:
+                description: |-
+                  ClientRegion overrides the region label used for client config grouping.
+                  When empty, client configs group this node by spec.region. This field
+                  only affects client-side selector groups; server-side topology and
+                  route discovery always use spec.region.
+                type: string
               inboundProtocol:
                 description: |-
                   InboundProtocol forces this inbound node to use a specific protocol for all users.

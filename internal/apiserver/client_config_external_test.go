@@ -218,7 +218,8 @@ func TestBuildClientConfig_ExternalOutbound_RouteBound(t *testing.T) {
 	if !tags["ext-1#node-a"] {
 		t.Errorf("tag 'ext-1#node-a' not found in result, got tags: %v", tags)
 	}
-	if group := selectorGroupOutbounds(result, "us"); len(group) != 1 || group[0] != "ext-1#node-a" {
+	// Empty-region targets group under "others" (target-region scheme).
+	if group := selectorGroupOutbounds(result, "others"); len(group) != 1 || group[0] != "ext-1#node-a" {
 		t.Errorf("selector(others).outbounds should be [\"ext-1#node-a\"], got %v", group)
 	}
 }
@@ -472,9 +473,10 @@ func TestBuildClientConfig_ExternalOutbound_MixedSourcesSorted(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// 3 proxies + others group selector + proxy selector + direct = 6
-	if len(result) != 6 {
-		t.Fatalf("expected 6 items, got %d", len(result))
+	// 3 proxies + 2 group selectors (us, others for region-less ext-b)
+	// + proxy selector + direct = 7
+	if len(result) != 7 {
+		t.Fatalf("expected 7 items, got %d", len(result))
 	}
 
 	wantOrder := []string{"ext-a#node-a", "ext-b#node-a", "node-c#node-a"}
@@ -486,6 +488,15 @@ func TestBuildClientConfig_ExternalOutbound_MixedSourcesSorted(t *testing.T) {
 		if m["tag"] != want {
 			t.Errorf("result[%d] tag expected %q, got %v", i, want, m["tag"])
 		}
+	}
+
+	// ext-b has an empty region, so it groups under "others" while the
+	// region-ful ext-a and node-c stay in "us".
+	if g := selectorGroupOutbounds(result, "others"); len(g) != 1 || g[0] != "ext-b#node-a" {
+		t.Errorf("selector(others).outbounds should be [\"ext-b#node-a\"], got %v", g)
+	}
+	if g := selectorGroupOutbounds(result, "us"); len(g) != 2 {
+		t.Errorf("selector(us).outbounds should contain 2 tags, got %v", g)
 	}
 }
 

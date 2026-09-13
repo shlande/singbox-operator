@@ -547,3 +547,150 @@ func TestBuildClientConfig_EmptyRegionFallsBackToOthers(t *testing.T) {
 		t.Error("expected an 'others' group selector for region-less inbound")
 	}
 }
+
+// TestBuildClientConfig_GroupByTargetRegion_CrossRegionRoute: a route-pinned
+// outbound in a different region is grouped under ITS OWN region, not the
+// inbound's.
+func TestBuildClientConfig_GroupByTargetRegion_CrossRegionRoute(t *testing.T) {
+	inbound := makeInboundNode("in-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "vless", Port: 10443},
+	})
+	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+	outJP := makeOutboundNode("out-jp", "jp")
+	route := makeCustomRoute("r1", "default", "in-a", "out-jp")
+
+	user := makeUser("user-alice", "secret-alice")
+	input := ClientConfigInput{
+		User:         user,
+		UserCred:     credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		InboundNodes: []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{
+			"in-a": {route},
+		},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+			"out-jp": outJP,
+		},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("BuildClientConfig returned error: %v", err)
+	}
+
+	group := selectorGroupOutbounds(result, "jp")
+	if len(group) != 1 || group[0] != "out-jp#in-a" {
+		t.Errorf("selector(jp).outbounds should be [\"out-jp#in-a\"], got %v", group)
+	}
+	if g := selectorGroupOutbounds(result, "us"); len(g) != 0 {
+		t.Errorf("expected no 'us' group, got %v", g)
+	}
+}
+
+// TestBuildClientConfig_ClientRegionOverride_Node: spec.clientRegion on an
+// outbound SingBoxNode overrides its spec.region for grouping.
+func TestBuildClientConfig_ClientRegionOverride_Node(t *testing.T) {
+	inbound := makeInboundNode("in-a", "hk", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "vless", Port: 10443},
+	})
+	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+	out := makeOutboundNode("out-1", "hk")
+	out.Spec.ClientRegion = "jp-tokyo"
+
+	user := makeUser("user-alice", "secret-alice")
+	input := ClientConfigInput{
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+			"out-1": out,
+		},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("BuildClientConfig returned error: %v", err)
+	}
+
+	group := selectorGroupOutbounds(result, "jp-tokyo")
+	if len(group) != 1 || group[0] != "out-1#in-a" {
+		t.Errorf("selector(jp-tokyo).outbounds should be [\"out-1#in-a\"], got %v", group)
+	}
+	if g := selectorGroupOutbounds(result, "hk"); len(g) != 0 {
+		t.Errorf("expected no 'hk' group, got %v", g)
+	}
+}
+
+// TestBuildClientConfig_ClientRegionOverride_ExternalOutbound: spec.clientRegion
+// on an ExternalOutbound overrides its spec.region for grouping (the kddi case:
+// region hk for server-side discovery, jp-tokyo for client grouping).
+func TestBuildClientConfig_ClientRegionOverride_ExternalOutbound(t *testing.T) {
+	inbound := makeInboundNode("in-a", "hk", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "vless", Port: 10443},
+	})
+	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+	eob := makeExternalOutbound("kddi", "hk")
+	eob.Spec.ClientRegion = "jp-tokyo"
+
+	user := makeUser("user-alice", "secret-alice")
+	input := ClientConfigInput{
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{},
+		ExternalOutboundsByName: map[string]*proxyv1alpha1.ExternalOutbound{
+			"kddi": eob,
+		},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("BuildClientConfig returned error: %v", err)
+	}
+
+	group := selectorGroupOutbounds(result, "jp-tokyo")
+	if len(group) != 1 || group[0] != "kddi#in-a" {
+		t.Errorf("selector(jp-tokyo).outbounds should be [\"kddi#in-a\"], got %v", group)
+	}
+	if g := selectorGroupOutbounds(result, "hk"); len(g) != 0 {
+		t.Errorf("expected no 'hk' group, got %v", g)
+	}
+}
+
+// TestBuildClientConfig_ClientRegionOverride_SelfNode: a dual-role node's own
+// clientRegion also applies to its self entry.
+func TestBuildClientConfig_ClientRegionOverride_SelfNode(t *testing.T) {
+	node := makeDualRoleNode("node-a", "hk", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "vless", Port: 10443},
+	})
+	node.Spec.ClientRegion = "jp-tokyo"
+	node.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+	user := makeUser("user-alice", "secret-alice")
+	input := ClientConfigInput{
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{node},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+			"node-a": node,
+		},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("BuildClientConfig returned error: %v", err)
+	}
+
+	group := selectorGroupOutbounds(result, "jp-tokyo")
+	if len(group) != 1 || group[0] != "node-a" {
+		t.Errorf("selector(jp-tokyo).outbounds should be [\"node-a\"], got %v", group)
+	}
+	if g := selectorGroupOutbounds(result, "hk"); len(g) != 0 {
+		t.Errorf("expected no 'hk' group, got %v", g)
+	}
+}

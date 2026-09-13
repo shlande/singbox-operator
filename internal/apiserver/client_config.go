@@ -63,7 +63,6 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 
 		outboundNodes := resolveOutboundNodes(input, inboundNode.Name)
 
-		var inboundTags []string
 		for _, outboundNode := range outboundNodes {
 			var tag string
 			if outboundNode.Name == inboundNode.Name {
@@ -73,17 +72,10 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 			}
 			ob := buildProxyOutbound(tag, address, port, protocol, input.User.Name, outboundNode.Name, inboundNode.Status.TLSServerName, input.UserCred)
 			proxyOutbounds = append(proxyOutbounds, ob)
-			inboundTags = append(inboundTags, tag)
-		}
-
-		// Only record a group if the inbound produced at least one proxy outbound.
-		// Groups are keyed by the inbound node's region (by-region scheme).
-		if len(inboundTags) > 0 {
-			tag := inboundNode.Spec.Region
-			if tag == "" {
-				tag = "others"
-			}
-			groupOutbounds[tag] = append(groupOutbounds[tag], inboundTags...)
+			// Groups are keyed by the outbound TARGET's client region
+			// (spec.clientRegion override, else spec.region, else "others"),
+			// so a single inbound's entries may span multiple groups.
+			groupOutbounds[outboundNode.ClientRegion] = append(groupOutbounds[outboundNode.ClientRegion], tag)
 		}
 	}
 
@@ -154,9 +146,24 @@ func findEntryEndpoint(endpoints []string, protocol string) (address string, por
 // either a SingBoxNode with the outbound role or an ExternalOutbound. Client
 // configs only need the name (for tags, group selectors and credential
 // derivation); AllowedInbounds carries the per-outbound inbound restriction.
+// ClientRegion is the resolved client config group key for this target:
+// spec.clientRegion wins over spec.region ("others" when both are empty).
 type outboundRef struct {
 	Name            string
 	AllowedInbounds []string
+	ClientRegion    string
+}
+
+// clientGroupRegion resolves the client config group key for an outbound
+// target: spec.clientRegion overrides spec.region; "others" when both empty.
+func clientGroupRegion(region, clientRegion string) string {
+	if clientRegion != "" {
+		return clientRegion
+	}
+	if region != "" {
+		return region
+	}
+	return "others"
 }
 
 func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboundRef {
@@ -184,14 +191,14 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
-				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds})
+				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(n.Spec.Region, n.Spec.ClientRegion)})
 			}
 		}
 		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] &&
 			configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 			(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, inboundNode.Name)) {
 			seen[inboundNode.Name] = true
-			refs = append(refs, outboundRef{Name: inboundNode.Name})
+			refs = append(refs, outboundRef{Name: inboundNode.Name, ClientRegion: clientGroupRegion(inboundNode.Spec.Region, inboundNode.Spec.ClientRegion)})
 		}
 		// Same-region ExternalOutbounds are auto-discovered like outbound
 		// SingBoxNodes, except that an empty region never auto-discovers and
@@ -204,7 +211,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 				(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, eob.Name)) {
 				seen[eob.Name] = true
-				refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds})
+				refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(eob.Spec.Region, eob.Spec.ClientRegion)})
 			}
 		}
 	}
@@ -218,7 +225,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 					(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
 					(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, eob.Name)) {
 					seen[eob.Name] = true
-					refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds})
+					refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(eob.Spec.Region, eob.Spec.ClientRegion)})
 				}
 				continue
 			}
@@ -227,7 +234,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
-				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds})
+				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(n.Spec.Region, n.Spec.ClientRegion)})
 			}
 		}
 	}

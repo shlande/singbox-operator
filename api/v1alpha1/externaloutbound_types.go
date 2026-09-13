@@ -116,6 +116,12 @@ type ExternalOutboundSpec struct {
 	// outbound is only usable via explicit CustomRoute bindings.
 	// +optional
 	Region string `json:"region,omitempty"`
+	// ClientRegion overrides the region label used for client config grouping.
+	// When empty, client configs group this outbound by spec.region. This field
+	// only affects client-side selector groups; server-side route discovery
+	// always uses spec.region.
+	// +optional
+	ClientRegion string `json:"clientRegion,omitempty"`
 	// AllowedInbounds restricts which inbound SingBoxNodes may use this outbound.
 	// Empty means allow all. Mirrors SingBoxNode.spec.allowedInbounds.
 	// +optional

@@ -68,6 +68,13 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              clientRegion:
+                description: |-
+                  ClientRegion overrides the region label used for client config grouping.
+                  When empty, client configs group this outbound by spec.region. This field
+                  only affects client-side selector groups; server-side route discovery
+                  always uses spec.region.
+                type: string
               credentialsSecretRef:
                 description: |-
                   CredentialsSecretRef points to a Secret in the same namespace holding the
