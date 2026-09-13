@@ -107,6 +107,29 @@ func GetNodeCredential(ctx context.Context, c client.Client, nodeName, namespace
 	}, nil
 }
 
+// GetExternalCredentials reads the credential Secret referenced by an
+// ExternalOutbound and returns its data as non-empty string key/value pairs.
+// A nil CredentialsSecretRef yields a nil map and no error (protocols without
+// authentication). Unlike node relay credentials, these are user-provisioned:
+// this function never creates or mutates the Secret.
+func GetExternalCredentials(ctx context.Context, c client.Client, eob *v1alpha1.ExternalOutbound) (map[string]string, error) {
+	ref := eob.Spec.CredentialsSecretRef
+	if ref == nil {
+		return nil, nil
+	}
+	secret := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: eob.Namespace}, secret); err != nil {
+		return nil, fmt.Errorf("getting credentials secret for ExternalOutbound %s: %w", eob.Name, err)
+	}
+	creds := make(map[string]string, len(secret.Data))
+	for k, v := range secret.Data {
+		if len(v) > 0 {
+			creds[k] = string(v)
+		}
+	}
+	return creds, nil
+}
+
 // GetUserCredential retrieves authentication credentials from the Secret referenced by a User.
 func GetUserCredential(ctx context.Context, c client.Client, user *v1alpha1.User) (UserCredential, error) {
 	ref := user.Spec.AuthSecret
