@@ -170,6 +170,12 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 
 	if inboundNode != nil {
 		for _, n := range input.OutboundsByName {
+			// Peers without a relay port produce no outbound entry in node
+			// configs; advertising them would give clients broken paths.
+			// Same-node (direct) outbounds are exempt via the self branch below.
+			if n.Spec.RelayPort == 0 {
+				continue
+			}
 			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
@@ -213,7 +219,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 				}
 				continue
 			}
-			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
+			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && n.Spec.RelayPort != 0 && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {

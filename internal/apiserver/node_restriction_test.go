@@ -257,3 +257,92 @@ func TestBuildClientConfig_WithAllowedOutbounds(t *testing.T) {
 		}
 	})
 }
+
+// TestBuildClientConfig_RelayPortMissing verifies that outbound peers without
+// a relay port never appear in client configs (no server-side outbound entry
+// exists for them), while the same-node direct outbound stays visible.
+func TestBuildClientConfig_RelayPortMissing(t *testing.T) {
+	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "vless", Port: 10443},
+	})
+	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+	withRelay := makeOutboundNode("node-relay", "us")
+	withoutRelay := makeOutboundNode("node-norelay", "us")
+	withoutRelay.Spec.RelayPort = 0
+
+	user := makeUser("user-alice", "secret-alice")
+	userCred := credmanager.UserCredential{UUID: baseUUID}
+
+	t.Run("region peer without relayPort is excluded", func(t *testing.T) {
+		input := ClientConfigInput{
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+				"node-relay":   withRelay,
+				"node-norelay": withoutRelay,
+			},
+		}
+
+		result, err := BuildClientConfig(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		tags := collectTags(result)
+		if !tags["node-relay#node-a"] {
+			t.Errorf("node-relay#node-a should be present, got tags: %v", tags)
+		}
+		if tags["node-norelay#node-a"] {
+			t.Errorf("node-norelay#node-a should be absent (no relayPort), got tags: %v", tags)
+		}
+	})
+
+	t.Run("route target without relayPort is excluded", func(t *testing.T) {
+		route := makeCustomRoute("r1", "default", "node-a", "node-norelay")
+		input := ClientConfigInput{
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{"node-a": {route}},
+			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+				"node-norelay": withoutRelay,
+			},
+		}
+
+		result, err := BuildClientConfig(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if tags := collectTags(result); tags["node-norelay#node-a"] {
+			t.Errorf("node-norelay#node-a should be absent (route target without relayPort), got tags: %v", tags)
+		}
+	})
+
+	t.Run("self dual-role without relayPort stays visible", func(t *testing.T) {
+		self := makeDualRoleNode("node-self", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+			{Protocol: "vless", Port: 10443},
+		})
+		self.Spec.RelayPort = 0
+		self.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+		input := ClientConfigInput{
+			User:            user,
+			UserCred:        userCred,
+			InboundNodes:    []*proxyv1alpha1.SingBoxNode{self},
+			RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+			OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{"node-self": self},
+		}
+
+		result, err := BuildClientConfig(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if tags := collectTags(result); !tags["node-self"] {
+			t.Errorf("self entry node-self should be present even without relayPort, got tags: %v", tags)
+		}
+	})
+}
