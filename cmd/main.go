@@ -43,6 +43,7 @@ import (
 	"github.com/shlande/singbox-operator/internal/controller"
 	"github.com/shlande/singbox-operator/internal/usagecollector"
 	proxywebhook "github.com/shlande/singbox-operator/internal/webhook"
+	webhookv1alpha1 "github.com/shlande/singbox-operator/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -307,6 +308,17 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "usergroup")
+		os.Exit(1)
+	}
+	if err := (&controller.ExternalOutboundReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "externaloutbound")
+		os.Exit(1)
+	}
+	if err := webhookv1alpha1.SetupExternalOutboundWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "ExternalOutbound")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
