@@ -325,6 +325,12 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 	seen := make(map[string]bool)
 	var outboundNames []string
 	for _, n := range input.OutboundNodes {
+		// Peers without a relay port get no outbound entry (see
+		// buildOutboundNodeOutbounds), so they must not get virtual users or
+		// route rules either — only same-node (direct) outbounds are relayless.
+		if n.Spec.RelayPort == 0 {
+			continue
+		}
 		if !seen[n.Name] {
 			seen[n.Name] = true
 			outboundNames = append(outboundNames, n.Name)
@@ -332,6 +338,11 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 	}
 	for _, r := range routes {
 		if r.EffectiveOutboundKind() != v1alpha1.OutboundKindSingBoxNode {
+			continue
+		}
+		// Same relay-port guard as above for route targets (see
+		// buildRouteOutbounds).
+		if outNode := input.OutboundNodesByName[r.Spec.OutboundNode]; outNode == nil || outNode.Spec.RelayPort == 0 {
 			continue
 		}
 		if !seen[r.Spec.OutboundNode] {
@@ -772,6 +783,11 @@ func buildExperimentalConfig(input Input) *experimentalConfig {
 	seen := make(map[string]bool)
 	var outboundNames []string
 	for _, n := range input.OutboundNodes {
+		// Relay-port guard matching buildRouteInbounds: no outbound entry is
+		// built for such peers, so stat users would never see traffic.
+		if n.Spec.RelayPort == 0 {
+			continue
+		}
 		if !seen[n.Name] {
 			seen[n.Name] = true
 			outboundNames = append(outboundNames, n.Name)
@@ -780,6 +796,9 @@ func buildExperimentalConfig(input Input) *experimentalConfig {
 	myRoutes := routesForNode(input)
 	for _, r := range myRoutes {
 		if r.EffectiveOutboundKind() != v1alpha1.OutboundKindSingBoxNode {
+			continue
+		}
+		if outNode := input.OutboundNodesByName[r.Spec.OutboundNode]; outNode == nil || outNode.Spec.RelayPort == 0 {
 			continue
 		}
 		if !seen[r.Spec.OutboundNode] {

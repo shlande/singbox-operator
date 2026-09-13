@@ -3340,3 +3340,146 @@ func TestConfigEngine_ExternalOutboundMixedValidBroken(t *testing.T) {
 		t.Errorf("expected rule for outbound-ext-good, got %v", rules[0])
 	}
 }
+
+// ---------------------------------------------------------------------------
+// RegressionUnload: peers without relayPort must not produce dangling
+// virtual users / route rules / stats entries — no outbound entry is built
+// for them. Same-node (direct) outbounds are exempt.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_RelayPortMissing(t *testing.T) {
+	newInbound := func() *v1alpha1.SingBoxNode {
+		n := makeNode("in-a", "1.2.3.4", "us-west",
+			[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+			[]v1alpha1.ProtocolConfig{{Protocol: "hysteria2", Port: 443}}, 0)
+		return n
+	}
+
+	t.Run("region peer without relayPort is fully excluded", func(t *testing.T) {
+		nodeA := makeNode("in-a", "1.2.3.4", "us-west",
+			[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+			[]v1alpha1.ProtocolConfig{{Protocol: "hysteria2", Port: 443}}, 0)
+		nodeB := makeNode("node-b", "5.6.7.8", "us-west",
+			[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 31962)
+		nodeNoRelay := makeNode("no-relay", "9.9.9.9", "us-west",
+			[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 0)
+		user := makeUser("user-alice")
+
+		input := configengine.Input{
+			Node:  nodeA,
+			Users: []*v1alpha1.User{user},
+			UserCreds: map[string]configengine.UserCredential{
+				"user-alice": {UUID: "aaaa-1111"},
+			},
+			OutboundNodes: []*v1alpha1.SingBoxNode{nodeB, nodeNoRelay},
+			NodeCreds: map[string]configengine.NodeCredential{
+				"node-b": {Username: "ub", Password: "pb"},
+			},
+			OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{
+				"node-b":   nodeB,
+				"no-relay": nodeNoRelay,
+			},
+			UsageCollectionEnabled: true,
+		}
+
+		out, err := configengine.Compute(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		cfg := parseConfig(t, out)
+
+		// Virtual users: only node-b.
+		for _, ib := range inboundsOf(t, cfg) {
+			for _, u := range ib.(map[string]any)["users"].([]any) {
+				name := u.(map[string]any)["name"].(string)
+				if name != "user-alice#node-b" {
+					t.Errorf("unexpected virtual user %q (no-relay must be excluded)", name)
+				}
+			}
+		}
+
+		// Route rules + outbounds: only outbound-node-b.
+		rules := routeRulesOf(t, cfg)
+		if len(rules) != 1 || rules[0].(map[string]any)["outbound"] != "outbound-node-b" {
+			t.Errorf("expected single rule to outbound-node-b, got %v", rules)
+		}
+		tags := outboundTags(t, cfg)
+		for _, tag := range tags {
+			if tag == "outbound-no-relay" {
+				t.Errorf("unexpected outbound entry outbound-no-relay")
+			}
+		}
+
+		// Stats users: only #node-b.
+		exp := cfg["experimental"].(map[string]any)
+		statsUsers := exp["v2ray_api"].(map[string]any)["stats"].(map[string]any)["users"].([]any)
+		if len(statsUsers) != 1 || statsUsers[0].(string) != "user-alice#node-b" {
+			t.Errorf("expected stats users [user-alice#node-b], got %v", statsUsers)
+		}
+	})
+
+	t.Run("route target without relayPort produces no rule", func(t *testing.T) {
+		nodeA := newInbound()
+		nodeNoRelay := makeNode("no-relay", "9.9.9.9", "us-west",
+			[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}, nil, 0)
+		user := makeUser("user-alice")
+		route := &v1alpha1.CustomRoute{
+			Spec: v1alpha1.CustomRouteSpec{InboundNode: "in-a", OutboundNode: "no-relay"},
+		}
+
+		input := configengine.Input{
+			Node:  nodeA,
+			Users: []*v1alpha1.User{user},
+			UserCreds: map[string]configengine.UserCredential{
+				"user-alice": {UUID: "aaaa-1111"},
+			},
+			Routes:              []*v1alpha1.CustomRoute{route},
+			OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{"no-relay": nodeNoRelay},
+		}
+
+		out, err := configengine.Compute(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		cfg := parseConfig(t, out)
+		if rules := routeRulesOf(t, cfg); len(rules) != 0 {
+			t.Errorf("expected no route rules, got %v", rules)
+		}
+		for _, tag := range outboundTags(t, cfg) {
+			if tag == "outbound-no-relay" {
+				t.Errorf("unexpected outbound entry outbound-no-relay")
+			}
+		}
+	})
+
+	t.Run("self dual-role without relayPort keeps direct outbound", func(t *testing.T) {
+		self := makeNode("self-a", "1.2.3.4", "us-west",
+			[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound, v1alpha1.ProxyRoleOutbound},
+			[]v1alpha1.ProtocolConfig{{Protocol: "hysteria2", Port: 443}}, 0)
+		user := makeUser("user-alice")
+
+		input := configengine.Input{
+			Node:  self,
+			Users: []*v1alpha1.User{user},
+			UserCreds: map[string]configengine.UserCredential{
+				"user-alice": {UUID: "aaaa-1111"},
+			},
+			OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+		}
+
+		out, err := configengine.Compute(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		cfg := parseConfig(t, out)
+
+		found := false
+		for _, tag := range outboundTags(t, cfg) {
+			if tag == "outbound-self-a" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("expected direct outbound-self-a for self dual-role node")
+		}
+	})
+}
