@@ -95,7 +95,7 @@ func TestBuildClientConfig_ExternalOutbound_RegionMatch(t *testing.T) {
 		t.Errorf("tag 'ext-1#node-a' not found in result, got tags: %v", tags)
 	}
 
-	if group := selectorGroupOutbounds(result, "others"); len(group) != 1 || group[0] != "ext-1#node-a" {
+	if group := selectorGroupOutbounds(result, "us"); len(group) != 1 || group[0] != "ext-1#node-a" {
 		t.Errorf("selector(others).outbounds should be [\"ext-1#node-a\"], got %v", group)
 	}
 
@@ -218,7 +218,7 @@ func TestBuildClientConfig_ExternalOutbound_RouteBound(t *testing.T) {
 	if !tags["ext-1#node-a"] {
 		t.Errorf("tag 'ext-1#node-a' not found in result, got tags: %v", tags)
 	}
-	if group := selectorGroupOutbounds(result, "others"); len(group) != 1 || group[0] != "ext-1#node-a" {
+	if group := selectorGroupOutbounds(result, "us"); len(group) != 1 || group[0] != "ext-1#node-a" {
 		t.Errorf("selector(others).outbounds should be [\"ext-1#node-a\"], got %v", group)
 	}
 }

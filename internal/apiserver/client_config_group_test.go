@@ -8,22 +8,27 @@ import (
 	"github.com/shlande/singbox-operator/internal/credmanager"
 )
 
+// Region-based grouping: client config groups are keyed by the inbound
+// node's spec.region (falling back to "others"), never by spec.tag.
+
 func TestBuildClientConfig_MultiGroup(t *testing.T) {
-	// Given: 2 inbound nodes in the same region with different tags
-	inA := makeInboundNode("in-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+	// Given: 2 inbound nodes in different regions, each with its own
+	// same-region outbound. Both nodes carry Spec.Tag, which must be
+	// ignored — groups follow the region.
+	inA := makeInboundNode("in-a", "jp-tokyo", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
 	inA.Spec.Tag = "cdn"
 	inA.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
-	inB := makeInboundNode("in-b", "us", "5.6.7.8", []proxyv1alpha1.ProtocolConfig{
+	inB := makeInboundNode("in-b", "hk", "5.6.7.8", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
-	inB.Spec.Tag = "us"
+	inB.Spec.Tag = "ignored"
 	inB.Status.EntryEndpoints = []string{"vless:5.6.7.8:10443"}
 
-	// Given: 1 shared outbound node
-	out1 := makeOutboundNode("out-1", "us")
+	outJP := makeOutboundNode("out-jp", "jp-tokyo")
+	outHK := makeOutboundNode("out-hk", "hk")
 
 	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
@@ -32,7 +37,8 @@ func TestBuildClientConfig_MultiGroup(t *testing.T) {
 		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inA, inB},
 		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
 		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
-			"out-1": out1,
+			"out-jp": outJP,
+			"out-hk": outHK,
 		},
 	}
 
@@ -44,7 +50,8 @@ func TestBuildClientConfig_MultiGroup(t *testing.T) {
 		t.Fatalf("BuildClientConfig returned error: %v", err)
 	}
 
-	// 2 proxy outbounds (out-1#in-a, out-1#in-b) + 1 proxy selector + 2 group selectors (cdn, us) + 1 direct = 6
+	// 2 proxy outbounds (out-jp#in-a, out-hk#in-b) + 1 proxy selector
+	// + 2 group selectors (hk, jp-tokyo) + 1 direct = 6
 	if len(result) != 6 {
 		t.Fatalf("expected 6 items, got %d", len(result))
 	}
@@ -54,16 +61,16 @@ func TestBuildClientConfig_MultiGroup(t *testing.T) {
 	if !ok0 {
 		t.Fatal("result[0] is not a map")
 	}
-	if ob0["tag"] != "out-1#in-a" {
-		t.Errorf("expected tag out-1#in-a, got %v", ob0["tag"])
+	if ob0["tag"] != "out-jp#in-a" {
+		t.Errorf("expected tag out-jp#in-a, got %v", ob0["tag"])
 	}
 
 	ob1, ok1 := result[1].(map[string]any)
 	if !ok1 {
 		t.Fatal("result[1] is not a map")
 	}
-	if ob1["tag"] != "out-1#in-b" {
-		t.Errorf("expected tag out-1#in-b, got %v", ob1["tag"])
+	if ob1["tag"] != "out-hk#in-b" {
+		t.Errorf("expected tag out-hk#in-b, got %v", ob1["tag"])
 	}
 
 	// Verify top-level proxy selector (index 2, appears before group selectors)
@@ -81,46 +88,46 @@ func TestBuildClientConfig_MultiGroup(t *testing.T) {
 	if !ok3 {
 		t.Fatal("result[2] outbounds is not []string")
 	}
-	if len(outboundsProxy) != 2 || outboundsProxy[0] != "cdn" || outboundsProxy[1] != "us" {
-		t.Errorf("proxy outbounds expected [cdn us], got %v", outboundsProxy)
+	if len(outboundsProxy) != 2 || outboundsProxy[0] != "hk" || outboundsProxy[1] != "jp-tokyo" {
+		t.Errorf("proxy outbounds expected [hk jp-tokyo], got %v", outboundsProxy)
 	}
 
-	// Verify group selector for "cdn" (index 3, dict-sorted: cdn < us)
-	selCdn, ok4 := result[3].(map[string]any)
+	// Verify group selector for "hk" (index 3, dict-sorted: hk < jp-tokyo)
+	selHK, ok4 := result[3].(map[string]any)
 	if !ok4 {
 		t.Fatal("result[3] is not a map")
 	}
-	if selCdn["type"] != "selector" {
-		t.Errorf("result[3] type expected selector, got %v", selCdn["type"])
+	if selHK["type"] != "selector" {
+		t.Errorf("result[3] type expected selector, got %v", selHK["type"])
 	}
-	if selCdn["tag"] != "cdn" {
-		t.Errorf("result[3] tag expected cdn, got %v", selCdn["tag"])
+	if selHK["tag"] != "hk" {
+		t.Errorf("result[3] tag expected hk, got %v", selHK["tag"])
 	}
-	outboundsCdn, ok5 := selCdn["outbounds"].([]string)
+	outboundsHK, ok5 := selHK["outbounds"].([]string)
 	if !ok5 {
 		t.Fatal("result[3] outbounds is not []string")
 	}
-	if len(outboundsCdn) != 1 || outboundsCdn[0] != "out-1#in-a" {
-		t.Errorf("cdn outbounds expected [out-1#in-a], got %v", outboundsCdn)
+	if len(outboundsHK) != 1 || outboundsHK[0] != "out-hk#in-b" {
+		t.Errorf("hk outbounds expected [out-hk#in-b], got %v", outboundsHK)
 	}
 
-	// Verify group selector for "us" (index 4)
-	selUs, ok6 := result[4].(map[string]any)
+	// Verify group selector for "jp-tokyo" (index 4)
+	selJP, ok6 := result[4].(map[string]any)
 	if !ok6 {
 		t.Fatal("result[4] is not a map")
 	}
-	if selUs["type"] != "selector" {
-		t.Errorf("result[4] type expected selector, got %v", selUs["type"])
+	if selJP["type"] != "selector" {
+		t.Errorf("result[4] type expected selector, got %v", selJP["type"])
 	}
-	if selUs["tag"] != "us" {
-		t.Errorf("result[4] tag expected us, got %v", selUs["tag"])
+	if selJP["tag"] != "jp-tokyo" {
+		t.Errorf("result[4] tag expected jp-tokyo, got %v", selJP["tag"])
 	}
-	outboundsUs, ok7 := selUs["outbounds"].([]string)
+	outboundsJP, ok7 := selJP["outbounds"].([]string)
 	if !ok7 {
 		t.Fatal("result[4] outbounds is not []string")
 	}
-	if len(outboundsUs) != 1 || outboundsUs[0] != "out-1#in-b" {
-		t.Errorf("us outbounds expected [out-1#in-b], got %v", outboundsUs)
+	if len(outboundsJP) != 1 || outboundsJP[0] != "out-jp#in-a" {
+		t.Errorf("jp-tokyo outbounds expected [out-jp#in-a], got %v", outboundsJP)
 	}
 
 	// Verify direct (index 5)
@@ -137,11 +144,11 @@ func TestBuildClientConfig_MultiGroup(t *testing.T) {
 }
 
 func TestBuildClientConfig_EmptyGroupNotEmitted(t *testing.T) {
-	// Given: 1 inbound node with no tag (→ "others" group), 1 outbound that is offline
+	// Given: 1 inbound node (region "us") whose only outbound candidate is
+	// offline, so it produces no proxy outbound and no group.
 	inbound := makeInboundNode("in-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
-	// No Spec.Tag set → empty string → "others"
 	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
 	outbound := makeOutboundNode("out-1", "us")
@@ -204,22 +211,20 @@ func TestBuildClientConfig_EmptyGroupNotEmitted(t *testing.T) {
 	}
 }
 
-// TestBuildClientConfig_DefaultGroupMerge: 2 inbound nodes both with no tag (both go to "others" group),
-// each with its own outbound, different regions so no cross-discovery. Assert merged group selector.
-func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
+// TestBuildClientConfig_RegionGroupMerge: 2 inbound nodes in the same region
+// share one region group; their relay entries are merged into it.
+func TestBuildClientConfig_RegionGroupMerge(t *testing.T) {
 	inA := makeInboundNode("in-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
 	inA.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
-	inB := makeInboundNode("in-b", "eu", "5.6.7.8", []proxyv1alpha1.ProtocolConfig{
+	inB := makeInboundNode("in-b", "us", "5.6.7.8", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
 	inB.Status.EntryEndpoints = []string{"vless:5.6.7.8:10443"}
 
-	// Each region has its own outbound, so no cross-discovery
 	out1 := makeOutboundNode("out-1", "us")
-	out2 := makeOutboundNode("out-2", "eu")
 
 	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
@@ -229,7 +234,6 @@ func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
 		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
 		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
 			"out-1": out1,
-			"out-2": out2,
 		},
 	}
 
@@ -238,7 +242,7 @@ func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
 		t.Fatalf("BuildClientConfig returned error: %v", err)
 	}
 
-	// 2 proxy outbounds + proxy selector + 1 group selector (others) + direct = 5
+	// 2 proxy outbounds + proxy selector + 1 group selector (us) + direct = 5
 	if len(result) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(result))
 	}
@@ -255,8 +259,8 @@ func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
 	if !ok1 {
 		t.Fatal("result[1] is not a map")
 	}
-	if ob1["tag"] != "out-2#in-b" {
-		t.Errorf("expected tag out-2#in-b, got %v", ob1["tag"])
+	if ob1["tag"] != "out-1#in-b" {
+		t.Errorf("expected tag out-1#in-b, got %v", ob1["tag"])
 	}
 
 	// Verify proxy selector (index 2, appears before group selectors)
@@ -264,41 +268,32 @@ func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
 	if !ok2 {
 		t.Fatal("result[2] is not a map")
 	}
-	if selProxy["type"] != "selector" {
-		t.Errorf("result[2] type expected selector, got %v", selProxy["type"])
-	}
-	if selProxy["tag"] != "proxy" {
-		t.Errorf("result[2] tag expected proxy, got %v", selProxy["tag"])
-	}
 	outboundsProxy, ok3 := selProxy["outbounds"].([]string)
 	if !ok3 {
 		t.Fatal("result[2] outbounds is not []string")
 	}
-	if len(outboundsProxy) != 1 || outboundsProxy[0] != "others" {
-		t.Errorf("proxy outbounds expected [others], got %v", outboundsProxy)
+	if len(outboundsProxy) != 1 || outboundsProxy[0] != "us" {
+		t.Errorf("proxy outbounds expected [us], got %v", outboundsProxy)
 	}
 
-	// Verify group selector for "others" (index 3, after proxy selector)
-	selOthers, ok4 := result[3].(map[string]any)
+	// Verify group selector for "us" (index 3, after proxy selector)
+	selUs, ok4 := result[3].(map[string]any)
 	if !ok4 {
 		t.Fatal("result[3] is not a map")
 	}
-	if selOthers["type"] != "selector" {
-		t.Errorf("result[3] type expected selector, got %v", selOthers["type"])
+	if selUs["tag"] != "us" {
+		t.Errorf("result[3] tag expected us, got %v", selUs["tag"])
 	}
-	if selOthers["tag"] != "others" {
-		t.Errorf("result[3] tag expected others, got %v", selOthers["tag"])
-	}
-	outboundsOthers, ok5 := selOthers["outbounds"].([]string)
+	outboundsUs, ok5 := selUs["outbounds"].([]string)
 	if !ok5 {
 		t.Fatal("result[3] outbounds is not []string")
 	}
-	if len(outboundsOthers) != 2 {
-		t.Fatalf("expected 2 outbounds in others group, got %v", outboundsOthers)
+	if len(outboundsUs) != 2 {
+		t.Fatalf("expected 2 outbounds in us group, got %v", outboundsUs)
 	}
-	// Both outbound tags should appear (sorted)
-	if outboundsOthers[0] != "out-1#in-a" || outboundsOthers[1] != "out-2#in-b" {
-		t.Errorf("others outbounds expected [out-1#in-a out-2#in-b], got %v", outboundsOthers)
+	// Both relay tags should appear (sorted)
+	if outboundsUs[0] != "out-1#in-a" || outboundsUs[1] != "out-1#in-b" {
+		t.Errorf("us outbounds expected [out-1#in-a out-1#in-b], got %v", outboundsUs)
 	}
 
 	// Verify direct (index 4)
@@ -309,21 +304,19 @@ func TestBuildClientConfig_DefaultGroupMerge(t *testing.T) {
 	if direct["type"] != "direct" {
 		t.Errorf("result[4] type expected direct, got %v", direct["type"])
 	}
-	if direct["tag"] != "direct" {
-		t.Errorf("result[4] tag expected direct, got %v", direct["tag"])
-	}
 }
 
-// TestBuildClientConfig_TagOnOutboundIgnored: outbound node's own Spec.Tag is irrelevant.
-// Only the inbound's tag matters for grouping.
-func TestBuildClientConfig_TagOnOutboundIgnored(t *testing.T) {
+// TestBuildClientConfig_TagIgnoredRegionGrouping: Spec.Tag on both inbound
+// and outbound nodes is irrelevant for grouping — only region counts.
+func TestBuildClientConfig_TagIgnoredRegionGrouping(t *testing.T) {
 	inbound := makeInboundNode("in-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
+	inbound.Spec.Tag = "cdn" // must be ignored
 	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
 	outbound := makeOutboundNode("out-1", "us")
-	outbound.Spec.Tag = "cdn" // outbound tag should be irrelevant for grouping
+	outbound.Spec.Tag = "cdn" // must be ignored as well
 
 	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
@@ -341,12 +334,12 @@ func TestBuildClientConfig_TagOnOutboundIgnored(t *testing.T) {
 		t.Fatalf("BuildClientConfig returned error: %v", err)
 	}
 
-	// 1 proxy outbound + proxy selector + 1 group selector (others) + direct = 4
+	// 1 proxy outbound + proxy selector + 1 group selector (us) + direct = 4
 	if len(result) != 4 {
 		t.Fatalf("expected 4 items, got %d", len(result))
 	}
 
-	// Verify proxy outbound tag is correct (outbound's own tag does not affect outbound tag format)
+	// Verify proxy outbound tag is correct
 	ob0, ok0 := result[0].(map[string]any)
 	if !ok0 {
 		t.Fatal("result[0] is not a map")
@@ -355,47 +348,34 @@ func TestBuildClientConfig_TagOnOutboundIgnored(t *testing.T) {
 		t.Errorf("expected tag out-1#in-a, got %v", ob0["tag"])
 	}
 
-	// Verify proxy selector (index 1, before group selectors)
-	selProxy, ok1 := result[1].(map[string]any)
-	if !ok1 {
-		t.Fatal("result[1] is not a map")
-	}
-	if selProxy["type"] != "selector" {
-		t.Errorf("result[1] type expected selector, got %v", selProxy["type"])
-	}
-	if selProxy["tag"] != "proxy" {
-		t.Errorf("result[1] tag expected proxy, got %v", selProxy["tag"])
-	}
-
-	// Verify group selector is "others" (index 2)
-	selOthers, ok2 := result[2].(map[string]any)
+	// Verify group selector is keyed by region "us" (index 2), not by tag "cdn"
+	selUs, ok2 := result[2].(map[string]any)
 	if !ok2 {
 		t.Fatal("result[2] is not a map")
 	}
-	if selOthers["type"] != "selector" {
-		t.Errorf("result[2] type expected selector, got %v", selOthers["type"])
+	if selUs["type"] != "selector" {
+		t.Errorf("result[2] type expected selector, got %v", selUs["type"])
 	}
-	if selOthers["tag"] != "others" {
-		t.Errorf("expected group selector tag 'others', got %v", selOthers["tag"])
+	if selUs["tag"] != "us" {
+		t.Errorf("expected group selector tag 'us', got %v", selUs["tag"])
 	}
 }
 
 // TestBuildClientConfig_GroupOrderDeterministic: group selectors are ordered by dictionary sort,
 // and calling BuildClientConfig twice with the same input produces byte-identical JSON.
 func TestBuildClientConfig_GroupOrderDeterministic(t *testing.T) {
-	inA := makeInboundNode("in-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+	inA := makeInboundNode("in-a", "zebra", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
-	inA.Spec.Tag = "zebra"
 	inA.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
-	inB := makeInboundNode("in-b", "us", "5.6.7.8", []proxyv1alpha1.ProtocolConfig{
+	inB := makeInboundNode("in-b", "apple", "5.6.7.8", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
-	inB.Spec.Tag = "apple"
 	inB.Status.EntryEndpoints = []string{"vless:5.6.7.8:10443"}
 
-	out := makeOutboundNode("out-1", "us")
+	outZ := makeOutboundNode("out-z", "zebra")
+	outA := makeOutboundNode("out-a", "apple")
 
 	user := makeUser("user-alice", "secret-alice")
 	input := ClientConfigInput{
@@ -404,7 +384,8 @@ func TestBuildClientConfig_GroupOrderDeterministic(t *testing.T) {
 		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inA, inB},
 		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
 		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
-			"out-1": out,
+			"out-z": outZ,
+			"out-a": outA,
 		},
 	}
 
@@ -456,15 +437,16 @@ func TestBuildClientConfig_GroupOrderDeterministic(t *testing.T) {
 
 // TestBuildClientConfig_GroupDedup: group outbounds never contain duplicates.
 func TestBuildClientConfig_GroupDedup(t *testing.T) {
-	// Use DIFFERENT regions so dual-role nodes only discover themselves (no cross-discovery)
-	// Each produces exactly 1 self-outbound, both in the "cdn" group
+	// Two dual-role nodes in the same region, both carrying a Spec.Tag that
+	// must be ignored. Each discovers the other as a relay target, so the
+	// single "us" group must contain 4 unique entries.
 	nodeA := makeDualRoleNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
 	nodeA.Spec.Tag = "cdn"
 	nodeA.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
 
-	nodeB := makeDualRoleNode("node-b", "eu", "5.6.7.8", []proxyv1alpha1.ProtocolConfig{
+	nodeB := makeDualRoleNode("node-b", "us", "5.6.7.8", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
 	nodeB.Spec.Tag = "cdn"
@@ -487,33 +469,81 @@ func TestBuildClientConfig_GroupDedup(t *testing.T) {
 		t.Fatalf("BuildClientConfig returned error: %v", err)
 	}
 
-	// 2 proxy outbounds (node-a, node-b self-outbounds) + 1 group selector (cdn) + proxy selector + direct = 5
-	if len(result) != 5 {
-		t.Fatalf("expected 5 items, got %d", len(result))
+	// 4 proxy outbounds (node-a, node-b#node-a, node-b, node-a#node-b)
+	// + proxy selector + 1 group selector (us) + direct = 7
+	if len(result) != 7 {
+		t.Fatalf("expected 7 items, got %d", len(result))
 	}
 
-	// Find the "cdn" group selector and verify no duplicates
-	var cdnOutbounds []string
+	// Find the "us" group selector and verify no duplicates
+	var usOutbounds []string
 	for _, ob := range result {
 		m, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
-		if m["type"] == "selector" && m["tag"] == "cdn" {
-			cdnOutbounds, _ = m["outbounds"].([]string)
+		if m["type"] == "selector" && m["tag"] == "us" {
+			usOutbounds, _ = m["outbounds"].([]string)
 		}
 	}
 
-	if len(cdnOutbounds) != 2 {
-		t.Fatalf("expected 2 outbounds in cdn group, got %v", cdnOutbounds)
+	if len(usOutbounds) != 4 {
+		t.Fatalf("expected 4 outbounds in us group, got %v", usOutbounds)
 	}
 
-	// Verify no duplicates: the two self-outbounds should be node-a and node-b
+	// Verify no duplicates
 	seen := make(map[string]bool)
-	for _, ob := range cdnOutbounds {
+	for _, ob := range usOutbounds {
 		if seen[ob] {
-			t.Errorf("duplicate outbound tag %q in cdn group", ob)
+			t.Errorf("duplicate outbound tag %q in us group", ob)
 		}
 		seen[ob] = true
+	}
+}
+
+// TestBuildClientConfig_EmptyRegionFallsBackToOthers: an inbound node with no
+// region still lands in the "others" group.
+func TestBuildClientConfig_EmptyRegionFallsBackToOthers(t *testing.T) {
+	inbound := makeInboundNode("in-a", "", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+		{Protocol: "vless", Port: 10443},
+	})
+	inbound.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
+
+	// The relay candidate must share the inbound's region ("" here) to be
+	// discovered; use a CustomRoute pin instead to keep it deterministic.
+	outbound := makeOutboundNode("out-1", "")
+
+	user := makeUser("user-alice", "secret-alice")
+	input := ClientConfigInput{
+		User:            user,
+		UserCred:        credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		InboundNodes:    []*proxyv1alpha1.SingBoxNode{inbound},
+		RoutesByInbound: map[string][]*proxyv1alpha1.CustomRoute{},
+		OutboundsByName: map[string]*proxyv1alpha1.SingBoxNode{
+			"out-1": outbound,
+		},
+	}
+
+	result, err := BuildClientConfig(input)
+	if err != nil {
+		t.Fatalf("BuildClientConfig returned error: %v", err)
+	}
+
+	found := false
+	for _, ob := range result {
+		m, ok := ob.(map[string]any)
+		if !ok {
+			continue
+		}
+		if m["type"] == "selector" && m["tag"] == "others" {
+			found = true
+			outbounds, _ := m["outbounds"].([]string)
+			if len(outbounds) != 1 || outbounds[0] != "out-1#in-a" {
+				t.Errorf("others outbounds expected [out-1#in-a], got %v", outbounds)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected an 'others' group selector for region-less inbound")
 	}
 }

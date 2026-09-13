@@ -76,9 +76,10 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 			inboundTags = append(inboundTags, tag)
 		}
 
-		// Only record a group if the inbound produced at least one proxy outbound
+		// Only record a group if the inbound produced at least one proxy outbound.
+		// Groups are keyed by the inbound node's region (by-region scheme).
 		if len(inboundTags) > 0 {
-			tag := inboundNode.Spec.Tag
+			tag := inboundNode.Spec.Region
 			if tag == "" {
 				tag = "others"
 			}
