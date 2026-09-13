@@ -52,6 +52,13 @@ func validateCustomRoute(route *v1alpha1.CustomRoute) error {
 		allErrs = append(allErrs, field.Required(field.NewPath("spec", "outboundNode"), "outboundNode must not be empty"))
 	}
 
+	if route.Spec.OutboundKind != "" &&
+		route.Spec.OutboundKind != v1alpha1.OutboundKindSingBoxNode &&
+		route.Spec.OutboundKind != v1alpha1.OutboundKindExternalOutbound {
+		allErrs = append(allErrs, field.NotSupported(field.NewPath("spec", "outboundKind"), route.Spec.OutboundKind,
+			[]string{v1alpha1.OutboundKindSingBoxNode, v1alpha1.OutboundKindExternalOutbound}))
+	}
+
 	if len(allErrs) > 0 {
 		return allErrs.ToAggregate()
 	}

@@ -201,4 +201,270 @@ var _ = Describe("CustomRoute Reconciler", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	It("should resolve route with explicit SingBoxNode outboundKind", func() {
+		inboundName := "pr-kind-inbound-1"
+		outboundName := "pr-kind-outbound-1"
+
+		inboundNode := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: inboundName, Namespace: ns},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: "k8s-node-pr-4",
+				Address: "20.0.0.4",
+				Region:  "pr-test-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 30450},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, inboundNode)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, inboundNode) })
+
+		outboundNode := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: outboundName, Namespace: ns},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: "k8s-node-pr-5",
+				Address: "20.0.0.5",
+				Region:  "pr-other-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
+			},
+		}
+		Expect(k8sClient.Create(ctx, outboundNode)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, outboundNode) })
+
+		routeName := "pr-route-kind-singboxnode"
+		route := &proxyv1alpha1.CustomRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: routeName, Namespace: ns},
+			Spec: proxyv1alpha1.CustomRouteSpec{
+				InboundNode:  inboundName,
+				OutboundNode: outboundName,
+				OutboundKind: proxyv1alpha1.OutboundKindSingBoxNode,
+			},
+		}
+		Expect(k8sClient.Create(ctx, route)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, route) })
+
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: routeName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedRoute := &proxyv1alpha1.CustomRoute{}
+		Eventually(func() string {
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			return updatedRoute.Status.ResolvedOutboundNode
+		}, timeout, interval).Should(Equal(outboundName))
+		Expect(updatedRoute.Status.ResolvedInboundNode).To(Equal(inboundName))
+	})
+
+	It("should resolve route with ExternalOutbound outboundKind when target is Accepted", func() {
+		inboundName := "pr-ext-inbound-1"
+		inboundNode := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: inboundName, Namespace: ns},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: "k8s-node-pr-6",
+				Address: "20.0.0.6",
+				Region:  "pr-test-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 30451},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, inboundNode)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, inboundNode) })
+
+		extName := "pr-ext-target-1"
+		externalOutbound := &proxyv1alpha1.ExternalOutbound{
+			ObjectMeta: metav1.ObjectMeta{Name: extName, Namespace: ns},
+			Spec: proxyv1alpha1.ExternalOutboundSpec{
+				Protocol: proxyv1alpha1.ExternalProtocolTrojan,
+				Server:   "203.0.113.10",
+				Port:     443,
+				TLS:      &proxyv1alpha1.ExternalOutboundTLS{ServerName: "example.com"},
+			},
+		}
+		Expect(k8sClient.Create(ctx, externalOutbound)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, externalOutbound) })
+
+		externalOutbound.Status.Conditions = []metav1.Condition{{
+			Type:               proxyv1alpha1.ExternalOutboundAcceptedConditionType,
+			Status:             metav1.ConditionTrue,
+			Reason:             "Validated",
+			Message:            "spec is valid",
+			ObservedGeneration: externalOutbound.Generation,
+			LastTransitionTime: metav1.Now(),
+		}}
+		Expect(k8sClient.Status().Update(ctx, externalOutbound)).To(Succeed())
+
+		routeName := "pr-route-ext-1"
+		route := &proxyv1alpha1.CustomRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: routeName, Namespace: ns},
+			Spec: proxyv1alpha1.CustomRouteSpec{
+				InboundNode:  inboundName,
+				OutboundNode: extName,
+				OutboundKind: proxyv1alpha1.OutboundKindExternalOutbound,
+			},
+		}
+		Expect(k8sClient.Create(ctx, route)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, route) })
+
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: routeName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedRoute := &proxyv1alpha1.CustomRoute{}
+		Eventually(func() string {
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			return updatedRoute.Status.ResolvedOutboundNode
+		}, timeout, interval).Should(Equal(extName))
+		Expect(updatedRoute.Status.ResolvedInboundNode).To(Equal(inboundName))
+
+		var ready *metav1.Condition
+		for i, c := range updatedRoute.Status.Conditions {
+			if c.Type == "Ready" {
+				ready = &updatedRoute.Status.Conditions[i]
+			}
+		}
+		Expect(ready).NotTo(BeNil())
+		Expect(ready.Status).To(Equal(metav1.ConditionTrue))
+	})
+
+	It("should set Degraded when ExternalOutbound target does not exist", func() {
+		inboundName := "pr-ext-inbound-2"
+		inboundNode := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: inboundName, Namespace: ns},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: "k8s-node-pr-7",
+				Address: "20.0.0.7",
+				Region:  "pr-test-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 30452},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, inboundNode)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, inboundNode) })
+
+		routeName := "pr-route-ext-missing"
+		route := &proxyv1alpha1.CustomRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: routeName, Namespace: ns},
+			Spec: proxyv1alpha1.CustomRouteSpec{
+				InboundNode:  inboundName,
+				OutboundNode: "nonexistent-external",
+				OutboundKind: proxyv1alpha1.OutboundKindExternalOutbound,
+			},
+		}
+		Expect(k8sClient.Create(ctx, route)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, route) })
+
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: routeName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedRoute := &proxyv1alpha1.CustomRoute{}
+		Eventually(func() bool {
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			for _, c := range updatedRoute.Status.Conditions {
+				if c.Type == "Degraded" && c.Status == metav1.ConditionTrue {
+					return true
+				}
+			}
+			return false
+		}, timeout, interval).Should(BeTrue())
+
+		var degradedReason, degradedMsg string
+		for _, c := range updatedRoute.Status.Conditions {
+			if c.Type == "Degraded" {
+				degradedReason = c.Reason
+				degradedMsg = c.Message
+			}
+		}
+		Expect(degradedReason).To(Equal("OutboundNodeNotFound"))
+		Expect(degradedMsg).To(ContainSubstring("outboundNode"))
+	})
+
+	It("should set Degraded when ExternalOutbound target is not Accepted", func() {
+		inboundName := "pr-ext-inbound-3"
+		inboundNode := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: inboundName, Namespace: ns},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: "k8s-node-pr-8",
+				Address: "20.0.0.8",
+				Region:  "pr-test-region",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 30453},
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, inboundNode)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, inboundNode) })
+
+		extName := "pr-ext-target-2"
+		externalOutbound := &proxyv1alpha1.ExternalOutbound{
+			ObjectMeta: metav1.ObjectMeta{Name: extName, Namespace: ns},
+			Spec: proxyv1alpha1.ExternalOutboundSpec{
+				Protocol: proxyv1alpha1.ExternalProtocolTrojan,
+				Server:   "203.0.113.11",
+				Port:     443,
+				TLS:      &proxyv1alpha1.ExternalOutboundTLS{ServerName: "example.com"},
+			},
+		}
+		Expect(k8sClient.Create(ctx, externalOutbound)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, externalOutbound) })
+
+		externalOutbound.Status.Conditions = []metav1.Condition{{
+			Type:               proxyv1alpha1.ExternalOutboundAcceptedConditionType,
+			Status:             metav1.ConditionFalse,
+			Reason:             "InvalidSpec",
+			Message:            "credentials secret missing",
+			ObservedGeneration: externalOutbound.Generation,
+			LastTransitionTime: metav1.Now(),
+		}}
+		Expect(k8sClient.Status().Update(ctx, externalOutbound)).To(Succeed())
+
+		routeName := "pr-route-ext-rejected"
+		route := &proxyv1alpha1.CustomRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: routeName, Namespace: ns},
+			Spec: proxyv1alpha1.CustomRouteSpec{
+				InboundNode:  inboundName,
+				OutboundNode: extName,
+				OutboundKind: proxyv1alpha1.OutboundKindExternalOutbound,
+			},
+		}
+		Expect(k8sClient.Create(ctx, route)).To(Succeed())
+		DeferCleanup(func() { k8sClient.Delete(ctx, route) })
+
+		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: routeName, Namespace: ns},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedRoute := &proxyv1alpha1.CustomRoute{}
+		Eventually(func() bool {
+			k8sClient.Get(ctx, types.NamespacedName{Name: routeName, Namespace: ns}, updatedRoute)
+			for _, c := range updatedRoute.Status.Conditions {
+				if c.Type == "Degraded" && c.Status == metav1.ConditionTrue {
+					return true
+				}
+			}
+			return false
+		}, timeout, interval).Should(BeTrue())
+
+		var degradedReason, degradedMsg string
+		for _, c := range updatedRoute.Status.Conditions {
+			if c.Type == "Degraded" {
+				degradedReason = c.Reason
+				degradedMsg = c.Message
+			}
+		}
+		Expect(degradedReason).To(Equal("OutboundNotAccepted"))
+		Expect(degradedMsg).To(ContainSubstring("credentials secret missing"))
+		Expect(updatedRoute.Status.ResolvedOutboundNode).To(BeEmpty())
+	})
 })

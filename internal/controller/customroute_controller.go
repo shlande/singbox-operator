@@ -44,6 +44,8 @@ type CustomRouteReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=externaloutbounds,verbs=get;list;watch
+
 func (r *CustomRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	start := time.Now()
@@ -79,16 +81,47 @@ func (r *CustomRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	outboundNode := &proxyv1alpha1.SingBoxNode{}
-	if err := r.Get(ctx, types.NamespacedName{Name: route.Spec.OutboundNode, Namespace: route.Namespace}, outboundNode); err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info("OutboundNode not found, setting Degraded", "outboundNode", route.Spec.OutboundNode)
-			reconcileErr = fmt.Errorf("outbound node not found")
-			return r.setDegradedRoute(ctx, route, "OutboundNodeNotFound",
-				fmt.Sprintf("outboundNode %q not found", route.Spec.OutboundNode))
+	var resolvedOutbound string
+	switch route.EffectiveOutboundKind() {
+	case proxyv1alpha1.OutboundKindSingBoxNode:
+		outboundNode := &proxyv1alpha1.SingBoxNode{}
+		if err := r.Get(ctx, types.NamespacedName{Name: route.Spec.OutboundNode, Namespace: route.Namespace}, outboundNode); err != nil {
+			if errors.IsNotFound(err) {
+				logger.Info("OutboundNode not found, setting Degraded", "outboundNode", route.Spec.OutboundNode)
+				reconcileErr = fmt.Errorf("outbound node not found")
+				return r.setDegradedRoute(ctx, route, "OutboundNodeNotFound",
+					fmt.Sprintf("outboundNode %q not found", route.Spec.OutboundNode))
+			}
+			reconcileErr = err
+			return ctrl.Result{}, err
 		}
-		reconcileErr = err
-		return ctrl.Result{}, err
+		resolvedOutbound = outboundNode.Name
+	case proxyv1alpha1.OutboundKindExternalOutbound:
+		externalOutbound := &proxyv1alpha1.ExternalOutbound{}
+		if err := r.Get(ctx, types.NamespacedName{Name: route.Spec.OutboundNode, Namespace: route.Namespace}, externalOutbound); err != nil {
+			if errors.IsNotFound(err) {
+				logger.Info("ExternalOutbound not found, setting Degraded", "externalOutbound", route.Spec.OutboundNode)
+				reconcileErr = fmt.Errorf("external outbound not found")
+				return r.setDegradedRoute(ctx, route, "OutboundNodeNotFound",
+					fmt.Sprintf("outboundNode %q not found", route.Spec.OutboundNode))
+			}
+			reconcileErr = err
+			return ctrl.Result{}, err
+		}
+		accepted := apimeta.FindStatusCondition(externalOutbound.Status.Conditions, proxyv1alpha1.ExternalOutboundAcceptedConditionType)
+		if accepted == nil || accepted.Status != metav1.ConditionTrue {
+			message := fmt.Sprintf("externalOutbound %q is not Accepted", route.Spec.OutboundNode)
+			if accepted != nil {
+				message = fmt.Sprintf("%s: %s", message, accepted.Message)
+			}
+			logger.Info("ExternalOutbound not accepted, setting Degraded", "externalOutbound", route.Spec.OutboundNode)
+			reconcileErr = fmt.Errorf("external outbound not accepted")
+			return r.setDegradedRoute(ctx, route, "OutboundNotAccepted", message)
+		}
+		resolvedOutbound = externalOutbound.Name
+	default:
+		reconcileErr = fmt.Errorf("unknown outboundKind %q", route.Spec.OutboundKind)
+		return ctrl.Result{}, reconcileErr
 	}
 
 	if err := r.triggerNodeReconcile(ctx, inboundNode); err != nil {
@@ -97,7 +130,7 @@ func (r *CustomRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	return r.updateRouteStatus(ctx, route, inboundNode.Name, outboundNode.Name)
+	return r.updateRouteStatus(ctx, route, inboundNode.Name, resolvedOutbound)
 }
 
 func (r *CustomRouteReconciler) triggerNodeReconcile(ctx context.Context, node *proxyv1alpha1.SingBoxNode) error {
