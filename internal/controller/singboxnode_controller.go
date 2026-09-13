@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -53,7 +52,10 @@ const (
 	podSuffix            = "-sing-box-server"
 	configHashAnnotation = "singboxoperator.shlande.top/config-hash"
 	defaultSingBoxImage  = "ghcr.io/sagernet/sing-box:latest"
-	relayContainerPort   = int32(10808)
+	// podTemplateVersion versions the pod spec template carried by the
+	// config-hash annotation: 1 = hostPort era, 2 = hostNetwork. Bumping it
+	// forces a one-time recreation of existing pods on operator upgrade.
+	podTemplateVersion = 2
 )
 
 // SingBoxNodeReconciler reconciles a SingBoxNode object
@@ -153,10 +155,12 @@ func (r *SingBoxNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	if err := r.reconcilePod(ctx, node, output.Hash); err != nil {
+	if requeue, err := r.reconcilePod(ctx, node, output.Hash); err != nil {
 		logger.Error(err, "Failed to reconcile Pod")
 		reconcileErr = err
 		return ctrl.Result{}, err
+	} else if requeue {
+		return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
 	}
 
 	if requeue, err := r.reconcileServices(ctx, node); err != nil {
@@ -433,9 +437,13 @@ func (r *SingBoxNodeReconciler) reconcileConfigMap(ctx context.Context, node *pr
 	return nil
 }
 
-func (r *SingBoxNodeReconciler) reconcilePod(ctx context.Context, node *proxyv1alpha1.SingBoxNode, configHash string) error {
+func (r *SingBoxNodeReconciler) reconcilePod(ctx context.Context, node *proxyv1alpha1.SingBoxNode, configHash string) (requeue bool, err error) {
 	cmName := node.Name + configMapSuffix
 	podName := node.Name + podSuffix
+	// The desired annotation combines the config hash with the pod template
+	// version so that template changes (e.g. hostPort -> hostNetwork) roll
+	// existing pods exactly once even when the config itself is unchanged.
+	desiredHash := fmt.Sprintf("%s-%d", configHash, podTemplateVersion)
 
 	volumeMounts := []corev1.VolumeMount{
 		{Name: "config", MountPath: "/etc/sing-box"},
@@ -477,18 +485,23 @@ func (r *SingBoxNodeReconciler) reconcilePod(ctx context.Context, node *proxyv1a
 	}
 
 	existing := &corev1.Pod{}
-	err := r.Get(ctx, types.NamespacedName{Name: podName, Namespace: node.Namespace}, existing)
+	err = r.Get(ctx, types.NamespacedName{Name: podName, Namespace: node.Namespace}, existing)
 	if err != nil && !errors.IsNotFound(err) {
-		return err
+		return false, err
 	}
 
 	if err == nil {
-		if existing.Annotations[configHashAnnotation] == configHash {
-			return nil
+		if existing.Annotations[configHashAnnotation] == desiredHash {
+			return false, nil
 		}
+		// Delete first and requeue instead of recreating in the same pass:
+		// the replacement is created on a later pass once the old pod is
+		// fully gone, so a pod stuck Terminating can never race its
+		// replacement on the same host ports.
 		if delErr := r.Delete(ctx, existing); delErr != nil && !errors.IsNotFound(delErr) {
-			return delErr
+			return false, delErr
 		}
+		return true, nil
 	}
 
 	pod := &corev1.Pod{
@@ -500,10 +513,15 @@ func (r *SingBoxNodeReconciler) reconcilePod(ctx context.Context, node *proxyv1a
 				"singboxnode": node.Name,
 			},
 			Annotations: map[string]string{
-				configHashAnnotation: configHash,
+				configHashAnnotation: desiredHash,
 			},
 		},
 		Spec: corev1.PodSpec{
+			// hostNetwork binds sing-box directly to the host ports, avoiding
+			// the Cilium hostPort BPF/NAT path whose pseudo-service mappings
+			// leak on pod recreation and blackhole the node port.
+			HostNetwork: true,
+			DNSPolicy:   corev1.DNSClusterFirstWithHostNet,
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": node.Spec.NodeRef,
 			},
@@ -514,7 +532,6 @@ func (r *SingBoxNodeReconciler) reconcilePod(ctx context.Context, node *proxyv1a
 					Image:        r.singboxImage(),
 					Args:         []string{"run", "-c", "/etc/sing-box/config.json"},
 					VolumeMounts: volumeMounts,
-					Ports:        buildHostPorts(node),
 					Resources:    resourcesOrDefault(node.Spec.Resources),
 				},
 			},
@@ -522,9 +539,9 @@ func (r *SingBoxNodeReconciler) reconcilePod(ctx context.Context, node *proxyv1a
 		},
 	}
 	if err := controllerutil.SetControllerReference(node, pod, r.Scheme); err != nil {
-		return err
+		return false, err
 	}
-	return r.Create(ctx, pod)
+	return false, r.Create(ctx, pod)
 }
 
 func (r *SingBoxNodeReconciler) reconcileServices(ctx context.Context, node *proxyv1alpha1.SingBoxNode) (requeue bool, err error) {
@@ -905,38 +922,6 @@ func resourcesOrDefault(r *corev1.ResourceRequirements) corev1.ResourceRequireme
 		return *r
 	}
 	return corev1.ResourceRequirements{}
-}
-
-func buildHostPorts(node *proxyv1alpha1.SingBoxNode) []corev1.ContainerPort {
-	var ports []corev1.ContainerPort
-	for _, proto := range node.Spec.SupportedProtocols {
-		for _, netProto := range hostPortProtocols(proto.Protocol) {
-			ports = append(ports, corev1.ContainerPort{
-				Name:          proto.Protocol + "-" + strings.ToLower(string(netProto)),
-				ContainerPort: proto.Port,
-				HostPort:      proto.Port,
-				Protocol:      netProto,
-			})
-		}
-	}
-	if node.Spec.RelayPort > 0 {
-		ports = append(ports,
-			corev1.ContainerPort{Name: "relay-tcp", ContainerPort: relayContainerPort, HostPort: node.Spec.RelayPort, Protocol: corev1.ProtocolTCP},
-			corev1.ContainerPort{Name: "relay-udp", ContainerPort: relayContainerPort, HostPort: node.Spec.RelayPort, Protocol: corev1.ProtocolUDP},
-		)
-	}
-	return ports
-}
-
-func hostPortProtocols(protocol string) []corev1.Protocol {
-	switch protocol {
-	case "hysteria2", "tuic":
-		return []corev1.Protocol{corev1.ProtocolUDP}
-	case "socks5":
-		return []corev1.Protocol{corev1.ProtocolTCP, corev1.ProtocolUDP}
-	default:
-		return []corev1.Protocol{corev1.ProtocolTCP}
-	}
 }
 
 func hasRole(node *proxyv1alpha1.SingBoxNode, role proxyv1alpha1.ProxyRole) bool {

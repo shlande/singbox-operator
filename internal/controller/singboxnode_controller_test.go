@@ -19,11 +19,13 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -282,13 +284,13 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 
 		containers := pod.Spec.Containers
 		Expect(containers).NotTo(BeEmpty())
-		var hostPorts []int32
-		for _, p := range containers[0].Ports {
-			if p.HostPort != 0 {
-				hostPorts = append(hostPorts, p.HostPort)
+		Expect(pod.Spec.HostNetwork).To(BeTrue())
+		Expect(pod.Spec.DNSPolicy).To(Equal(corev1.DNSClusterFirstWithHostNet))
+		for _, c := range containers {
+			for _, p := range c.Ports {
+				Expect(p.HostPort).To(BeZero(), "hostNetwork pods must not declare hostPort entries")
 			}
 		}
-		Expect(hostPorts).To(ContainElement(int32(30443)))
 	})
 
 	It("should create ConfigMap with socks5 relay inbound for outbound node", func() {
@@ -333,6 +335,189 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		Eventually(func() error {
 			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-sing-box-server", Namespace: "default"}, outboundPod)
 		}, testTimeout, testInterval).Should(Succeed())
+	})
+
+	It("should create a hostNetwork pod without hostPort entries for outbound node", func() {
+		nodeName := "test-outbound-hostnetwork"
+		node := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName, Namespace: "default"},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef:   "k8s-node-hn-1",
+				Address:   "10.9.0.1",
+				Region:    "us-west",
+				Roles:     []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
+				RelayPort: 31980,
+			},
+		}
+		Expect(k8sClient.Create(testCtx, node)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, node) })
+
+		_, err := reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: nodeName, Namespace: "default"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = reconciler.Reconcile(testCtx, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: nodeName, Namespace: "default"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		pod := &corev1.Pod{}
+		Eventually(func() error {
+			return k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-sing-box-server", Namespace: "default"}, pod)
+		}, testTimeout, testInterval).Should(Succeed())
+
+		Expect(pod.Spec.HostNetwork).To(BeTrue())
+		Expect(pod.Spec.DNSPolicy).To(Equal(corev1.DNSClusterFirstWithHostNet))
+		Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/hostname", "k8s-node-hn-1"))
+
+		Expect(pod.Spec.Containers).NotTo(BeEmpty())
+		for _, p := range pod.Spec.Containers[0].Ports {
+			Expect(p.HostPort).To(BeZero(), "hostNetwork pods must not declare hostPort entries")
+		}
+
+		var configVol *corev1.Volume
+		for i := range pod.Spec.Volumes {
+			if pod.Spec.Volumes[i].Name == "config" {
+				configVol = &pod.Spec.Volumes[i]
+			}
+		}
+		Expect(configVol).NotTo(BeNil())
+		Expect(configVol.ConfigMap).NotTo(BeNil())
+		Expect(configVol.ConfigMap.Name).To(Equal(nodeName + "-config"))
+
+		cm := &corev1.ConfigMap{}
+		Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-config", Namespace: "default"}, cm)).To(Succeed())
+		Expect(pod.Annotations[configHashAnnotation]).To(Equal(
+			fmt.Sprintf("%s-%d", cm.Annotations[configHashAnnotation], podTemplateVersion)))
+	})
+
+	It("should roll a pod carrying a pre-template-version config-hash annotation exactly once", func() {
+		nodeName := "test-inbound-roll"
+		podKey := types.NamespacedName{Name: nodeName + "-sing-box-server", Namespace: "default"}
+		node := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName, Namespace: "default"},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: "k8s-node-roll-1",
+				Address: "10.9.1.1",
+				Region:  "us-west",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 30470},
+				},
+			},
+		}
+		Expect(k8sClient.Create(testCtx, node)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, node) })
+
+		reconcileReq := ctrl.Request{NamespacedName: types.NamespacedName{Name: nodeName, Namespace: "default"}}
+		_, err := reconciler.Reconcile(testCtx, reconcileReq)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = reconciler.Reconcile(testCtx, reconcileReq)
+		Expect(err).NotTo(HaveOccurred())
+
+		pod := &corev1.Pod{}
+		Eventually(func() error {
+			return k8sClient.Get(testCtx, podKey, pod)
+		}, testTimeout, testInterval).Should(Succeed())
+
+		cm := &corev1.ConfigMap{}
+		Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-config", Namespace: "default"}, cm)).To(Succeed())
+		oldHash := cm.Annotations[configHashAnnotation]
+		composedHash := fmt.Sprintf("%s-%d", oldHash, podTemplateVersion)
+		Expect(pod.Annotations[configHashAnnotation]).To(Equal(composedHash))
+
+		// Simulate a pod surviving from the hostPort era: bare config hash,
+		// no template-version suffix.
+		pod.Annotations[configHashAnnotation] = oldHash
+		Expect(k8sClient.Update(testCtx, pod)).To(Succeed())
+
+		// Mismatch pass: delete the old pod and requeue — no replacement yet.
+		res, err := reconciler.Reconcile(testCtx, reconcileReq)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).To(Equal(3 * time.Second))
+		Expect(errors.IsNotFound(k8sClient.Get(testCtx, podKey, &corev1.Pod{}))).To(BeTrue(),
+			"old pod must be deleted without a same-pass replacement")
+
+		// Next pass creates the replacement with the composed annotation.
+		_, err = reconciler.Reconcile(testCtx, reconcileReq)
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			return k8sClient.Get(testCtx, podKey, pod)
+		}, testTimeout, testInterval).Should(Succeed())
+		Expect(pod.Annotations[configHashAnnotation]).To(Equal(composedHash))
+		Expect(pod.Spec.HostNetwork).To(BeTrue())
+	})
+
+	It("should keep requeueing without recreating while the old pod is stuck Terminating", func() {
+		nodeName := "test-inbound-terminating"
+		podKey := types.NamespacedName{Name: nodeName + "-sing-box-server", Namespace: "default"}
+		node := &proxyv1alpha1.SingBoxNode{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeName, Namespace: "default"},
+			Spec: proxyv1alpha1.SingBoxNodeSpec{
+				NodeRef: "k8s-node-term-1",
+				Address: "10.9.2.1",
+				Region:  "us-west",
+				Roles:   []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound},
+				SupportedProtocols: []proxyv1alpha1.ProtocolConfig{
+					{Protocol: "vless", Port: 30471},
+				},
+			},
+		}
+		Expect(k8sClient.Create(testCtx, node)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(testCtx, node) })
+
+		reconcileReq := ctrl.Request{NamespacedName: types.NamespacedName{Name: nodeName, Namespace: "default"}}
+		_, err := reconciler.Reconcile(testCtx, reconcileReq)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = reconciler.Reconcile(testCtx, reconcileReq)
+		Expect(err).NotTo(HaveOccurred())
+
+		pod := &corev1.Pod{}
+		Eventually(func() error {
+			return k8sClient.Get(testCtx, podKey, pod)
+		}, testTimeout, testInterval).Should(Succeed())
+
+		cm := &corev1.ConfigMap{}
+		Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: nodeName + "-config", Namespace: "default"}, cm)).To(Succeed())
+		oldHash := cm.Annotations[configHashAnnotation]
+
+		// Old-era annotation plus a finalizer that blocks deletion (stuck Terminating).
+		pod.Annotations[configHashAnnotation] = oldHash
+		pod.Finalizers = append(pod.Finalizers, "test.singboxoperator.shlande.top/stuck")
+		Expect(k8sClient.Update(testCtx, pod)).To(Succeed())
+		oldUID := pod.UID
+
+		// Every pass deletes idempotently and requeues without creating a replacement.
+		for i := 0; i < 2; i++ {
+			res, err := reconciler.Reconcile(testCtx, reconcileReq)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.RequeueAfter).To(Equal(3 * time.Second))
+
+			stuck := &corev1.Pod{}
+			Expect(k8sClient.Get(testCtx, podKey, stuck)).To(Succeed())
+			Expect(stuck.UID).To(Equal(oldUID), "old pod must still be there while Terminating")
+			Expect(stuck.DeletionTimestamp).NotTo(BeNil())
+			Expect(stuck.Annotations[configHashAnnotation]).To(Equal(oldHash))
+		}
+
+		// Unblock termination; the object disappears once finalizers are cleared.
+		Expect(k8sClient.Get(testCtx, podKey, pod)).To(Succeed())
+		pod.Finalizers = nil
+		Expect(k8sClient.Update(testCtx, pod)).To(Succeed())
+		Eventually(func() bool {
+			return errors.IsNotFound(k8sClient.Get(testCtx, podKey, &corev1.Pod{}))
+		}, testTimeout, testInterval).Should(BeTrue())
+
+		// Now the replacement is created with the composed annotation.
+		res, err := reconciler.Reconcile(testCtx, reconcileReq)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.RequeueAfter).To(BeZero())
+		Eventually(func() error {
+			return k8sClient.Get(testCtx, podKey, pod)
+		}, testTimeout, testInterval).Should(Succeed())
+		Expect(pod.Annotations[configHashAnnotation]).To(Equal(
+			fmt.Sprintf("%s-%d", oldHash, podTemplateVersion)))
+		Expect(pod.Spec.HostNetwork).To(BeTrue())
 	})
 
 	It("should include outbound node address in inbound ConfigMap when in same region", func() {
@@ -1241,3 +1426,17 @@ var _ = Describe("SingBoxNode Reconciler", func() {
 		}
 	})
 })
+
+// hostPortProtocols is retained here, in test scope only, for the legacy
+// protocol-mapping tests in protocol_helpers_test.go. Production pods now run
+// with hostNetwork and declare no hostPort entries at all.
+func hostPortProtocols(protocol string) []corev1.Protocol {
+	switch protocol {
+	case "hysteria2", "tuic":
+		return []corev1.Protocol{corev1.ProtocolUDP}
+	case "socks5":
+		return []corev1.Protocol{corev1.ProtocolTCP, corev1.ProtocolUDP}
+	default:
+		return []corev1.Protocol{corev1.ProtocolTCP}
+	}
+}
