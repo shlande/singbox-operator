@@ -79,6 +79,13 @@ spec:
                   type: string
                 type: array
                 x-kubernetes-list-type: set
+              clientRegion:
+                description: |-
+                  ClientRegion overrides the region label used for client config grouping.
+                  When empty, client configs group this node by spec.region. This field
+                  only affects client-side selector groups; server-side topology and
+                  route discovery always use spec.region.
+                type: string
               inboundProtocol:
                 description: |-
                   InboundProtocol forces this inbound node to use a specific protocol for all users.
@@ -113,6 +120,68 @@ spec:
                 maximum: 65535
                 minimum: 1
                 type: integer
+              resources:
+                description: |-
+                  Resources sets the CPU/memory resource requests and limits for the sing-box container.
+                  When set, the scheduler considers these requests when placing the pod,
+                  which can help reserve capacity on the node and prevent overcommitment.
+                properties:
+                  claims:
+                    description: |-
+                      Claims lists the names of resources, defined in spec.resourceClaims,
+                      that are used by this container.
+
+                      This field depends on the
+                      DynamicResourceAllocation feature gate.
+
+                      This field is immutable. It can only be set for containers.
+                    items:
+                      description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                      properties:
+                        name:
+                          description: |-
+                            Name must match the name of one entry in pod.spec.resourceClaims of
+                            the Pod where this field is used. It makes that resource available
+                            inside a container.
+                          type: string
+                        request:
+                          description: |-
+                            Request is the name chosen for a request in the referenced claim.
+                            If empty, everything from the claim is made available, otherwise
+                            only the result of this request.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Limits describes the maximum amount of compute resources allowed.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Requests describes the minimum amount of compute resources required.
+                      If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                      otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                type: object
               roles:
                 description: 'Roles defines the proxy roles: inbound and/or outbound
                   (no relay)'
@@ -162,7 +231,7 @@ spec:
                 description: |-
                   Tag is an optional grouping label for inbound nodes. When set, client configs
                   group outbounds that use this node as inbound under a selector named after this tag.
-                  Empty means the "default" group. Must not be "default" (reserved).
+                  Empty means the "others" group. Must not be "others" (reserved).
                   Only meaningful for nodes with the inbound role.
                 maxLength: 63
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
