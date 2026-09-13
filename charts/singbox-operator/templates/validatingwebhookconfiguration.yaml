@@ -52,4 +52,18 @@ webhooks:
     operations: ["CREATE", "UPDATE"]
     resources: ["customroutes"]
   sideEffects: None
+- name: vexternaloutbound.kb.io
+  admissionReviewVersions: ["v1"]
+  clientConfig:
+    service:
+      name: {{ include "singbox-operator.fullname" . }}-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-singboxoperator-shlande-top-v1alpha1-externaloutbound
+  failurePolicy: Fail
+  rules:
+  - apiGroups: ["singboxoperator.shlande.top"]
+    apiVersions: ["v1alpha1"]
+    operations: ["CREATE", "UPDATE"]
+    resources: ["externaloutbounds"]
+  sideEffects: None
 {{- end }}

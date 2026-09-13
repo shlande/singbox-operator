@@ -23,6 +23,9 @@ spec:
     - jsonPath: .spec.outboundNode
       name: OutboundNode
       type: string
+    - jsonPath: .spec.outboundKind
+      name: OutboundKind
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -56,9 +59,18 @@ spec:
                   have inbound role)
                 minLength: 1
                 type: string
+              outboundKind:
+                default: SingBoxNode
+                description: OutboundKind selects which resource type OutboundNode
+                  refers to.
+                enum:
+                - SingBoxNode
+                - ExternalOutbound
+                type: string
               outboundNode:
-                description: OutboundNode is the name of the outbound SingBoxNode
-                  (must have outbound role)
+                description: |-
+                  OutboundNode is the name of the outbound resource (a SingBoxNode with
+                  outbound role, or an ExternalOutbound when outboundKind=ExternalOutbound)
                 minLength: 1
                 type: string
             required:
