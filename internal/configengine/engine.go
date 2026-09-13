@@ -13,7 +13,23 @@ import (
 	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
+// relayContainerPort is the legacy fixed container port the relay SOCKS5
+// inbound listened on before the hostNetwork migration: pods used to be
+// reached through a hostPort mapping onto this port. With hostNetwork
+// sing-box binds the node's public relay port directly, so this constant now
+// serves only as the fallback listen port for nodes without spec.relayPort
+// (see EffectiveRelayPort).
 const relayContainerPort = int32(10808)
+
+// EffectiveRelayPort returns the port the inter-node relay SOCKS5 inbound of
+// node listens on: node.Spec.RelayPort when set (>0), otherwise
+// relayContainerPort for backward compatibility.
+func EffectiveRelayPort(node *v1alpha1.SingBoxNode) int32 {
+	if node.Spec.RelayPort > 0 {
+		return node.Spec.RelayPort
+	}
+	return relayContainerPort
+}
 
 // UserCredential holds the UUID that drives all per-protocol credential derivation.
 type UserCredential struct {
@@ -195,7 +211,7 @@ func ExtractNodePorts(node *v1alpha1.SingBoxNode) []int32 {
 		ports = append(ports, p.Port)
 	}
 	if hasRole(node, v1alpha1.ProxyRoleOutbound) {
-		ports = append(ports, relayContainerPort)
+		ports = append(ports, EffectiveRelayPort(node))
 	}
 	return ports
 }
@@ -476,7 +492,7 @@ func buildRelayInbound(input Input) any {
 		"type":        "socks",
 		"tag":         "relay-socks5",
 		"listen":      "::",
-		"listen_port": relayContainerPort,
+		"listen_port": EffectiveRelayPort(input.Node),
 		"users":       []map[string]any{{"username": cred.Username, "password": cred.Password}},
 	}
 }

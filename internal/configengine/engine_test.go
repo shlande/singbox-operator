@@ -272,6 +272,59 @@ func TestConfigEngine_OutboundNode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Test 2b: Relay inbound listens on the node's effective relay port
+// (spec.relayPort when set, fallback 10808 when unset) now that pods run on
+// hostNetwork without a hostPort mapping.
+// ---------------------------------------------------------------------------
+func TestConfigEngine_RelayInboundEffectivePort(t *testing.T) {
+	cases := []struct {
+		name      string
+		relayPort int32
+		wantPort  int32
+	}{
+		{name: "explicit relayPort", relayPort: 31962, wantPort: 31962},
+		{name: "zero relayPort falls back to 10808", relayPort: 0, wantPort: 10808},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			node := makeNode("node-b", "5.6.7.8", "us-west",
+				[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound},
+				nil, tc.relayPort,
+			)
+			input := configengine.Input{
+				Node: node,
+				NodeCreds: map[string]configengine.NodeCredential{
+					"node-b": {Username: "relay-user", Password: "relay-pass"},
+				},
+				OutboundNodesByName: map[string]*v1alpha1.SingBoxNode{},
+			}
+
+			out, err := configengine.Compute(input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			cfg := parseConfig(t, out)
+
+			for _, ib := range inboundsOf(t, cfg) {
+				m := ib.(map[string]any)
+				if m["tag"] == "relay-socks5" {
+					if m["listen_port"].(float64) != float64(tc.wantPort) {
+						t.Errorf("expected listen_port=%d, got %v", tc.wantPort, m["listen_port"])
+					}
+				}
+			}
+
+			// ExtractNodePorts must stay consistent with the generated config.
+			ports := configengine.ExtractNodePorts(node)
+			if len(ports) != 1 || ports[0] != tc.wantPort {
+				t.Errorf("expected ExtractNodePorts=[%d], got %v", tc.wantPort, ports)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Test 3: Multi-role node (inbound + outbound)
 // ---------------------------------------------------------------------------
 func TestConfigEngine_MultiRoleNode(t *testing.T) {
