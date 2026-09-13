@@ -1,0 +1,240 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: externaloutbounds.singboxoperator.shlande.top
+spec:
+  group: singboxoperator.shlande.top
+  names:
+    kind: ExternalOutbound
+    listKind: ExternalOutboundList
+    plural: externaloutbounds
+    shortNames:
+    - eob
+    singular: externaloutbound
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.protocol
+      name: Protocol
+      type: string
+    - jsonPath: .spec.server
+      name: Server
+      type: string
+    - jsonPath: .spec.port
+      name: Port
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=='Accepted')].status
+      name: Accepted
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ExternalOutbound is the Schema for the externaloutbounds API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ExternalOutboundSpec defines an outbound proxy server that is deployed and
+              managed outside the cluster by the user. The operator never creates workloads
+              for it; it only renders it into inbound nodes' sing-box configs.
+            properties:
+              allowedInbounds:
+                description: |-
+                  AllowedInbounds restricts which inbound SingBoxNodes may use this outbound.
+                  Empty means allow all. Mirrors SingBoxNode.spec.allowedInbounds.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
+              credentialsSecretRef:
+                description: |-
+                  CredentialsSecretRef points to a Secret in the same namespace holding the
+                  static credentials configured on the external server. Expected keys by
+                  protocol:
+                    socks5/http:     username, password (both optional)
+                    shadowsocks:     method, password
+                    trojan/hysteria2/anytls: password
+                    tuic:            uuid, password
+                    hysteria2 obfs:  obfsPassword
+                  May be omitted only for socks5/http (no authentication).
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              hysteria2:
+                description: |-
+                  Hysteria2 holds hysteria2-specific tuning. Only meaningful when protocol
+                  is hysteria2.
+                properties:
+                  downMbps:
+                    description: DownMbps declares download bandwidth; 0 or unset
+                      enables BBR auto mode.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  obfs:
+                    description: |-
+                      Obfs enables salamander obfuscation; the password is read from the
+                      obfsPassword key of the credentials secret.
+                    type: boolean
+                  upMbps:
+                    description: UpMbps declares upload bandwidth; 0 or unset enables
+                      BBR auto mode.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                type: object
+              port:
+                description: Port is the listening port of the external proxy server.
+                format: int32
+                maximum: 65535
+                minimum: 1
+                type: integer
+              protocol:
+                description: Protocol is the outbound protocol the external server
+                  speaks.
+                enum:
+                - socks5
+                - http
+                - shadowsocks
+                - trojan
+                - hysteria2
+                - tuic
+                - anytls
+                type: string
+              region:
+                description: |-
+                  Region mirrors SingBoxNode.spec.region semantics: when non-empty, inbound
+                  nodes in the same region auto-discover this outbound. When empty, the
+                  outbound is only usable via explicit CustomRoute bindings.
+                type: string
+              server:
+                description: Server is the IP or hostname of the external proxy server.
+                minLength: 1
+                type: string
+              tls:
+                description: |-
+                  TLS settings. Required for trojan, hysteria2, tuic and anytls; optional for
+                  http; forbidden for socks5 and shadowsocks.
+                properties:
+                  insecure:
+                    description: Insecure skips certificate verification (self-signed
+                      / bare-IP setups).
+                    type: boolean
+                  serverName:
+                    description: |-
+                      ServerName is the TLS SNI sent to the server.
+                      Required unless insecure is true.
+                    type: string
+                type: object
+            required:
+            - port
+            - protocol
+            - server
+            type: object
+          status:
+            description: ExternalOutboundStatus defines the observed state of ExternalOutbound.
+            properties:
+              conditions:
+                description: |-
+                  Conditions represent the latest available observations.
+                  The "Accepted" condition reports spec validity.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration is the generation observed by the
+                  controller.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

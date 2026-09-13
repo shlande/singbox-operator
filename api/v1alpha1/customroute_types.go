@@ -20,14 +20,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Outbound kind values for CustomRouteSpec.OutboundKind.
+const (
+	OutboundKindSingBoxNode      = "SingBoxNode"
+	OutboundKindExternalOutbound = "ExternalOutbound"
+)
+
 // CustomRouteSpec defines the desired state of CustomRoute
 type CustomRouteSpec struct {
 	// InboundNode is the name of the inbound SingBoxNode (must have inbound role)
 	// +kubebuilder:validation:MinLength=1
 	InboundNode string `json:"inboundNode"`
-	// OutboundNode is the name of the outbound SingBoxNode (must have outbound role)
+	// OutboundNode is the name of the outbound resource (a SingBoxNode with
+	// outbound role, or an ExternalOutbound when outboundKind=ExternalOutbound)
 	// +kubebuilder:validation:MinLength=1
 	OutboundNode string `json:"outboundNode"`
+	// OutboundKind selects which resource type OutboundNode refers to.
+	// +kubebuilder:validation:Enum=SingBoxNode;ExternalOutbound
+	// +kubebuilder:default=SingBoxNode
+	// +optional
+	OutboundKind string `json:"outboundKind,omitempty"`
 }
 
 // CustomRouteStatus defines the observed state of CustomRoute
@@ -53,6 +65,7 @@ type CustomRouteStatus struct {
 // +kubebuilder:resource:scope=Namespaced,shortName=cr
 // +kubebuilder:printcolumn:name="InboundNode",type=string,JSONPath=`.spec.inboundNode`
 // +kubebuilder:printcolumn:name="OutboundNode",type=string,JSONPath=`.spec.outboundNode`
+// +kubebuilder:printcolumn:name="OutboundKind",type=string,JSONPath=`.spec.outboundKind`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // CustomRoute is the Schema for the customroutes API
@@ -71,6 +84,15 @@ type CustomRouteList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CustomRoute `json:"items"`
+}
+
+// EffectiveOutboundKind returns the resolved outbound kind, treating an unset
+// field as SingBoxNode for backward compatibility.
+func (r *CustomRoute) EffectiveOutboundKind() string {
+	if r.Spec.OutboundKind == "" {
+		return OutboundKindSingBoxNode
+	}
+	return r.Spec.OutboundKind
 }
 
 func init() {
