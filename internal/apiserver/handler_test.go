@@ -51,11 +51,11 @@ func TestBuildClientConfig_TwoOutboundNodes(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 5 {
-		t.Errorf("expected 5 outbounds (2 proxy + others group selector + proxy selector + direct), got %d", len(result))
+	if len(result) != 4 {
+		t.Errorf("expected 4 outbounds (2 proxy + us selector + direct), got %d", len(result))
 	}
 
-	var selectorOthersOutbounds, selectorProxyOutbounds []string
+	var selectorOthersOutbounds []string
 	for _, ob := range result {
 		m, ok := ob.(map[string]any)
 		if !ok {
@@ -68,17 +68,13 @@ func TestBuildClientConfig_TwoOutboundNodes(t *testing.T) {
 			case "us":
 				selectorOthersOutbounds = arr
 			case "proxy":
-				selectorProxyOutbounds = arr
+				// proxy selector was removed
 			}
 		}
 	}
 
 	if len(selectorOthersOutbounds) != 2 {
-		t.Errorf("selector(others).outbounds should contain 2 tags, got %v", selectorOthersOutbounds)
-	}
-	// proxy selector over group tags
-	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "us" {
-		t.Errorf("selector(proxy).outbounds should be [\"us\"], got %v", selectorProxyOutbounds)
+		t.Errorf("selector(us).outbounds should contain 2 tags, got %v", selectorOthersOutbounds)
 	}
 }
 
@@ -189,8 +185,8 @@ func TestBuildClientConfig_EmptyEntryEndpoints(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 2 {
-		t.Errorf("expected 2 outbounds (selector+direct) with empty EntryEndpoints, got %d", len(result))
+	if len(result) != 1 {
+		t.Errorf("expected 1 outbound (direct) with empty EntryEndpoints, got %d", len(result))
 	}
 
 	for _, ob := range result {
@@ -239,12 +235,12 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 5 {
-		t.Errorf("expected 5 outbounds (2 proxy + others group selector + proxy selector + direct), got %d", len(result))
+	if len(result) != 4 {
+		t.Errorf("expected 4 outbounds (2 proxy + us selector + direct), got %d", len(result))
 	}
 
 	tags := make(map[string]bool)
-	var selectorOthersOutbounds, selectorProxyOutbounds []string
+	var selectorOthersOutbounds []string
 	for _, ob := range result {
 		m, ok := ob.(map[string]any)
 		if !ok {
@@ -260,7 +256,7 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 			case "us":
 				selectorOthersOutbounds = arr
 			case "proxy":
-				selectorProxyOutbounds = arr
+				// proxy selector was removed
 			}
 		}
 	}
@@ -271,11 +267,9 @@ func TestBuildClientConfig_ExplicitRoutes(t *testing.T) {
 		t.Error("expected outbound-y#node-a in result (same region as inbound)")
 	}
 	if len(selectorOthersOutbounds) != 2 {
-		t.Errorf("selector(others).outbounds should contain 2 tags, got %v", selectorOthersOutbounds)
+		t.Errorf("selector(us).outbounds should contain 2 tags, got %v", selectorOthersOutbounds)
 	}
-	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "us" {
-		t.Errorf("selector(proxy).outbounds should be [\"us\"], got %v", selectorProxyOutbounds)
-	}
+
 }
 
 func TestMergeOutbounds_ReplaceOutbounds(t *testing.T) {
@@ -780,8 +774,8 @@ func TestBuildClientConfig_UnsupportedProtocol(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 2 {
-		t.Errorf("expected 2 outbounds (selector+direct) when protocol not supported, got %d", len(result))
+	if len(result) != 1 {
+		t.Errorf("expected 1 outbound (direct) when protocol not supported, got %d", len(result))
 	}
 }
 
@@ -811,8 +805,8 @@ func TestBuildClientConfig_BadEndpointFormat(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 2 {
-		t.Errorf("expected 2 outbounds (selector+direct) with bad endpoints, got %d", len(result))
+	if len(result) != 1 {
+		t.Errorf("expected 1 outbound (direct) with bad endpoints, got %d", len(result))
 	}
 }
 
@@ -832,8 +826,8 @@ func TestBuildClientConfig_NullInboundInResolve(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 2 {
-		t.Errorf("expected 2 outbounds (selector+direct) with no inbounds, got %d", len(result))
+	if len(result) != 1 {
+		t.Errorf("expected 1 outbound (direct) with no inbounds, got %d", len(result))
 	}
 }
 
@@ -926,15 +920,15 @@ func TestBuildClientConfig_RouteWithMissingOutbound(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 2 {
-		t.Errorf("expected 2 outbounds (selector+direct) when route outbound is missing, got %d", len(result))
+	if len(result) != 1 {
+		t.Errorf("expected 1 outbound (direct) when route outbound is missing, got %d", len(result))
 	}
 }
 
 func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 	const baseUUID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
-	node := makeDualRoleNode("node-x", "ap", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
+	node := makeDualRoleNode("node-x", "hk", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
 	})
 	node.Status.EntryEndpoints = []string{"vless:1.2.3.4:10443"}
@@ -953,12 +947,12 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(result) != 4 {
-		t.Errorf("expected 4 outbounds (1 proxy + ap region group selector + proxy selector + direct), got %d", len(result))
+	if len(result) != 3 {
+		t.Errorf("expected 1 outbound (direct) for unknown region, got %d", len(result))
 	}
 
 	tags := make(map[string]bool)
-	var selectorOthersOutbounds, selectorProxyOutbounds []string
+	var selectorOthersOutbounds []string
 	for _, ob := range result {
 		m, ok := ob.(map[string]any)
 		if !ok {
@@ -971,10 +965,10 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 			tag, _ := m["tag"].(string)
 			arr, _ := m["outbounds"].([]string)
 			switch tag {
-			case "ap":
+			case "hk":
 				selectorOthersOutbounds = arr
 			case "proxy":
-				selectorProxyOutbounds = arr
+				// proxy selector was removed
 			}
 		}
 	}
@@ -984,10 +978,7 @@ func TestBuildClientConfig_DualRoleNode_IncludesSelf(t *testing.T) {
 		t.Errorf("expected proxy outbound tag %q, got %v", expectedTag, tags)
 	}
 	if len(selectorOthersOutbounds) != 1 || selectorOthersOutbounds[0] != expectedTag {
-		t.Errorf("selector(ap).outbounds should be [%q], got %v", expectedTag, selectorOthersOutbounds)
-	}
-	if len(selectorProxyOutbounds) != 1 || selectorProxyOutbounds[0] != "ap" {
-		t.Errorf("selector(proxy).outbounds should be [\"ap\"], got %v", selectorProxyOutbounds)
+		t.Errorf("selector(hk).outbounds should be [%q], got %v", expectedTag, selectorOthersOutbounds)
 	}
 
 	expectedUUID := configengine.DeriveUUID(baseUUID, "node-x")

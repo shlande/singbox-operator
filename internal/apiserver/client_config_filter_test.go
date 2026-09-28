@@ -89,8 +89,8 @@ func TestNodeReadiness_NodeNotReady_ExcludesOutbound(t *testing.T) {
 	if tags["node-b#node-a"] {
 		t.Errorf("tag 'node-b#node-a' should not be in result when node-b is offline")
 	}
-	if len(result) != 2 {
-		t.Errorf("expected exactly 2 items (selector + direct), got %d", len(result))
+	if len(result) != 1 {
+		t.Errorf("expected exactly 1 item (direct), got %d", len(result))
 	}
 }
 
@@ -243,8 +243,8 @@ func TestNodeReadiness_MultipleUnhealthyNodes_AllExcluded(t *testing.T) {
 	if !tags["node-b3#node-a"] {
 		t.Errorf("tag 'node-b3#node-a' should be included (node-b3 is healthy)")
 	}
-	if len(result) != 4 {
-		t.Errorf("expected exactly 4 items (1 proxy + default group selector + proxy selector + direct), got %d", len(result))
+	if len(result) != 3 {
+		t.Errorf("expected exactly 3 items (1 proxy + us selector + direct), got %d", len(result))
 	}
 	if n := countProxyOutbounds(result); n != 1 {
 		t.Errorf("expected 1 proxy outbound, got %d", n)
@@ -316,8 +316,8 @@ func TestNodeReadiness_DualRoleNodeUnhealthy_ExcludesSelf(t *testing.T) {
 		t.Errorf("tag 'node-x#node-x' should not be in result")
 	}
 
-	if len(result) != 2 {
-		t.Errorf("expected exactly 2 items (selector + direct), got %d", len(result))
+	if len(result) != 1 {
+		t.Errorf("expected exactly 1 item (direct), got %d", len(result))
 	}
 	if n := countProxyOutbounds(result); n != 0 {
 		t.Errorf("expected 0 proxy outbounds, got %d", n)

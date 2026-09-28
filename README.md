@@ -48,7 +48,7 @@ In this example, only `us-west-inbound-a` and `us-west-inbound-b` may use this n
 
 `EgressPolicy` applies ordered sing-box route rules to all inbound nodes selected by `spec.ingressSelector`. Selectors use Kubernetes label-selector semantics and support `matchNames` as an additional exact-name constraint. A `route` action must select exactly one outbound `SingBoxNode` or `ExternalOutbound`; zero or multiple matches set the policy `Degraded` and do not generate a route. `reject` does not need an egress selector.
 
-Rules support `domain`, `domainSuffix`, `domainRegex`, `ipCIDR`, and `ruleSet` matching. Lower `priority` values run first; equal priorities are ordered by policy name. Set `fallback: true` to allow an empty match as a catch-all rule.
+Rules support `domain`, `domainSuffix`, `domainRegex`, `ipCIDR`, and `ruleSet` matching. Lower `priority` values run first; equal priorities are ordered by policy name. Set `fallbackAction: reject` to reject unmatched traffic using the policy egress.
 
 ```yaml
 apiVersion: singboxoperator.shlande.top/v1alpha1
@@ -215,3 +215,9 @@ is manually re-applied afterwards.
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
+### Client policy routing
+
+Client configurations normalize ordinary targets into `hk`, `jp`, and `us` selectors and aggregate routed `EgressPolicy` paths in the `ai` selector. There is no `proxy` or per-policy selector. Clash API exposes exactly `Auto`, `HK`, `JP`, and `US`; `AI` is an outbound selector, never a Clash mode. `Auto` defaults to `hk` when no future automatic region rule matches. Policy targets are excluded from regional groups; unavailable paths reject matching traffic rather than falling back. AI rules are emitted before domestic direct rules and Clash Mode rules, after the template's leading sniff/DNS preprocessing; existing custom rule order is otherwise preserved. A policy `ruleSet` is accepted only when the referenced tag is already defined by the template's `route.rule_set`.
+
+This feature does not change server/DNS behavior. A TUN client may sniff a domain while the actual connection remains IP-addressed; the server's policy `fallbackAction: reject` can therefore reject it. Client policy routing must not be interpreted as end-to-end domain preservation.

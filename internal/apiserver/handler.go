@@ -110,10 +110,6 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 	externalOutboundsByName := make(map[string]*proxyv1alpha1.ExternalOutbound)
 	for i := range externalOutboundList.Items {
 		eob := &externalOutboundList.Items[i]
-		// An outbound SingBoxNode with the same name always wins.
-		if _, taken := outboundsByName[eob.Name]; taken {
-			continue
-		}
 		externalOutboundsByName[eob.Name] = eob
 	}
 
@@ -151,13 +147,20 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	policies := make([]*proxyv1alpha1.EgressPolicy, 0, len(policyList.Items))
+	for i := range policyList.Items {
+		policies = append(policies, &policyList.Items[i])
+	}
+
 	input := ClientConfigInput{
 		User:                    matchedUser,
+		EgressPolicies:          policies,
 		UserCred:                matchedCred,
 		InboundNodes:            inboundNodes,
 		RoutesByInbound:         routesByInbound,
 		OutboundsByName:         outboundsByName,
 		ExternalOutboundsByName: externalOutboundsByName,
+		ExternalOutbounds:       externalOutboundPointers(&externalOutboundList),
 		OfflineNodeNames:        offlineNodeNames,
 		AllowedNodeNames:        allowedNodeNames,
 		DeniedNodeNames:         deniedNodeNames,
@@ -188,7 +191,7 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := MergeOutbounds(templateBytes, outbounds)
+	result, err := MergeClientConfig(templateBytes, outbounds, input)
 	if err != nil {
 		logger.Error(err, "Failed to merge outbounds into template")
 		writeInternalError(w)
@@ -220,4 +223,12 @@ func writeInternalError(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusInternalServerError)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": "internal server error"})
+}
+
+func externalOutboundPointers(list *proxyv1alpha1.ExternalOutboundList) []*proxyv1alpha1.ExternalOutbound {
+	result := make([]*proxyv1alpha1.ExternalOutbound, 0, len(list.Items))
+	for i := range list.Items {
+		result = append(result, &list.Items[i])
+	}
+	return result
 }

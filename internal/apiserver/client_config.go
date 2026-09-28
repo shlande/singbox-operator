@@ -16,6 +16,7 @@ import (
 // ClientConfigInput contains all data needed to generate client config
 type ClientConfigInput struct {
 	User            *v1alpha1.User
+	EgressPolicies  []*v1alpha1.EgressPolicy
 	UserCred        credmanager.UserCredential
 	InboundNodes    []*v1alpha1.SingBoxNode
 	RoutesByInbound map[string][]*v1alpha1.CustomRoute
@@ -24,6 +25,7 @@ type ClientConfigInput struct {
 	// They participate in client configs only as names (tags, selector groups
 	// and credential derivation) — clients always connect to the inbound node.
 	ExternalOutboundsByName map[string]*v1alpha1.ExternalOutbound
+	ExternalOutbounds       []*v1alpha1.ExternalOutbound
 	// OfflineNodeNames contains SingBoxNode names that are currently offline
 	// (NodeReady condition is False or absent). These nodes are excluded from
 	// client config outbounds.
@@ -43,8 +45,20 @@ type ClientConfigInput struct {
 }
 
 // BuildClientConfig generates the outbounds array for a client sing-box config.
-// Returns: proxy outbounds + per-inbound-tag selectors + selector("proxy") + direct
+// It emits regional selectors, the aggregate AI selector when needed, and direct.
 func BuildClientConfig(input ClientConfigInput) ([]any, error) {
+	policyOutbounds, _, targets, err := buildClientPolicies(input)
+	if err != nil {
+		return nil, err
+	}
+	// Never advertise a policy target in the ordinary regional pool.
+	if len(targets) > 0 {
+		input.PolicyOnlyEgressNames = maps.Clone(input.PolicyOnlyEgressNames)
+		if input.PolicyOnlyEgressNames == nil {
+			input.PolicyOnlyEgressNames = make(map[string]bool)
+		}
+		maps.Copy(input.PolicyOnlyEgressNames, targets)
+	}
 	var proxyOutbounds []any
 	groupOutbounds := make(map[string][]string)
 
@@ -73,32 +87,30 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 			} else {
 				tag = fmt.Sprintf("%s#%s", outboundNode.Name, inboundNode.Name)
 			}
+			group := outboundNode.ClientRegion
+			if group == "" {
+				continue
+			}
 			ob := buildProxyOutbound(tag, address, port, protocol, input.User.Name, outboundNode.Name, inboundNode.Status.TLSServerName, input.UserCred)
 			proxyOutbounds = append(proxyOutbounds, ob)
-			// Groups are keyed by the outbound TARGET's client region
-			// (spec.clientRegion override, else spec.region, else "others"),
-			// so a single inbound's entries may span multiple groups.
-			groupOutbounds[outboundNode.ClientRegion] = append(groupOutbounds[outboundNode.ClientRegion], tag)
+			groupOutbounds[group] = append(groupOutbounds[group], tag)
 		}
 	}
 
 	var result []any
 	result = append(result, proxyOutbounds...)
 
-	// Sort group tags in dictionary order
+	// Emit only non-empty selectors. Unknown regions are intentionally omitted
+	// rather than creating a mode that cannot be selected safely.
 	groupTags := make([]string, 0, len(groupOutbounds))
 	for k := range groupOutbounds {
-		groupTags = append(groupTags, k)
+		if len(groupOutbounds[k]) > 0 {
+			groupTags = append(groupTags, k)
+		}
 	}
 	sort.Strings(groupTags)
 
-	result = append(result, map[string]any{
-		"type":      "selector",
-		"tag":       "proxy",
-		"outbounds": groupTags,
-	})
-
-	// Emit one selector per group tag
+	// Emit one selector per normalized regional group.
 	for _, gt := range groupTags {
 		tags := groupOutbounds[gt]
 		sort.Strings(tags)
@@ -110,6 +122,7 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 		})
 	}
 
+	result = append(result, policyOutbounds...)
 	result = append(result, map[string]any{
 		"type": "direct",
 		"tag":  "direct",
@@ -149,24 +162,36 @@ func findEntryEndpoint(endpoints []string, protocol string) (address string, por
 // either a SingBoxNode with the outbound role or an ExternalOutbound. Client
 // configs only need the name (for tags, group selectors and credential
 // derivation); AllowedInbounds carries the per-outbound inbound restriction.
-// ClientRegion is the resolved client config group key for this target:
-// spec.clientRegion wins over spec.region ("others" when both are empty).
+// ClientRegion is the normalized client config group key for this target;
+// unknown or empty regions are omitted from client selectors.
 type outboundRef struct {
 	Name            string
 	AllowedInbounds []string
 	ClientRegion    string
 }
 
-// clientGroupRegion resolves the client config group key for an outbound
-// target: spec.clientRegion overrides spec.region; "others" when both empty.
+// normalizeClientRegion maps deployment-specific region labels to the three
+// user-selectable geographic groups. Unknown labels are omitted from groups.
+func normalizeClientRegion(region string) string {
+	value := strings.ToLower(strings.TrimSpace(region))
+	switch {
+	case strings.HasPrefix(value, "hk"), strings.Contains(value, "hongkong"), strings.Contains(value, "hong-kong"):
+		return "hk"
+	case strings.HasPrefix(value, "jp"), strings.Contains(value, "japan"), strings.Contains(value, "tokyo"):
+		return "jp"
+	case strings.HasPrefix(value, "us"), strings.Contains(value, "usa"), strings.Contains(value, "america"):
+		return "us"
+	default:
+		return ""
+	}
+}
+
+// clientGroupRegion resolves clientRegion first, then region, and normalizes it.
 func clientGroupRegion(region, clientRegion string) string {
 	if clientRegion != "" {
-		return clientRegion
+		return normalizeClientRegion(clientRegion)
 	}
-	if region != "" {
-		return region
-	}
-	return "others"
+	return normalizeClientRegion(region)
 }
 
 func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboundRef {

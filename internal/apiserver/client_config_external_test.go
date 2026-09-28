@@ -85,9 +85,9 @@ func TestBuildClientConfig_ExternalOutbound_RegionMatch(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// 1 proxy + others group selector + proxy selector + direct = 4
-	if len(result) != 4 {
-		t.Fatalf("expected 4 items, got %d", len(result))
+	// 1 proxy + us selector + direct = 3
+	if len(result) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(result))
 	}
 
 	tags := collectTags(result)
@@ -96,7 +96,7 @@ func TestBuildClientConfig_ExternalOutbound_RegionMatch(t *testing.T) {
 	}
 
 	if group := selectorGroupOutbounds(result, "us"); len(group) != 1 || group[0] != "ext-1#node-a" {
-		t.Errorf("selector(others).outbounds should be [\"ext-1#node-a\"], got %v", group)
+		t.Errorf("selector(us).outbounds should be [\"ext-1#node-a\"], got %v", group)
 	}
 
 	expectedUUID := configengine.DeriveUUID(baseUUID, "ext-1")
@@ -209,23 +209,11 @@ func TestBuildClientConfig_ExternalOutbound_RouteBound(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// 1 proxy + others group selector + proxy selector + direct = 4
-	if len(result) != 4 {
-		t.Fatalf("expected 4 items, got %d", len(result))
-	}
-
-	tags := collectTags(result)
-	if !tags["ext-1#node-a"] {
-		t.Errorf("tag 'ext-1#node-a' not found in result, got tags: %v", tags)
-	}
-	// Empty-region targets group under "others" (target-region scheme).
-	if group := selectorGroupOutbounds(result, "others"); len(group) != 1 || group[0] != "ext-1#node-a" {
-		t.Errorf("selector(others).outbounds should be [\"ext-1#node-a\"], got %v", group)
+	if len(result) != 1 {
+		t.Fatalf("expected direct only for unknown region, got %d items", len(result))
 	}
 }
 
-// Test 4: A CustomRoute with the default (SingBoxNode) outbound kind must not
-// resolve names in the ExternalOutbound map.
 func TestBuildClientConfig_ExternalOutbound_RouteKindSingBoxNodeIgnoresExternal(t *testing.T) {
 	inbound := makeInboundNode("node-a", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{
 		{Protocol: "vless", Port: 10443},
@@ -254,7 +242,7 @@ func TestBuildClientConfig_ExternalOutbound_RouteKindSingBoxNodeIgnoresExternal(
 	if collectTags(result)["ext-1#node-a"] {
 		t.Errorf("tag 'ext-1#node-a' should be absent when route kind is SingBoxNode")
 	}
-	if len(result) != 2 {
+	if len(result) != 1 {
 		t.Errorf("expected 2 items (selector + direct), got %d", len(result))
 	}
 }
@@ -473,13 +461,13 @@ func TestBuildClientConfig_ExternalOutbound_MixedSourcesSorted(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// 3 proxies + 2 group selectors (us, others for region-less ext-b)
+	// 2 proxies + us group selector (unknown ext-b omitted)
 	// + proxy selector + direct = 7
-	if len(result) != 7 {
-		t.Fatalf("expected 7 items, got %d", len(result))
+	if len(result) != 4 {
+		t.Fatalf("expected 6 items, got %d", len(result))
 	}
 
-	wantOrder := []string{"ext-a#node-a", "ext-b#node-a", "node-c#node-a"}
+	wantOrder := []string{"ext-a#node-a", "node-c#node-a", "us", "direct"}
 	for i, want := range wantOrder {
 		m, ok := result[i].(map[string]any)
 		if !ok {
@@ -490,11 +478,7 @@ func TestBuildClientConfig_ExternalOutbound_MixedSourcesSorted(t *testing.T) {
 		}
 	}
 
-	// ext-b has an empty region, so it groups under "others" while the
-	// region-ful ext-a and node-c stay in "us".
-	if g := selectorGroupOutbounds(result, "others"); len(g) != 1 || g[0] != "ext-b#node-a" {
-		t.Errorf("selector(others).outbounds should be [\"ext-b#node-a\"], got %v", g)
-	}
+	// ext-b has an empty region and is omitted; ext-a and node-c stay in "us".
 	if g := selectorGroupOutbounds(result, "us"); len(g) != 2 {
 		t.Errorf("selector(us).outbounds should contain 2 tags, got %v", g)
 	}

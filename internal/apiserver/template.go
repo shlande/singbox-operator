@@ -1,6 +1,9 @@
 package apiserver
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // DefaultTemplate is the built-in client config template used when no admin template is provided.
 // It provides local socks5/http inbounds and basic CN split routing.
@@ -43,8 +46,6 @@ var DefaultTemplate = []byte(`{
     "rules": [
       {"action": "sniff"},
       {"protocol": "dns", "action": "hijack-dns"},
-      {"clash_mode": "Direct", "outbound": "direct"},
-      {"clash_mode": "Proxy", "outbound": "proxy"},
       {"rule_set": ["geosite-cn"], "outbound": "direct"},
       {"ip_is_private": true, "outbound": "direct"},
       {"rule_set": ["category-ads-all"], "action": "reject"}
@@ -65,10 +66,11 @@ var DefaultTemplate = []byte(`{
         "download_detour": "direct"
       }
     ],
-    "final": "proxy",
+    "final": "direct",
     "auto_detect_interface": true,
     "default_domain_resolver": "local"
-  }
+  },
+  "experimental": {"clash_api": {"default_mode": "Auto"}}
 }`)
 
 // MergeOutbounds replaces the "outbounds" array in templateJSON with generatedOutbounds.
@@ -77,6 +79,139 @@ func MergeOutbounds(templateJSON []byte, generatedOutbounds []any) ([]byte, erro
 	var m map[string]any
 	if err := json.Unmarshal(templateJSON, &m); err != nil {
 		return nil, err
+	}
+	m["outbounds"] = generatedOutbounds
+	return json.Marshal(m)
+}
+
+func isDomesticDirectRule(rule map[string]any) bool {
+	if rule["outbound"] != "direct" {
+		return false
+	}
+	if rule["ip_is_private"] == true {
+		return true
+	}
+	sets, ok := rule["rule_set"].([]any)
+	if !ok {
+		return false
+	}
+	for _, set := range sets {
+		if set == "geosite-cn" {
+			return true
+		}
+	}
+	return false
+}
+
+// MergeClientConfig merges generated outbounds and client policy/mode rules.
+// The template's existing non-generated rules retain their relative order.
+func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input ClientConfigInput) ([]byte, error) {
+	_, policyRules, _, err := buildClientPolicies(input)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal(templateJSON, &m); err != nil {
+		return nil, err
+	}
+	route, ok := m["route"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("template route must be an object")
+	}
+	original, ok := route["rules"].([]any)
+	if !ok {
+		if len(input.EgressPolicies) == 0 {
+			return MergeOutbounds(templateJSON, generatedOutbounds)
+		}
+		return nil, fmt.Errorf("template route.rules must be an array")
+	}
+	defined := make(map[string]bool)
+	if sets, ok := route["rule_set"].([]any); ok {
+		for _, set := range sets {
+			if entry, ok := set.(map[string]any); ok {
+				if tag, ok := entry["tag"].(string); ok {
+					defined[tag] = true
+				}
+			}
+		}
+	}
+	for _, p := range input.EgressPolicies {
+		for _, ref := range p.Spec.Match.RuleSet {
+			if !defined[ref] {
+				return nil, fmt.Errorf("policy %s: rule_set %q is not defined in template route.rule_set", p.Name, ref)
+			}
+		}
+	}
+
+	has := make(map[string]bool)
+	for _, ob := range generatedOutbounds {
+		if v, ok := ob.(map[string]any); ok {
+			if tag, ok := v["tag"].(string); ok {
+				has[tag] = true
+			}
+		}
+	}
+	insert := 0
+	for insert < len(original) {
+		rule, ok := original[insert].(map[string]any)
+		if !ok || (rule["action"] != "sniff" && rule["action"] != "hijack-dns") {
+			break
+		}
+		insert++
+	}
+	rules := append([]any(nil), original[:insert]...)
+	// Explicit AI policy traffic must precede domestic and user mode rules.
+	rules = append(rules, policyRules...)
+	for _, item := range original[insert:] {
+		if rule, ok := item.(map[string]any); ok && isDomesticDirectRule(rule) {
+			rules = append(rules, rule)
+		}
+	}
+	for _, mode := range []struct{ name, tag string }{{"Auto", "hk"}, {"HK", "hk"}, {"JP", "jp"}, {"US", "us"}} {
+		if has[mode.tag] {
+			rules = append(rules, map[string]any{"clash_mode": mode.name, "outbound": mode.tag})
+		}
+	}
+	for _, item := range original[insert:] {
+		rule, ok := item.(map[string]any)
+		if ok && isDomesticDirectRule(rule) {
+			continue
+		}
+		if ok && (rule["clash_mode"] == "Proxy" || rule["clash_mode"] == "proxy") {
+			continue
+		}
+		if ok && rule["outbound"] == "proxy" {
+			// Old templates may contain a proxy reference. Never leave a dangling tag.
+			copy := make(map[string]any, len(rule))
+			for k, v := range rule {
+				if k != "outbound" {
+					copy[k] = v
+				}
+			}
+			copy["outbound"] = "direct"
+			item = copy
+		}
+		rules = append(rules, item)
+	}
+	route["rules"] = rules
+	experimental, _ := m["experimental"].(map[string]any)
+	if experimental == nil {
+		experimental = make(map[string]any)
+		m["experimental"] = experimental
+	}
+	clash, _ := experimental["clash_api"].(map[string]any)
+	if clash == nil {
+		clash = make(map[string]any)
+		experimental["clash_api"] = clash
+	}
+	// Auto is the intentional Clash Rule fallback. Only emit its mode rules
+	// when the corresponding selectors exist; clusters without HK still get a
+	// valid direct final.
+	clash["default_mode"] = "Auto"
+	if has["hk"] {
+		route["final"] = "hk"
+	} else if route["final"] == "hk" {
+		route["final"] = "direct"
 	}
 	m["outbounds"] = generatedOutbounds
 	return json.Marshal(m)
