@@ -21,10 +21,11 @@ func makeExternalOutbound(name, region string) *proxyv1alpha1.ExternalOutbound {
 			Namespace: "default",
 		},
 		Spec: proxyv1alpha1.ExternalOutboundSpec{
-			Protocol: proxyv1alpha1.ExternalProtocolTrojan,
-			Server:   "198.51.100.77",
-			Port:     54321,
-			Region:   region,
+			Protocol:     proxyv1alpha1.ExternalProtocolTrojan,
+			Server:       "198.51.100.77",
+			Port:         54321,
+			Region:       region,
+			ClientGroups: []string{testClientGroup(region)},
 		},
 	}
 }

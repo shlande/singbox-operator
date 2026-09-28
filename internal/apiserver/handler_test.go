@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -460,6 +461,20 @@ func makeInboundNode(name, region, address string, protocols []proxyv1alpha1.Pro
 	}
 }
 
+func testClientGroup(region string) string {
+	region = strings.ToLower(region)
+	if strings.HasPrefix(region, "hk") {
+		return "hk"
+	}
+	if strings.HasPrefix(region, "jp") {
+		return "jp"
+	}
+	if strings.HasPrefix(region, "us") {
+		return "us"
+	}
+	return region
+}
+
 func makeOutboundNode(name, region string) *proxyv1alpha1.SingBoxNode {
 	return &proxyv1alpha1.SingBoxNode{
 		ObjectMeta: metav1.ObjectMeta{
@@ -467,11 +482,12 @@ func makeOutboundNode(name, region string) *proxyv1alpha1.SingBoxNode {
 			Namespace: "default",
 		},
 		Spec: proxyv1alpha1.SingBoxNodeSpec{
-			NodeRef:   name,
-			Address:   "10.0.0.1",
-			Region:    region,
-			Roles:     []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
-			RelayPort: 10808,
+			NodeRef:      name,
+			Address:      "10.0.0.1",
+			Region:       region,
+			ClientGroups: []string{testClientGroup(region)},
+			Roles:        []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleOutbound},
+			RelayPort:    10808,
 		},
 	}
 }
@@ -490,6 +506,7 @@ func makeDualRoleNode(name, region, address string, protocols []proxyv1alpha1.Pr
 			NodeRef:            name,
 			Address:            address,
 			Region:             region,
+			ClientGroups:       []string{testClientGroup(region)},
 			Roles:              []proxyv1alpha1.ProxyRole{proxyv1alpha1.ProxyRoleInbound, proxyv1alpha1.ProxyRoleOutbound},
 			SupportedProtocols: protocols,
 			InboundProtocol:    inboundProtocol,

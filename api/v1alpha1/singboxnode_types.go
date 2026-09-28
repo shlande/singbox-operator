@@ -63,12 +63,11 @@ type SingBoxNodeSpec struct {
 	// Region is the geographic region label (e.g. "us-west")
 	// +kubebuilder:validation:MinLength=1
 	Region string `json:"region"`
-	// ClientRegion overrides the region label used for client config grouping.
-	// When empty, client configs group this node by spec.region. This field
-	// only affects client-side selector groups; server-side topology and
-	// route discovery always use spec.region.
+	// ClientGroups lists client selector groups for this node. The physical
+	// region remains the topology and entry-path matching region.
 	// +optional
-	ClientRegion string `json:"clientRegion,omitempty"`
+	// +listType=set
+	ClientGroups []string `json:"clientGroups,omitempty"`
 	// Roles defines the proxy roles: inbound and/or outbound (no relay)
 	// +kubebuilder:validation:MinItems=1
 	Roles []ProxyRole `json:"roles"`

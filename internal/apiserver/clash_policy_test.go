@@ -13,6 +13,7 @@ func TestAIPolicyIsIndependentOfClashModes(t *testing.T) {
 	in := makeInboundNode("in", "hk", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{{Protocol: "vless", Port: 443}})
 	in.Status.EntryEndpoints = []string{"vless:1.2.3.4:443"}
 	out := makeOutboundNode("ai", "eu")
+	out.Spec.ClientGroups = []string{"ai"}
 	hk := makeOutboundNode("hk-node", "hk")
 	policy := &proxyv1alpha1.EgressPolicy{ObjectMeta: metav1.ObjectMeta{Name: "ai", Namespace: "ns"}, Spec: proxyv1alpha1.EgressPolicySpec{
 		IngressSelector: proxyv1alpha1.EgressPolicySelector{MatchNames: []string{"in"}}, EgressSelector: proxyv1alpha1.EgressPolicySelector{MatchNames: []string{"ai"}},

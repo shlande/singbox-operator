@@ -57,7 +57,11 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 		if input.PolicyOnlyEgressNames == nil {
 			input.PolicyOnlyEgressNames = make(map[string]bool)
 		}
-		maps.Copy(input.PolicyOnlyEgressNames, targets)
+		for name := range targets {
+			if !targetHasClientGroup(input, name, "ai") {
+				input.PolicyOnlyEgressNames[name] = true
+			}
+		}
 	}
 	var proxyOutbounds []any
 	groupOutbounds := make(map[string][]string)
@@ -87,13 +91,21 @@ func BuildClientConfig(input ClientConfigInput) ([]any, error) {
 			} else {
 				tag = fmt.Sprintf("%s#%s", outboundNode.Name, inboundNode.Name)
 			}
-			group := outboundNode.ClientRegion
-			if group == "" {
-				continue
-			}
 			ob := buildProxyOutbound(tag, address, port, protocol, input.User.Name, outboundNode.Name, inboundNode.Status.TLSServerName, input.UserCred)
-			proxyOutbounds = append(proxyOutbounds, ob)
-			groupOutbounds[group] = append(groupOutbounds[group], tag)
+			added := false
+			for _, group := range outboundNode.ClientGroups {
+				if group != "hk" && group != "jp" && group != "us" && group != "ai" {
+					continue
+				}
+				if group != "ai" && input.PolicyOnlyEgressNames[outboundNode.Name] {
+					continue
+				}
+				groupOutbounds[group] = append(groupOutbounds[group], tag)
+				added = true
+			}
+			if added {
+				proxyOutbounds = append(proxyOutbounds, ob)
+			}
 		}
 	}
 
@@ -162,36 +174,21 @@ func findEntryEndpoint(endpoints []string, protocol string) (address string, por
 // either a SingBoxNode with the outbound role or an ExternalOutbound. Client
 // configs only need the name (for tags, group selectors and credential
 // derivation); AllowedInbounds carries the per-outbound inbound restriction.
-// ClientRegion is the normalized client config group key for this target;
-// unknown or empty regions are omitted from client selectors.
+// ClientGroups are the client selector groups for this target.
 type outboundRef struct {
 	Name            string
 	AllowedInbounds []string
-	ClientRegion    string
+	ClientGroups    []string
 }
 
-// normalizeClientRegion maps deployment-specific region labels to the three
-// user-selectable geographic groups. Unknown labels are omitted from groups.
-func normalizeClientRegion(region string) string {
-	value := strings.ToLower(strings.TrimSpace(region))
-	switch {
-	case strings.HasPrefix(value, "hk"), strings.Contains(value, "hongkong"), strings.Contains(value, "hong-kong"):
-		return "hk"
-	case strings.HasPrefix(value, "jp"), strings.Contains(value, "japan"), strings.Contains(value, "tokyo"):
-		return "jp"
-	case strings.HasPrefix(value, "us"), strings.Contains(value, "usa"), strings.Contains(value, "america"):
-		return "us"
-	default:
-		return ""
+func targetHasClientGroup(input ClientConfigInput, name, group string) bool {
+	if n := input.OutboundsByName[name]; n != nil {
+		return slices.Contains(n.Spec.ClientGroups, group)
 	}
-}
-
-// clientGroupRegion resolves clientRegion first, then region, and normalizes it.
-func clientGroupRegion(region, clientRegion string) string {
-	if clientRegion != "" {
-		return normalizeClientRegion(clientRegion)
+	if e := input.ExternalOutboundsByName[name]; e != nil {
+		return slices.Contains(e.Spec.ClientGroups, group)
 	}
-	return normalizeClientRegion(region)
+	return false
 }
 
 func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboundRef {
@@ -214,32 +211,32 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 			if n.Spec.RelayPort == 0 {
 				continue
 			}
-			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.PolicyOnlyEgressNames[n.Name] && !input.OfflineNodeNames[n.Name] &&
+			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && (!input.PolicyOnlyEgressNames[n.Name] || targetHasClientGroup(input, n.Name, "ai")) && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
-				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(n.Spec.Region, n.Spec.ClientRegion)})
+				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds, ClientGroups: n.Spec.ClientGroups})
 			}
 		}
-		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.PolicyOnlyEgressNames[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] &&
+		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && (!input.PolicyOnlyEgressNames[inboundNode.Name] || targetHasClientGroup(input, inboundNode.Name, "ai")) && !input.OfflineNodeNames[inboundNode.Name] &&
 			configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 			(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, inboundNode.Name)) {
 			seen[inboundNode.Name] = true
-			refs = append(refs, outboundRef{Name: inboundNode.Name, ClientRegion: clientGroupRegion(inboundNode.Spec.Region, inboundNode.Spec.ClientRegion)})
+			refs = append(refs, outboundRef{Name: inboundNode.Name, ClientGroups: inboundNode.Spec.ClientGroups})
 		}
 		// Same-region ExternalOutbounds are auto-discovered like outbound
 		// SingBoxNodes, except that an empty region never auto-discovers and
 		// offline filtering does not apply to them. A name already present as
 		// an outbound SingBoxNode always wins over an ExternalOutbound.
 		for _, eob := range input.ExternalOutboundsByName {
-			if eob.Spec.Region != "" && eob.Spec.Region == inboundNode.Spec.Region && !seen[eob.Name] && !input.PolicyOnlyEgressNames[eob.Name] &&
+			if eob.Spec.Region != "" && eob.Spec.Region == inboundNode.Spec.Region && !seen[eob.Name] && (!input.PolicyOnlyEgressNames[eob.Name] || targetHasClientGroup(input, eob.Name, "ai")) &&
 				input.OutboundsByName[eob.Name] == nil &&
 				configengine.IsNodeAllowed(eob.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, eob.Name)) {
 				seen[eob.Name] = true
-				refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(eob.Spec.Region, eob.Spec.ClientRegion)})
+				refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds, ClientGroups: eob.Spec.ClientGroups})
 			}
 		}
 	}
@@ -247,22 +244,22 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 	if inboundNode != nil {
 		for _, r := range input.RoutesByInbound[inboundName] {
 			if r.EffectiveOutboundKind() == v1alpha1.OutboundKindExternalOutbound {
-				if eob, ok := input.ExternalOutboundsByName[r.Spec.OutboundNode]; ok && !seen[eob.Name] && !input.PolicyOnlyEgressNames[eob.Name] &&
+				if eob, ok := input.ExternalOutboundsByName[r.Spec.OutboundNode]; ok && eob.Spec.Region == inboundNode.Spec.Region && !seen[eob.Name] && (!input.PolicyOnlyEgressNames[eob.Name] || targetHasClientGroup(input, eob.Name, "ai")) &&
 					input.OutboundsByName[eob.Name] == nil &&
 					configengine.IsNodeAllowed(eob.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 					(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
 					(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, eob.Name)) {
 					seen[eob.Name] = true
-					refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(eob.Spec.Region, eob.Spec.ClientRegion)})
+					refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds, ClientGroups: eob.Spec.ClientGroups})
 				}
 				continue
 			}
-			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && n.Spec.RelayPort != 0 && !seen[n.Name] && !input.PolicyOnlyEgressNames[n.Name] && !input.OfflineNodeNames[n.Name] &&
+			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && n.Spec.Region == inboundNode.Spec.Region && n.Spec.RelayPort != 0 && !seen[n.Name] && (!input.PolicyOnlyEgressNames[n.Name] || targetHasClientGroup(input, n.Name, "ai")) && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
 				seen[n.Name] = true
-				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(n.Spec.Region, n.Spec.ClientRegion)})
+				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds, ClientGroups: n.Spec.ClientGroups})
 			}
 		}
 	}

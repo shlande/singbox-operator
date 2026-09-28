@@ -116,12 +116,11 @@ type ExternalOutboundSpec struct {
 	// outbound is only usable via explicit EgressPolicy bindings.
 	// +optional
 	Region string `json:"region,omitempty"`
-	// ClientRegion overrides the region label used for client config grouping.
-	// When empty, client configs group this outbound by spec.region. This field
-	// only affects client-side selector groups; server-side route discovery
-	// always uses spec.region.
+	// ClientGroups lists client selector groups for this outbound. The physical
+	// region remains the topology and entry-path matching region.
 	// +optional
-	ClientRegion string `json:"clientRegion,omitempty"`
+	// +listType=set
+	ClientGroups []string `json:"clientGroups,omitempty"`
 	// AllowedInbounds restricts which inbound SingBoxNodes may use this outbound.
 	// Empty means allow all. Mirrors SingBoxNode.spec.allowedInbounds.
 	// +optional
