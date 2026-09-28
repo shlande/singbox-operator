@@ -129,7 +129,7 @@ func validatePolicyResolution(policy *proxyv1alpha1.EgressPolicy, ingressNames, 
 	if err := policy.Spec.EgressSelector.Valid(); err != nil {
 		return "InvalidEgressSelector", err.Error()
 	}
-	if err := policy.Spec.Match.Valid(policy.Spec.Fallback); err != nil {
+	if err := policy.Spec.Match.Valid(policy.Spec.FallbackAction != ""); err != nil {
 		return "InvalidMatch", err.Error()
 	}
 	if policy.Spec.Action != proxyv1alpha1.EgressPolicyActionRoute && policy.Spec.Action != proxyv1alpha1.EgressPolicyActionReject {
@@ -137,6 +137,9 @@ func validatePolicyResolution(policy *proxyv1alpha1.EgressPolicy, ingressNames, 
 	}
 	if len(ingressNames) == 0 {
 		return "IngressNotFound", "ingressSelector matched no inbound SingBoxNode"
+	}
+	if policy.Spec.FallbackAction != "" && policy.Spec.FallbackAction != proxyv1alpha1.EgressPolicyActionReject {
+		return "InvalidFallbackAction", fmt.Sprintf("unsupported fallbackAction %q", policy.Spec.FallbackAction)
 	}
 	if policy.Spec.Action == proxyv1alpha1.EgressPolicyActionRoute && len(egressNames) != 1 {
 		return "EgressNotUnique", fmt.Sprintf("egressSelector matched %d egress targets, expected exactly one", len(egressNames))

@@ -65,6 +65,7 @@ spec:
     domainSuffix:
       - example.com
   action: route
+  fallbackAction: reject
   priority: 100
 ```
 

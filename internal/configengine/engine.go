@@ -155,17 +155,17 @@ func Compute(input Input) (Output, error) {
 	if isInbound {
 		hasOutboundPeers := len(input.OutboundNodes) > 0 || len(myRoutes) > 0 || len(myPolicies) > 0 || isSelfOutbound ||
 			len(resolveExternalOutbounds(input, myRoutes)) > 0
-		if hasOutboundPeers {
-			// Policy-only egresses do not create virtual users. Keep the normal
-			// client credentials on the inbound when no relay target exists;
-			// policy route rules then classify all authenticated client traffic.
-			if len(input.OutboundNodes) == 0 && len(myRoutes) == 0 && !isSelfOutbound {
-				inbounds = append(inbounds, buildUserInbounds(input)...)
-			} else {
-				ibs, rls := buildRouteInbounds(input, myRoutes, isSelfOutbound)
-				inbounds = append(inbounds, ibs...)
-				rules = append(rules, rls...)
+		if len(myPolicies) > 0 {
+			ibs, rls := buildRouteInbounds(input, myRoutes, isSelfOutbound)
+			if len(ibs) == 0 {
+				ibs = buildUserInbounds(input)
 			}
+			inbounds = append(inbounds, ibs...)
+			rules = append(rules, rls...)
+		} else if hasOutboundPeers {
+			ibs, rls := buildRouteInbounds(input, myRoutes, isSelfOutbound)
+			inbounds = append(inbounds, ibs...)
+			rules = append(rules, rls...)
 		} else {
 			inbounds = append(inbounds, buildUserInbounds(input)...)
 		}
@@ -400,8 +400,29 @@ func buildPolicyRules(input Input, policies []*v1alpha1.EgressPolicy) []routeRul
 			rule.Outbound = fmt.Sprintf("outbound-%s", name)
 		}
 		rules = append(rules, rule)
+		if policy.Spec.Action == v1alpha1.EgressPolicyActionRoute && policy.Spec.FallbackAction == v1alpha1.EgressPolicyActionReject {
+			name := policy.Status.ResolvedEgress
+			if name == "" {
+				name = resolvePolicyEgressName(input, policy)
+			}
+			if name != "" && policyEgressAvailable(input, name) {
+				if authUsers := policyAuthUsers(input, name); len(authUsers) > 0 {
+					rules = append(rules, routeRule{AuthUser: authUsers, Action: v1alpha1.EgressPolicyActionReject})
+				}
+			}
+		}
 	}
 	return rules
+}
+
+func policyAuthUsers(input Input, egressName string) []string {
+	var authUsers []string
+	for _, user := range input.Users {
+		if IsNodeAllowed(egressName, input.UserNodeAllowlist[user.Name], input.UserNodeRestrictions[user.Name]) {
+			authUsers = append(authUsers, virtualUserName(user.Name, egressName))
+		}
+	}
+	return authUsers
 }
 
 func resolvePolicyEgressName(input Input, policy *v1alpha1.EgressPolicy) string {
@@ -501,6 +522,19 @@ func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf
 		if !seen[r.Spec.OutboundNode] {
 			seen[r.Spec.OutboundNode] = true
 			outboundNames = append(outboundNames, r.Spec.OutboundNode)
+		}
+	}
+	for _, policy := range input.EgressPolicies {
+		if policy == nil || policy.Spec.Action != v1alpha1.EgressPolicyActionRoute {
+			continue
+		}
+		name := policy.Status.ResolvedEgress
+		if name == "" {
+			name = resolvePolicyEgressName(input, policy)
+		}
+		if name != "" && policyEgressAvailable(input, name) && !seen[name] {
+			seen[name] = true
+			outboundNames = append(outboundNames, name)
 		}
 	}
 	if includeSelf && !seen[input.Node.Name] {

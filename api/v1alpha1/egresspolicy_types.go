@@ -149,9 +149,11 @@ type EgressPolicySpec struct {
 	// resolved by policy name for deterministic output.
 	// +optional
 	Priority int32 `json:"priority,omitempty"`
-	// Fallback makes an otherwise empty match a catch-all rule.
+	// FallbackAction controls traffic using the selected egress that did not
+	// match this policy. Currently only reject is supported.
+	// +kubebuilder:validation:Enum=reject
 	// +optional
-	Fallback bool `json:"fallback,omitempty"`
+	FallbackAction string `json:"fallbackAction,omitempty"`
 }
 
 // EgressPolicyStatus defines the observed state of EgressPolicy.

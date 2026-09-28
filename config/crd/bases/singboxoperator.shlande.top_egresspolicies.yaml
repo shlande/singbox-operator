@@ -112,9 +112,13 @@ spec:
                     type: array
                     x-kubernetes-list-type: set
                 type: object
-              fallback:
-                description: Fallback makes an otherwise empty match a catch-all rule.
-                type: boolean
+              fallbackAction:
+                description: |-
+                  FallbackAction controls traffic using the selected egress that did not
+                  match this policy. Currently only reject is supported.
+                enum:
+                - reject
+                type: string
               ingressSelector:
                 description: IngressSelector selects inbound SingBoxNodes that receive
                   this policy.

@@ -11,7 +11,7 @@ import (
 // considers SingBoxNodes and ExternalOutbounds together: an ambiguous selector
 // must never result in an arbitrary generated route.
 func resolveEgressPolicy(policy *proxyv1alpha1.EgressPolicy, nodes []proxyv1alpha1.SingBoxNode, outbounds []proxyv1alpha1.ExternalOutbound) ([]string, string, string) {
-	if err := policy.Spec.Match.Valid(policy.Spec.Fallback); err != nil {
+	if err := policy.Spec.Match.Valid(policy.Spec.FallbackAction != ""); err != nil {
 		return nil, "", err.Error()
 	}
 	if policy.Spec.Action != proxyv1alpha1.EgressPolicyActionRoute && policy.Spec.Action != proxyv1alpha1.EgressPolicyActionReject {

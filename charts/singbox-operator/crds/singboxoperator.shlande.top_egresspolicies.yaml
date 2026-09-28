@@ -112,9 +112,13 @@ spec:
                     type: array
                     x-kubernetes-list-type: set
                 type: object
-              fallback:
-                description: Fallback makes an otherwise empty match a catch-all rule.
-                type: boolean
+              fallbackAction:
+                description: |-
+                  FallbackAction controls traffic using the selected egress that did not
+                  match this policy. Currently only reject is supported.
+                enum:
+                - reject
+                type: string
               ingressSelector:
                 description: IngressSelector selects inbound SingBoxNodes that receive
                   this policy.
@@ -171,19 +175,29 @@ spec:
                 properties:
                   domain:
                     description: Domain matches exact domain names.
-                    type: string
+                    items:
+                      type: string
+                    type: array
                   domainRegex:
                     description: DomainRegex matches domains using a regular expression.
-                    type: string
+                    items:
+                      type: string
+                    type: array
                   domainSuffix:
                     description: DomainSuffix matches domain suffixes.
-                    type: string
+                    items:
+                      type: string
+                    type: array
                   ipCIDR:
                     description: IPCIDR matches destination IP CIDRs.
-                    type: string
+                    items:
+                      type: string
+                    type: array
                   ruleSet:
                     description: RuleSet references a sing-box rule-set tag.
-                    type: string
+                    items:
+                      type: string
+                    type: array
                 type: object
               priority:
                 description: |-

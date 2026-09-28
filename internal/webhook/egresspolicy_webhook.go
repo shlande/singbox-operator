@@ -53,8 +53,11 @@ func validateEgressPolicy(policy *v1alpha1.EgressPolicy) error {
 	if err := policy.Spec.EgressSelector.Valid(); err != nil {
 		errs = append(errs, field.Invalid(field.NewPath("spec", "egressSelector"), policy.Spec.EgressSelector, err.Error()))
 	}
-	if err := policy.Spec.Match.Valid(policy.Spec.Fallback); err != nil {
+	if err := policy.Spec.Match.Valid(policy.Spec.FallbackAction != ""); err != nil {
 		errs = append(errs, field.Invalid(field.NewPath("spec", "match"), policy.Spec.Match, err.Error()))
+	}
+	if policy.Spec.FallbackAction != "" && policy.Spec.FallbackAction != v1alpha1.EgressPolicyActionReject {
+		errs = append(errs, field.NotSupported(field.NewPath("spec", "fallbackAction"), policy.Spec.FallbackAction, []string{v1alpha1.EgressPolicyActionReject}))
 	}
 	if policy.Spec.Action == v1alpha1.EgressPolicyActionRoute && len(policy.Spec.EgressSelector.MatchNames) == 0 && len(policy.Spec.EgressSelector.MatchLabels) == 0 && len(policy.Spec.EgressSelector.MatchExpressions) == 0 {
 		errs = append(errs, field.Required(field.NewPath("spec", "egressSelector"), "egressSelector is required for route actions"))
