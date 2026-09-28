@@ -272,11 +272,11 @@ func main() {
 		setupLog.Error(err, "Failed to create controller", "controller", "user")
 		os.Exit(1)
 	}
-	if err := (&controller.CustomRouteReconciler{
+	if err := (&controller.EgressPolicyReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "customroute")
+		setupLog.Error(err, "Failed to create controller", "controller", "egresspolicy")
 		os.Exit(1)
 	}
 	if err := proxywebhook.SetupSingBoxNodeWebhookWithManager(mgr, int32(nodePortRangeMin), int32(nodePortRangeMax)); err != nil {
@@ -287,8 +287,8 @@ func main() {
 		setupLog.Error(err, "Failed to create webhook", "webhook", "User")
 		os.Exit(1)
 	}
-	if err := proxywebhook.SetupCustomRouteWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create webhook", "webhook", "CustomRoute")
+	if err := proxywebhook.SetupEgressPolicyWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create webhook", "webhook", "EgressPolicy")
 		os.Exit(1)
 	}
 	if err := proxywebhook.SetupUserGroupWebhookWithManager(mgr); err != nil {

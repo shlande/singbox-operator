@@ -8,13 +8,13 @@ metadata:
     {{- include "singbox-operator.labels" . | nindent 4 }}
 rules:
 - apiGroups: ["singboxoperator.shlande.top"]
-  resources: ["singboxnodes", "users", "customroutes", "usergroups", "externaloutbounds"]
+  resources: ["singboxnodes", "users", "usergroups", "externaloutbounds", "egresspolicies"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["singboxoperator.shlande.top"]
-  resources: ["singboxnodes/status", "users/status", "customroutes/status", "usergroups/status", "externaloutbounds/status"]
+  resources: ["singboxnodes/status", "users/status", "usergroups/status", "externaloutbounds/status", "egresspolicies/status"]
   verbs: ["get", "update", "patch"]
 - apiGroups: ["singboxoperator.shlande.top"]
-  resources: ["singboxnodes/finalizers", "users/finalizers", "customroutes/finalizers", "usergroups/finalizers", "externaloutbounds/finalizers"]
+  resources: ["singboxnodes/finalizers", "users/finalizers", "usergroups/finalizers", "externaloutbounds/finalizers", "egresspolicies/finalizers"]
   verbs: ["update"]
 - apiGroups: [""]
   resources: ["configmaps", "services", "secrets"]

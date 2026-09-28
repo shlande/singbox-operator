@@ -113,7 +113,7 @@ type ExternalOutboundSpec struct {
 	Hysteria2 *Hysteria2Options `json:"hysteria2,omitempty"`
 	// Region mirrors SingBoxNode.spec.region semantics: when non-empty, inbound
 	// nodes in the same region auto-discover this outbound. When empty, the
-	// outbound is only usable via explicit CustomRoute bindings.
+	// outbound is only usable via explicit EgressPolicy bindings.
 	// +optional
 	Region string `json:"region,omitempty"`
 	// ClientRegion overrides the region label used for client config grouping.

@@ -4,7 +4,7 @@ A Kubernetes operator for managing [sing-box](https://github.com/SagerNet/sing-b
 
 ## Description
 
-The sing-box-operator-2 manages a fleet of sing-box proxy nodes via the `SingBoxNode` custom resource. Each node can act as an **inbound** (accepting client connections via hysteria2, vless, trojan, etc.), an **outbound** (forwarding traffic upstream), or both. The operator generates sing-box configuration files automatically, handles TLS certificates, and supports explicit routing between nodes using `CustomRoute` resources. A key access-control feature is **AllowedInbounds** (outbound-side whitelist of permitted inbounds) and **AllowedOutbounds** (inbound-side whitelist of permitted outbounds), which restrict node-to-node routing — empty means allow all (backward compatible), and when set, routing is gated on top of any explicit `CustomRoute` bindings.
+The sing-box-operator-2 manages a fleet of sing-box proxy nodes via the `SingBoxNode` custom resource. Each node can act as an **inbound** (accepting client connections via hysteria2, vless, trojan, etc.), an **outbound** (forwarding traffic upstream), or both. The operator generates sing-box configuration files automatically, handles TLS certificates, and applies destination routing through `EgressPolicy` resources. A key access-control feature is **AllowedInbounds** (outbound-side whitelist of permitted inbounds) and **AllowedOutbounds** (inbound-side whitelist of permitted outbounds), which restrict node-to-node routing.
 
 ## Features
 
@@ -44,16 +44,36 @@ spec:
 
 In this example, only `us-west-inbound-a` and `us-west-inbound-b` may use this node as their outbound. All other inbound nodes — even in the same region — are blocked.
 
-### CustomRoute interaction
+### EgressPolicy
 
-When a `CustomRoute` resource explicitly binds inbound node B to outbound node A, the binding is still gated by `A.Spec.AllowedInbounds`. If `A.AllowedInbounds` does not include B's name, the CustomRoute is skipped. The check is an AND gate: both the CustomRoute must exist AND `AllowedInbounds` must permit the binding (or be empty).
+`EgressPolicy` applies ordered sing-box route rules to all inbound nodes selected by `spec.ingressSelector`. Selectors use Kubernetes label-selector semantics and support `matchNames` as an additional exact-name constraint. A `route` action must select exactly one outbound `SingBoxNode` or `ExternalOutbound`; zero or multiple matches set the policy `Degraded` and do not generate a route. `reject` does not need an egress selector.
+
+Rules support `domain`, `domainSuffix`, `domainRegex`, `ipCIDR`, and `ruleSet` matching. Lower `priority` values run first; equal priorities are ordered by policy name. Set `fallback: true` to allow an empty match as a catch-all rule.
+
+```yaml
+apiVersion: singboxoperator.shlande.top/v1alpha1
+kind: EgressPolicy
+metadata:
+  name: route-example-domains
+spec:
+  ingressSelector:
+    matchLabels:
+      role: ingress
+  egressSelector:
+    matchNames: [us-west-outbound]
+  match:
+    domainSuffix:
+      - example.com
+  action: route
+  priority: 100
+```
 
 ### AllowedOutbounds
 
 `AllowedOutbounds` is an optional field on inbound nodes that restricts which outbound nodes they may use as upstream:
 
-- **Empty or omitted** — allow all same-region outbounds plus any CustomRoute-bound outbounds (backward compatible)
-- **Non-empty** — exclusive whitelist: only outbounds whose names appear in the list are usable. This gates ALL outbound paths (same-region auto-discovery AND CustomRoute bindings).
+- **Empty or omitted** — allow all same-region outbounds (backward compatible)
+- **Non-empty** — exclusive whitelist: only outbounds whose names appear in the list are usable. This gates same-region auto-discovery; EgressPolicy targets are selected independently by policy selectors.
 
 Example:
 
@@ -76,7 +96,7 @@ In this example, `us-west-inbound-a` may only use `us-west-outbound` as its upst
 
 ### AllowedOutbounds interaction with AllowedInbounds
 
-When both `AllowedOutbounds` (on inbound A) and `AllowedInbounds` (on outbound B) are set, the binding is an AND gate: A may use B only if `A.Spec.AllowedOutbounds` includes B AND `B.Spec.AllowedInbounds` includes A (or is empty). This mirrors the existing CustomRoute + AllowedInbounds AND-gate semantics.
+When both `AllowedOutbounds` (on inbound A) and `AllowedInbounds` (on outbound B) are set, automatic same-region pairing is an AND gate: A may use B only if `A.Spec.AllowedOutbounds` includes B AND `B.Spec.AllowedInbounds` includes A (or is empty).
 
 ### Self-as-outbound
 

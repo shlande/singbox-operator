@@ -97,7 +97,7 @@ type SingBoxNodeSpec struct {
 	AllowedInbounds []string `json:"allowedInbounds,omitempty"`
 	// AllowedOutbounds, when set on an inbound node, restricts which outbound nodes
 	// it may use as upstream. Empty means allow all (backward compatible).
-	// When non-empty, ALL outbound paths (same-region auto-discovery AND CustomRoute
+	// When non-empty, ALL outbound paths (same-region auto-discovery AND EgressPolicy
 	// bindings) are gated by this whitelist — only outbounds whose names appear here
 	// are usable. May include the node's own name when it has both inbound+outbound roles.
 	// Only meaningful for nodes with the inbound role.

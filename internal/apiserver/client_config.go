@@ -37,6 +37,9 @@ type ClientConfigInput struct {
 	// this user (from UserGroup.spec.deniedNodes); nil means deny none.
 	// Outbound direction only, never hides inbound nodes.
 	DeniedNodeNames map[string]bool
+	// PolicyOnlyEgressNames are selected by EgressPolicy and intentionally are
+	// not advertised as ordinary client-selectable outbounds.
+	PolicyOnlyEgressNames map[string]bool
 }
 
 // BuildClientConfig generates the outbounds array for a client sing-box config.
@@ -186,7 +189,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 			if n.Spec.RelayPort == 0 {
 				continue
 			}
-			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
+			if n.Spec.Region == inboundNode.Spec.Region && !seen[n.Name] && !input.PolicyOnlyEgressNames[n.Name] && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
@@ -194,7 +197,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds, ClientRegion: clientGroupRegion(n.Spec.Region, n.Spec.ClientRegion)})
 			}
 		}
-		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] &&
+		if hasOutboundRole(inboundNode) && !seen[inboundNode.Name] && !input.PolicyOnlyEgressNames[inboundNode.Name] && !input.OfflineNodeNames[inboundNode.Name] &&
 			configengine.IsNodeAllowed(inboundNode.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 			(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, inboundNode.Name)) {
 			seen[inboundNode.Name] = true
@@ -205,7 +208,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 		// offline filtering does not apply to them. A name already present as
 		// an outbound SingBoxNode always wins over an ExternalOutbound.
 		for _, eob := range input.ExternalOutboundsByName {
-			if eob.Spec.Region != "" && eob.Spec.Region == inboundNode.Spec.Region && !seen[eob.Name] &&
+			if eob.Spec.Region != "" && eob.Spec.Region == inboundNode.Spec.Region && !seen[eob.Name] && !input.PolicyOnlyEgressNames[eob.Name] &&
 				input.OutboundsByName[eob.Name] == nil &&
 				configengine.IsNodeAllowed(eob.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
@@ -219,7 +222,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 	if inboundNode != nil {
 		for _, r := range input.RoutesByInbound[inboundName] {
 			if r.EffectiveOutboundKind() == v1alpha1.OutboundKindExternalOutbound {
-				if eob, ok := input.ExternalOutboundsByName[r.Spec.OutboundNode]; ok && !seen[eob.Name] &&
+				if eob, ok := input.ExternalOutboundsByName[r.Spec.OutboundNode]; ok && !seen[eob.Name] && !input.PolicyOnlyEgressNames[eob.Name] &&
 					input.OutboundsByName[eob.Name] == nil &&
 					configengine.IsNodeAllowed(eob.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 					(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
@@ -229,7 +232,7 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 				}
 				continue
 			}
-			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && n.Spec.RelayPort != 0 && !seen[n.Name] && !input.OfflineNodeNames[n.Name] &&
+			if n, ok := input.OutboundsByName[r.Spec.OutboundNode]; ok && n.Spec.RelayPort != 0 && !seen[n.Name] && !input.PolicyOnlyEgressNames[n.Name] && !input.OfflineNodeNames[n.Name] &&
 				configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(n.Spec.AllowedInbounds) == 0 || slices.Contains(n.Spec.AllowedInbounds, inboundName)) &&
 				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {

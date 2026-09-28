@@ -143,7 +143,7 @@ spec:
                 description: |-
                   Region mirrors SingBoxNode.spec.region semantics: when non-empty, inbound
                   nodes in the same region auto-discover this outbound. When empty, the
-                  outbound is only usable via explicit CustomRoute bindings.
+                  outbound is only usable via explicit EgressPolicy bindings.
                 type: string
               server:
                 description: Server is the IP or hostname of the external proxy server.

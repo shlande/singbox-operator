@@ -96,18 +96,9 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var routeList proxyv1alpha1.CustomRouteList
-	if err := s.Client.List(ctx, &routeList, client.InNamespace(namespace)); err != nil {
-		logger.Error(err, "Failed to list CustomRoutes", "namespace", namespace)
-		writeInternalError(w)
-		return
-	}
-
+	// CustomRoute is retired. Keep the compatibility field empty so client
+	// configuration never advertises or resolves legacy route objects.
 	routesByInbound := make(map[string][]*proxyv1alpha1.CustomRoute)
-	for i := range routeList.Items {
-		route := &routeList.Items[i]
-		routesByInbound[route.Spec.InboundNode] = append(routesByInbound[route.Spec.InboundNode], route)
-	}
 
 	var externalOutboundList proxyv1alpha1.ExternalOutboundList
 	if err := s.Client.List(ctx, &externalOutboundList, client.InNamespace(namespace)); err != nil {
@@ -125,6 +116,14 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		externalOutboundsByName[eob.Name] = eob
 	}
+
+	var policyList proxyv1alpha1.EgressPolicyList
+	if err := s.Client.List(ctx, &policyList, client.InNamespace(namespace)); err != nil {
+		logger.Error(err, "Failed to list EgressPolicies", "namespace", namespace)
+		writeInternalError(w)
+		return
+	}
+	policyOnlyEgressNames := policyOnlyEgresses(&policyList, nodeList.Items, externalOutboundList.Items)
 
 	var allowedNodeNames, deniedNodeNames map[string]bool
 	if matchedUser.Spec.UserGroupRef != "" {
@@ -162,6 +161,7 @@ func (s *Server) handleClientConfig(w http.ResponseWriter, r *http.Request) {
 		OfflineNodeNames:        offlineNodeNames,
 		AllowedNodeNames:        allowedNodeNames,
 		DeniedNodeNames:         deniedNodeNames,
+		PolicyOnlyEgressNames:   policyOnlyEgressNames,
 	}
 
 	outbounds, err := BuildClientConfig(input)

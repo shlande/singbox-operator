@@ -64,7 +64,7 @@ const (
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=singboxnodes/finalizers,verbs=update
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=users,verbs=get;list;watch
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=usergroups,verbs=get;list;watch
-// +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=customroutes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=egresspolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=singboxoperator.shlande.top,resources=externaloutbounds,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -193,6 +193,7 @@ func (r *SingBoxNodeReconciler) ensureCredential(ctx context.Context, node *prox
 }
 
 func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1alpha1.SingBoxNode) (configengine.Input, error) {
+	logger := log.FromContext(ctx)
 	input := configengine.Input{
 		Node:                    node,
 		UserCreds:               make(map[string]configengine.UserCredential),
@@ -338,61 +339,37 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 		}
 	}
 
-	allRoutes := &proxyv1alpha1.CustomRouteList{}
-	if err := r.List(ctx, allRoutes, client.InNamespace(node.Namespace)); err != nil {
-		return input, fmt.Errorf("listing CustomRoutes: %w", err)
+	allPolicies := &proxyv1alpha1.EgressPolicyList{}
+	if err := r.List(ctx, allPolicies, client.InNamespace(node.Namespace)); err != nil {
+		return input, fmt.Errorf("listing EgressPolicies: %w", err)
 	}
-	for i := range allRoutes.Items {
-		route := &allRoutes.Items[i]
-		if route.Spec.InboundNode != node.Name {
+	for i := range allPolicies.Items {
+		policy := &allPolicies.Items[i]
+		if !hasRole(node, proxyv1alpha1.ProxyRoleInbound) || !policy.Spec.IngressSelector.Matches(node) {
 			continue
 		}
-		if route.EffectiveOutboundKind() == proxyv1alpha1.OutboundKindExternalOutbound {
-			eob := &proxyv1alpha1.ExternalOutbound{}
-			if err := r.Get(ctx, types.NamespacedName{Name: route.Spec.OutboundNode, Namespace: node.Namespace}, eob); err != nil {
-				continue
-			}
-			log := log.FromContext(ctx)
-			if sbnNames[eob.Name] {
-				log.Info("Skipping CustomRoute due to name conflict with SingBoxNode", "route", route.Name, "externalOutbound", eob.Name)
-				continue
-			}
-			if len(eob.Spec.AllowedInbounds) > 0 && !slices.Contains(eob.Spec.AllowedInbounds, node.Name) {
-				log.Info("Skipping CustomRoute due to allowedInbounds binding", "route", route.Name, "externalOutbound", eob.Name, "inboundNode", node.Name)
-				continue
-			}
-			if len(node.Spec.AllowedOutbounds) > 0 && !slices.Contains(node.Spec.AllowedOutbounds, eob.Name) {
-				log.Info("Skipping CustomRoute due to allowedOutbounds whitelist", "route", route.Name, "externalOutbound", eob.Name, "inboundNode", node.Name)
-				continue
-			}
-			input.Routes = append(input.Routes, route)
-			input.ExternalOutboundsByName[eob.Name] = eob
-			if _, ok := input.ExternalCreds[eob.Name]; !ok {
-				r.loadExternalCredential(ctx, eob, &input)
+		if _, _, message := resolveEgressPolicy(policy, allNodes.Items, allExtOutbounds.Items); message != "" {
+			logger.Info("Skipping invalid EgressPolicy", "policy", policy.Name, "message", message)
+			continue
+		}
+		input.EgressPolicies = append(input.EgressPolicies, policy)
+		egressName := policy.Status.ResolvedEgress
+		if egressName == "" || (findOutboundNode(allNodes.Items, egressName) == nil && findExternalOutbound(allExtOutbounds.Items, egressName) == nil) {
+			_, egressName, _ = resolveEgressPolicy(policy, allNodes.Items, allExtOutbounds.Items)
+		}
+		if egressName == "" {
+			continue
+		}
+		if egressNode := findOutboundNode(allNodes.Items, egressName); egressNode != nil {
+			input.OutboundNodesByName[egressNode.Name] = egressNode
+			if cred, credErr := credmanager.GetNodeCredential(ctx, r.Client, egressNode.Name, node.Namespace); credErr == nil {
+				input.NodeCreds[egressNode.Name] = configengine.NodeCredential{Username: cred.Username, Password: cred.Password}
 			}
 			continue
 		}
-		outboundNode := &proxyv1alpha1.SingBoxNode{}
-		if err := r.Get(ctx, types.NamespacedName{Name: route.Spec.OutboundNode, Namespace: node.Namespace}, outboundNode); err != nil {
-			continue
-		}
-		log := log.FromContext(ctx)
-		if len(outboundNode.Spec.AllowedInbounds) > 0 && !slices.Contains(outboundNode.Spec.AllowedInbounds, node.Name) {
-			log.Info("Skipping CustomRoute due to allowedInbounds binding", "route", route.Name, "outboundNode", outboundNode.Name, "inboundNode", node.Name)
-			continue
-		}
-		if len(node.Spec.AllowedOutbounds) > 0 && !slices.Contains(node.Spec.AllowedOutbounds, outboundNode.Name) {
-			log.Info("Skipping CustomRoute due to allowedOutbounds whitelist", "route", route.Name, "outboundNode", outboundNode.Name, "inboundNode", node.Name)
-			continue
-		}
-		input.Routes = append(input.Routes, route)
-		input.OutboundNodesByName[outboundNode.Name] = outboundNode
-		cred, err := credmanager.GetNodeCredential(ctx, r.Client, outboundNode.Name, node.Namespace)
-		if err == nil {
-			input.NodeCreds[outboundNode.Name] = configengine.NodeCredential{
-				Username: cred.Username,
-				Password: cred.Password,
-			}
+		if egress := findExternalOutbound(allExtOutbounds.Items, egressName); egress != nil {
+			input.ExternalOutboundsByName[egress.Name] = egress
+			r.loadExternalCredential(ctx, egress, &input)
 		}
 	}
 
@@ -763,39 +740,28 @@ func (r *SingBoxNodeReconciler) loadExternalCredential(ctx context.Context, eob 
 	input.ExternalCreds[eob.Name] = configengine.ExternalCredential(creds)
 }
 
-func (r *SingBoxNodeReconciler) affectedByRouteMapper(ctx context.Context, obj client.Object) []reconcile.Request {
-	route, ok := obj.(*proxyv1alpha1.CustomRoute)
+func (r *SingBoxNodeReconciler) egressPolicyMapper(ctx context.Context, obj client.Object) []reconcile.Request {
+	policy, ok := obj.(*proxyv1alpha1.EgressPolicy)
 	if !ok {
 		return nil
 	}
-	return []reconcile.Request{
-		{NamespacedName: types.NamespacedName{Name: route.Spec.InboundNode, Namespace: route.Namespace}},
-	}
-}
-
-func (r *SingBoxNodeReconciler) customRouteOutboundNodeMapper(ctx context.Context, obj client.Object) []reconcile.Request {
-	changedNode, ok := obj.(*proxyv1alpha1.SingBoxNode)
-	if !ok {
-		return nil
-	}
-	allRoutes := &proxyv1alpha1.CustomRouteList{}
-	if err := r.List(ctx, allRoutes, client.InNamespace(changedNode.Namespace)); err != nil {
+	allNodes := &proxyv1alpha1.SingBoxNodeList{}
+	if err := r.List(ctx, allNodes, client.InNamespace(policy.Namespace)); err != nil {
 		return nil
 	}
 	var requests []reconcile.Request
-	for _, route := range allRoutes.Items {
-		if route.Spec.OutboundNode == changedNode.Name {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: route.Spec.InboundNode, Namespace: route.Namespace},
-			})
+	for i := range allNodes.Items {
+		node := &allNodes.Items[i]
+		if hasRole(node, proxyv1alpha1.ProxyRoleInbound) && policy.Spec.IngressSelector.Matches(node) {
+			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: node.Name, Namespace: node.Namespace}})
 		}
 	}
 	return requests
 }
 
 // externalOutboundMapper enqueues inbound SingBoxNodes affected by an
-// ExternalOutbound change: region auto-discovery candidates plus nodes bound
-// via kind=ExternalOutbound CustomRoutes.
+// ExternalOutbound change: region auto-discovery candidates plus nodes selected
+// by EgressPolicy selectors.
 func (r *SingBoxNodeReconciler) externalOutboundMapper(ctx context.Context, obj client.Object) []reconcile.Request {
 	eob, ok := obj.(*proxyv1alpha1.ExternalOutbound)
 	if !ok {
@@ -834,34 +800,49 @@ func (r *SingBoxNodeReconciler) externalCredentialSecretMapper(ctx context.Conte
 }
 
 // inboundsAffectedByExternalOutbound returns reconcile requests for every
-// inbound SingBoxNode that may consume the given ExternalOutbound, either via
-// region auto-discovery (external region non-empty and equal) or via a
-// kind=ExternalOutbound CustomRoute naming it.
+// inbound SingBoxNode that may consume the given ExternalOutbound through
+// region discovery or an EgressPolicy selector.
 func (r *SingBoxNodeReconciler) inboundsAffectedByExternalOutbound(ctx context.Context, namespace, eobName, eobRegion string) []reconcile.Request {
 	var sbnList proxyv1alpha1.SingBoxNodeList
 	if err := r.List(ctx, &sbnList, client.InNamespace(namespace)); err != nil {
 		return nil
 	}
-	allRoutes := &proxyv1alpha1.CustomRouteList{}
-	if err := r.List(ctx, allRoutes, client.InNamespace(namespace)); err != nil {
+	var eobList proxyv1alpha1.ExternalOutboundList
+	if err := r.List(ctx, &eobList, client.InNamespace(namespace)); err != nil {
 		return nil
 	}
-	routed := make(map[string]bool)
-	for _, route := range allRoutes.Items {
-		if route.EffectiveOutboundKind() == proxyv1alpha1.OutboundKindExternalOutbound && route.Spec.OutboundNode == eobName {
-			routed[route.Spec.InboundNode] = true
+	var policyList proxyv1alpha1.EgressPolicyList
+	if err := r.List(ctx, &policyList, client.InNamespace(namespace)); err != nil {
+		return nil
+	}
+	var eob *proxyv1alpha1.ExternalOutbound
+	for i := range eobList.Items {
+		if eobList.Items[i].Name == eobName {
+			eob = &eobList.Items[i]
+			break
 		}
 	}
+	seen := make(map[string]bool)
 	var requests []reconcile.Request
 	for i := range sbnList.Items {
 		node := &sbnList.Items[i]
 		if !hasRole(node, proxyv1alpha1.ProxyRoleInbound) {
 			continue
 		}
-		if routed[node.Name] || (eobRegion != "" && node.Spec.Region == eobRegion) {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: node.Name, Namespace: node.Namespace},
-			})
+		affected := eobRegion != "" && node.Spec.Region == eobRegion
+		if eob != nil {
+			for j := range policyList.Items {
+				policy := &policyList.Items[j]
+				if policy.Spec.Action == proxyv1alpha1.EgressPolicyActionRoute &&
+					policy.Spec.IngressSelector.Matches(node) && policy.Spec.EgressSelector.Matches(eob) {
+					affected = true
+					break
+				}
+			}
+		}
+		if affected && !seen[node.Name] {
+			seen[node.Name] = true
+			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: node.Name, Namespace: node.Namespace}})
 		}
 	}
 	return requests
@@ -895,15 +876,13 @@ func (r *SingBoxNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&proxyv1alpha1.SingBoxNode{},
 			handler.EnqueueRequestsFromMapFunc(r.sameRegionNodeMapper),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&proxyv1alpha1.SingBoxNode{},
-			handler.EnqueueRequestsFromMapFunc(r.customRouteOutboundNodeMapper),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&proxyv1alpha1.User{},
 			handler.EnqueueRequestsFromMapFunc(r.matchingProtocolNodeMapper)).
 		Watches(&proxyv1alpha1.UserGroup{},
 			handler.EnqueueRequestsFromMapFunc(r.usersInGroupToNodesMapper)).
-		Watches(&proxyv1alpha1.CustomRoute{},
-			handler.EnqueueRequestsFromMapFunc(r.affectedByRouteMapper)).
+		Watches(&proxyv1alpha1.EgressPolicy{},
+			handler.EnqueueRequestsFromMapFunc(r.egressPolicyMapper),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&proxyv1alpha1.ExternalOutbound{},
 			handler.EnqueueRequestsFromMapFunc(r.externalOutboundMapper),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).

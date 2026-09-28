@@ -580,11 +580,10 @@ func TestHandler_ExternalOutbound(t *testing.T) {
 
 	ext := makeExternalOutbound("ext-1", "us")
 	ext.Namespace = namespace
-	route := makeExternalRoute("route-a-ext2", namespace, "node-a", "ext-2")
 	ext2 := makeExternalOutbound("ext-2", "")
 	ext2.Namespace = namespace
 
-	fakeClient := newFakeClient(secret, user, inbound, ext, ext2, route)
+	fakeClient := newFakeClient(secret, user, inbound, ext, ext2)
 
 	srv := &Server{
 		BindAddress: ":0",
@@ -604,8 +603,8 @@ func TestHandler_ExternalOutbound(t *testing.T) {
 	if tags["ext-1#node-a"] != 1 {
 		t.Errorf("expected exactly 1 outbound tagged 'ext-1#node-a', got %d", tags["ext-1#node-a"])
 	}
-	if tags["ext-2#node-a"] != 1 {
-		t.Errorf("expected exactly 1 outbound tagged 'ext-2#node-a' (route-bound), got %d", tags["ext-2#node-a"])
+	if tags["ext-2#node-a"] != 0 {
+		t.Errorf("expected policy-only external outbound ext-2 to be absent, got %d entries", tags["ext-2#node-a"])
 	}
 	if strings.Contains(w.Body.String(), ext.Spec.Server) || strings.Contains(w.Body.String(), ext2.Spec.Server) {
 		t.Errorf("response must not contain external server addresses, body: %s", w.Body.String())

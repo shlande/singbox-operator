@@ -10,6 +10,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-singboxoperator-shlande-top-v1alpha1-egresspolicy
+  failurePolicy: Fail
+  name: vegresspolicy-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - singboxoperator.shlande.top
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - egresspolicies
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-singboxoperator-shlande-top-v1alpha1-externaloutbound
   failurePolicy: Fail
   name: vexternaloutbound-v1alpha1.kb.io

@@ -1,0 +1,19 @@
+apiVersion: singboxoperator.shlande.top/v1alpha1
+kind: EgressPolicy
+metadata:
+  name: egresspolicy-sample
+  namespace: default
+spec:
+  ingressSelector:
+    matchLabels:
+      role: ingress
+  egressSelector:
+    matchLabels:
+      role: egress
+    matchNames:
+      - outbound-sample
+  match:
+    domainSuffix:
+      - example.com
+  action: route
+  priority: 100

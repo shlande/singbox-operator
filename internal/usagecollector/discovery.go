@@ -41,7 +41,7 @@ type Discoverer interface {
 }
 
 // K8sDiscoverer implements Discoverer by listing SingBoxNode, User, and
-// CustomRoute objects from a Kubernetes API server via controller-runtime's
+// EgressPolicy objects from a Kubernetes API server via controller-runtime's
 // client.Client.
 type K8sDiscoverer struct {
 	client    client.Client
@@ -85,21 +85,35 @@ func (d *K8sDiscoverer) Discover(ctx context.Context) ([]CollectTarget, error) {
 		return []CollectTarget{}, nil
 	}
 
-	// List all CustomRoutes to determine which outbound nodes each inbound
-	// node routes to.
-	allRoutes := &proxyv1alpha1.CustomRouteList{}
-	if err := d.client.List(ctx, allRoutes, client.InNamespace(d.namespace)); err != nil {
-		return nil, fmt.Errorf("listing CustomRoutes: %w", err)
+	// List EgressPolicies to determine policy-only outbound targets for each
+	// selected inbound node. Same-region discovery below remains the fallback.
+	allPolicies := &proxyv1alpha1.EgressPolicyList{}
+	if err := d.client.List(ctx, allPolicies, client.InNamespace(d.namespace)); err != nil {
+		return nil, fmt.Errorf("listing EgressPolicies: %w", err)
 	}
 
-	// Build map: inboundNodeName → set of outboundNodeNames
+	// Build map: inboundNodeName → set of outboundNodeNames.
 	routesByInbound := make(map[string]map[string]bool)
-	for i := range allRoutes.Items {
-		r := &allRoutes.Items[i]
-		if routesByInbound[r.Spec.InboundNode] == nil {
-			routesByInbound[r.Spec.InboundNode] = make(map[string]bool)
+	for i := range allPolicies.Items {
+		policy := &allPolicies.Items[i]
+		if policy.Spec.Action != proxyv1alpha1.EgressPolicyActionRoute {
+			continue
 		}
-		routesByInbound[r.Spec.InboundNode][r.Spec.OutboundNode] = true
+		for j := range inboundNodes {
+			inbound := inboundNodes[j]
+			if !policy.Spec.IngressSelector.Matches(inbound) {
+				continue
+			}
+			for k := range allNodes.Items {
+				egress := &allNodes.Items[k]
+				if hasRole(egress, proxyv1alpha1.ProxyRoleOutbound) && policy.Spec.EgressSelector.Matches(egress) {
+					if routesByInbound[inbound.Name] == nil {
+						routesByInbound[inbound.Name] = make(map[string]bool)
+					}
+					routesByInbound[inbound.Name][egress.Name] = true
+				}
+			}
+		}
 	}
 
 	// Find all outbound node names (same region as inbound) that aren't

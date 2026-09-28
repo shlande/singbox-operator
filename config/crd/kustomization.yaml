@@ -2,11 +2,11 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/proxy.proxy.io_proxynodes.yaml
-- bases/proxy.proxy.io_proxyusers.yaml
-- bases/proxy.proxy.io_proxyroutes.yaml
-- bases/singboxoperator.shlande.top_usergroups.yaml
+- bases/singboxoperator.shlande.top_egresspolicies.yaml
 - bases/singboxoperator.shlande.top_externaloutbounds.yaml
+- bases/singboxoperator.shlande.top_singboxnodes.yaml
+- bases/singboxoperator.shlande.top_usergroups.yaml
+- bases/singboxoperator.shlande.top_users.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

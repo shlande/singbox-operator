@@ -48,11 +48,14 @@ type ExternalCredential map[string]string
 
 // Input contains all data needed to compute a node's sing-box config.
 type Input struct {
-	Node                *v1alpha1.SingBoxNode
-	Users               []*v1alpha1.User
-	UserCreds           map[string]UserCredential
-	OutboundNodes       []*v1alpha1.SingBoxNode
+	Node          *v1alpha1.SingBoxNode
+	Users         []*v1alpha1.User
+	UserCreds     map[string]UserCredential
+	OutboundNodes []*v1alpha1.SingBoxNode
+	// Routes is retained for source compatibility with pre-EgressPolicy unit
+	// fixtures; the controller no longer populates it for live reconciliation.
 	Routes              []*v1alpha1.CustomRoute
+	EgressPolicies      []*v1alpha1.EgressPolicy
 	NodeCreds           map[string]NodeCredential
 	OutboundNodesByName map[string]*v1alpha1.SingBoxNode
 
@@ -116,9 +119,15 @@ type logConfig struct {
 }
 
 type routeRule struct {
-	Inbound  []string `json:"inbound,omitempty"`
-	AuthUser []string `json:"auth_user,omitempty"`
-	Outbound string   `json:"outbound"`
+	Inbound      []string `json:"inbound,omitempty"`
+	AuthUser     []string `json:"auth_user,omitempty"`
+	Domain       []string `json:"domain,omitempty"`
+	DomainSuffix []string `json:"domain_suffix,omitempty"`
+	DomainRegex  []string `json:"domain_regex,omitempty"`
+	IPCIDR       []string `json:"ip_cidr,omitempty"`
+	RuleSet      []string `json:"rule_set,omitempty"`
+	Action       string   `json:"action,omitempty"`
+	Outbound     string   `json:"outbound,omitempty"`
 }
 
 type routeConfig struct {
@@ -135,24 +144,35 @@ func Compute(input Input) (Output, error) {
 	isSelfOutbound := isInbound && isOutbound
 
 	myRoutes := routesForNode(input)
+	myPolicies := policiesForNode(input)
 
 	var inbounds []any
 	var outbounds []any
-	var rules []routeRule
+	// Policy rules must precede the generic auth-user rules; otherwise the
+	// latter would route every request before destination matching is reached.
+	rules := buildPolicyRules(input, myPolicies)
 
 	if isInbound {
-		hasOutboundPeers := len(input.OutboundNodes) > 0 || len(myRoutes) > 0 || isSelfOutbound ||
+		hasOutboundPeers := len(input.OutboundNodes) > 0 || len(myRoutes) > 0 || len(myPolicies) > 0 || isSelfOutbound ||
 			len(resolveExternalOutbounds(input, myRoutes)) > 0
 		if hasOutboundPeers {
-			ibs, rls := buildRouteInbounds(input, myRoutes, isSelfOutbound)
-			inbounds = append(inbounds, ibs...)
-			rules = rls
+			// Policy-only egresses do not create virtual users. Keep the normal
+			// client credentials on the inbound when no relay target exists;
+			// policy route rules then classify all authenticated client traffic.
+			if len(input.OutboundNodes) == 0 && len(myRoutes) == 0 && !isSelfOutbound {
+				inbounds = append(inbounds, buildUserInbounds(input)...)
+			} else {
+				ibs, rls := buildRouteInbounds(input, myRoutes, isSelfOutbound)
+				inbounds = append(inbounds, ibs...)
+				rules = append(rules, rls...)
+			}
 		} else {
 			inbounds = append(inbounds, buildUserInbounds(input)...)
 		}
 		outbounds = append(outbounds, buildOutboundNodeOutbounds(input, myRoutes)...)
 		outbounds = append(outbounds, buildRouteOutbounds(input, myRoutes)...)
 		outbounds = append(outbounds, buildExternalOutbounds(input, myRoutes)...)
+		outbounds = append(outbounds, buildPolicyOutbounds(input, myPolicies)...)
 		if isSelfOutbound && (len(node.Spec.AllowedOutbounds) == 0 || slices.Contains(node.Spec.AllowedOutbounds, node.Name)) {
 			outbounds = append(outbounds, map[string]any{
 				"type": "direct",
@@ -269,6 +289,23 @@ func EffectiveInboundProtocol(node *v1alpha1.SingBoxNode) string {
 	return "hysteria2"
 }
 
+func policiesForNode(input Input) []*v1alpha1.EgressPolicy {
+	result := make([]*v1alpha1.EgressPolicy, 0, len(input.EgressPolicies))
+	for _, policy := range input.EgressPolicies {
+		if policy == nil {
+			continue
+		}
+		result = append(result, policy)
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].Spec.Priority != result[j].Spec.Priority {
+			return result[i].Spec.Priority < result[j].Spec.Priority
+		}
+		return result[i].Name < result[j].Name
+	})
+	return result
+}
+
 func routesForNode(input Input) []*v1alpha1.CustomRoute {
 	var result []*v1alpha1.CustomRoute
 	for _, r := range input.Routes {
@@ -337,6 +374,99 @@ func DeriveAuth(protocol, uuid, nodeName string) map[string]any {
 	default:
 		return map[string]any{"password": DerivePassword(uuid, nodeName)}
 	}
+}
+
+func buildPolicyRules(input Input, policies []*v1alpha1.EgressPolicy) []routeRule {
+	var rules []routeRule
+	inboundTag := fmt.Sprintf("inbound-%s", EffectiveInboundProtocol(input.Node))
+	for _, policy := range policies {
+		rule := routeRule{Inbound: []string{inboundTag}}
+		match := policy.Spec.Match
+		rule.Domain = append([]string(nil), match.Domain...)
+		rule.DomainSuffix = append([]string(nil), match.DomainSuffix...)
+		rule.DomainRegex = append([]string(nil), match.DomainRegex...)
+		rule.IPCIDR = append([]string(nil), match.IPCIDR...)
+		rule.RuleSet = append([]string(nil), match.RuleSet...)
+		if policy.Spec.Action == v1alpha1.EgressPolicyActionReject {
+			rule.Action = v1alpha1.EgressPolicyActionReject
+		} else {
+			name := policy.Status.ResolvedEgress
+			if name == "" {
+				name = resolvePolicyEgressName(input, policy)
+			}
+			if name == "" || !policyEgressAvailable(input, name) {
+				continue
+			}
+			rule.Outbound = fmt.Sprintf("outbound-%s", name)
+		}
+		rules = append(rules, rule)
+	}
+	return rules
+}
+
+func resolvePolicyEgressName(input Input, policy *v1alpha1.EgressPolicy) string {
+	var names []string
+	for _, node := range input.OutboundNodesByName {
+		if hasRole(node, v1alpha1.ProxyRoleOutbound) && policy.Spec.EgressSelector.Matches(node) {
+			names = append(names, node.Name)
+		}
+	}
+	for _, eob := range input.ExternalOutboundsByName {
+		if policy.Spec.EgressSelector.Matches(eob) {
+			names = append(names, eob.Name)
+		}
+	}
+	sort.Strings(names)
+	if len(names) != 1 {
+		return ""
+	}
+	return names[0]
+}
+
+func policyEgressAvailable(input Input, name string) bool {
+	if node := input.OutboundNodesByName[name]; node != nil {
+		return hasRole(node, v1alpha1.ProxyRoleOutbound) && node.Spec.RelayPort > 0
+	}
+	if eob := input.ExternalOutboundsByName[name]; eob != nil {
+		return hasRequiredExternalCreds(eob, input.ExternalCreds[name])
+	}
+	return false
+}
+
+func buildPolicyOutbounds(input Input, policies []*v1alpha1.EgressPolicy) []any {
+	seen := make(map[string]bool)
+	var result []any
+	for _, policy := range policies {
+		if policy.Spec.Action != v1alpha1.EgressPolicyActionRoute {
+			continue
+		}
+		name := policy.Status.ResolvedEgress
+		if name == "" {
+			name = resolvePolicyEgressName(input, policy)
+		}
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		if node := input.OutboundNodesByName[name]; node != nil {
+			if node.Spec.RelayPort == 0 {
+				continue
+			}
+			cred := input.NodeCreds[name]
+			result = append(result, map[string]any{
+				"type": "socks", "tag": fmt.Sprintf("outbound-%s", name),
+				"server": node.Spec.Address, "server_port": node.Spec.RelayPort,
+				"username": cred.Username, "password": cred.Password,
+			})
+			continue
+		}
+		if eob := input.ExternalOutboundsByName[name]; eob != nil {
+			if hasRequiredExternalCreds(eob, input.ExternalCreds[name]) {
+				result = append(result, buildExternalOutboundEntry(eob, input.ExternalCreds[name]))
+			}
+		}
+	}
+	return result
 }
 
 func buildRouteInbounds(input Input, routes []*v1alpha1.CustomRoute, includeSelf bool) ([]any, []routeRule) {

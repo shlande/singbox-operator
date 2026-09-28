@@ -25,9 +25,9 @@ resources:
 - externaloutbound_admin_role.yaml
 - externaloutbound_editor_role.yaml
 - externaloutbound_viewer_role.yaml
-- customroute_admin_role.yaml
-- customroute_editor_role.yaml
-- customroute_viewer_role.yaml
+- egresspolicy_admin_role.yaml
+- egresspolicy_editor_role.yaml
+- egresspolicy_viewer_role.yaml
 - user_admin_role.yaml
 - user_editor_role.yaml
 - user_viewer_role.yaml

@@ -60,14 +60,6 @@ type CustomRouteStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=cr
-// +kubebuilder:printcolumn:name="InboundNode",type=string,JSONPath=`.spec.inboundNode`
-// +kubebuilder:printcolumn:name="OutboundNode",type=string,JSONPath=`.spec.outboundNode`
-// +kubebuilder:printcolumn:name="OutboundKind",type=string,JSONPath=`.spec.outboundKind`
-// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
-
 // CustomRoute is the Schema for the customroutes API
 type CustomRoute struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -77,9 +69,8 @@ type CustomRoute struct {
 	Status CustomRouteStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
-
-// CustomRouteList contains a list of CustomRoute
+// CustomRouteList is retained only for source compatibility with old clients;
+// CustomRoute is not registered as a CRD or consumed by controllers.
 type CustomRouteList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -95,6 +86,5 @@ func (r *CustomRoute) EffectiveOutboundKind() string {
 	return r.Spec.OutboundKind
 }
 
-func init() {
-	SchemeBuilder.Register(&CustomRoute{}, &CustomRouteList{})
-}
+// CustomRoute is intentionally not registered in the API scheme. It remains
+// only as a source-compatible Go type while the CRD is retired.

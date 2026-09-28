@@ -38,19 +38,19 @@ webhooks:
     operations: ["CREATE", "UPDATE"]
     resources: ["users"]
   sideEffects: None
-- name: vcustomroute.kb.io
+- name: vegresspolicy.kb.io
   admissionReviewVersions: ["v1"]
   clientConfig:
     service:
       name: {{ include "singbox-operator.fullname" . }}-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-singboxoperator-shlande-top-v1alpha1-customroute
+      path: /validate-singboxoperator-shlande-top-v1alpha1-egresspolicy
   failurePolicy: Fail
   rules:
   - apiGroups: ["singboxoperator.shlande.top"]
     apiVersions: ["v1alpha1"]
     operations: ["CREATE", "UPDATE"]
-    resources: ["customroutes"]
+    resources: ["egresspolicies"]
   sideEffects: None
 - name: vexternaloutbound.kb.io
   admissionReviewVersions: ["v1"]

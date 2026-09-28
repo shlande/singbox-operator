@@ -13,8 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-// fakeDiscovererScheme returns a scheme with SingBoxNode, User, and CustomRoute
-// registered so the fake client works with these types.
+// fakeDiscovererScheme returns a scheme with SingBoxNode, User, and
+// EgressPolicy registered so the fake client works with these types.
 func fakeDiscovererScheme() *runtime.Scheme {
 	s := runtime.NewScheme()
 	_ = proxyv1alpha1.AddToScheme(s)
@@ -105,21 +105,9 @@ func TestDiscoverOneInboundNodeWithUsers(t *testing.T) {
 		},
 	}
 
-	// CustomRoute routes inbound to outbound
-	route := &proxyv1alpha1.CustomRoute{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "route-a-to-b",
-			Namespace: "default",
-		},
-		Spec: proxyv1alpha1.CustomRouteSpec{
-			InboundNode:  "node-a",
-			OutboundNode: "node-b",
-		},
-	}
-
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(fakeDiscovererScheme()).
-		WithObjects(inbound, outbound, alice, bob, route).
+		WithObjects(inbound, outbound, alice, bob).
 		WithStatusSubresource(inbound, outbound, alice, bob).
 		Build()
 
