@@ -18,7 +18,7 @@ var DefaultTemplate = []byte(`{
     "rules": [
       {"rule_set": "geosite-cn", "server": "local"}
     ],
-    "final": "local",
+    "final": "proxy-dns",
     "strategy": "ipv4_only",
     "independent_cache": true
   },
@@ -167,7 +167,21 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 			rules = append(rules, rule)
 		}
 	}
-	for _, mode := range []struct{ name, tag string }{{"Auto", "hk"}, {"HK", "hk"}, {"JP", "jp"}, {"US", "us"}} {
+	proxySelector := ""
+	for _, tag := range []string{"hk", "jp", "us"} {
+		if has[tag] {
+			proxySelector = tag
+			break
+		}
+	}
+	modeTags := []struct {
+		name string
+		tag  string
+	}{{"HK", "hk"}, {"JP", "jp"}, {"US", "us"}}
+	if proxySelector != "" {
+		rules = append(rules, map[string]any{"clash_mode": "Auto", "outbound": proxySelector})
+	}
+	for _, mode := range modeTags {
 		if has[mode.tag] {
 			rules = append(rules, map[string]any{"clash_mode": mode.name, "outbound": mode.tag})
 		}
@@ -204,14 +218,23 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 		clash = make(map[string]any)
 		experimental["clash_api"] = clash
 	}
-	// Auto is the intentional Clash Rule fallback. Only emit its mode rules
-	// when the corresponding selectors exist; clusters without HK still get a
-	// valid direct final.
+	// Auto and route.final must use the same available regional selector. HK is
+	// preferred, but clusters without HK should still route through JP or US.
 	clash["default_mode"] = "Auto"
-	if has["hk"] {
-		route["final"] = "hk"
-	} else if route["final"] == "hk" {
-		route["final"] = "direct"
+	if proxySelector != "" {
+		route["final"] = proxySelector
+	}
+
+	if dns, ok := m["dns"].(map[string]any); ok {
+		if servers, ok := dns["servers"].([]any); ok {
+			for _, server := range servers {
+				entry, ok := server.(map[string]any)
+				if ok && entry["tag"] == "proxy-dns" {
+					dns["final"] = "proxy-dns"
+					break
+				}
+			}
+		}
 	}
 	m["outbounds"] = generatedOutbounds
 	return json.Marshal(m)
