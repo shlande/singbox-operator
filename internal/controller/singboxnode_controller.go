@@ -352,7 +352,10 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 			logger.Info("Skipping invalid EgressPolicy", "policy", policy.Name, "message", message)
 			continue
 		}
-		input.EgressPolicies = append(input.EgressPolicies, policy)
+		if policy.Spec.Action == proxyv1alpha1.EgressPolicyActionReject {
+			input.EgressPolicies = append(input.EgressPolicies, policy)
+			continue
+		}
 		egressName := policy.Status.ResolvedEgress
 		if egressName == "" || (findOutboundNode(allNodes.Items, egressName) == nil && findExternalOutbound(allExtOutbounds.Items, egressName) == nil) {
 			_, egressName, _ = resolveEgressPolicy(policy, allNodes.Items, allExtOutbounds.Items)
@@ -360,6 +363,11 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 		if egressName == "" {
 			continue
 		}
+		if !egressConnectedToInbound(node, egressName, allNodes.Items, allExtOutbounds.Items) {
+			logger.Info("Skipping EgressPolicy because egress target is not connected to inbound", "policy", policy.Name, "egress", egressName, "inbound", node.Name)
+			continue
+		}
+		input.EgressPolicies = append(input.EgressPolicies, policy)
 		if egressNode := findOutboundNode(allNodes.Items, egressName); egressNode != nil {
 			input.OutboundNodesByName[egressNode.Name] = egressNode
 			if cred, credErr := credmanager.GetNodeCredential(ctx, r.Client, egressNode.Name, node.Namespace); credErr == nil {

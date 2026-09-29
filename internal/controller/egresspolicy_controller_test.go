@@ -23,6 +23,31 @@ func TestResolveEgressPolicyRejectsAmbiguousSelector(t *testing.T) {
 	}
 }
 
+func TestEgressConnectedToInboundRequiresRegionAndBindings(t *testing.T) {
+	in := &v1alpha1.SingBoxNode{ObjectMeta: metav1.ObjectMeta{Name: "in"}, Spec: v1alpha1.SingBoxNodeSpec{Region: "hk", Roles: []v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound}}}
+	nodes := []v1alpha1.SingBoxNode{
+		{ObjectMeta: metav1.ObjectMeta{Name: "same"}, Spec: v1alpha1.SingBoxNodeSpec{Region: "hk", Roles: []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "other"}, Spec: v1alpha1.SingBoxNodeSpec{Region: "us-east", Roles: []v1alpha1.ProxyRole{v1alpha1.ProxyRoleOutbound}}},
+	}
+	if !egressConnectedToInbound(in, "same", nodes, nil) {
+		t.Fatal("same-region outbound should be connected")
+	}
+	if egressConnectedToInbound(in, "other", nodes, nil) {
+		t.Fatal("cross-region outbound should not be connected")
+	}
+
+	external := []v1alpha1.ExternalOutbound{
+		{ObjectMeta: metav1.ObjectMeta{Name: "ext-same"}, Spec: v1alpha1.ExternalOutboundSpec{Region: "hk"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "ext-other"}, Spec: v1alpha1.ExternalOutboundSpec{Region: "us-east"}},
+	}
+	if !egressConnectedToInbound(in, "ext-same", nil, external) {
+		t.Fatal("same-region external outbound should be connected")
+	}
+	if egressConnectedToInbound(in, "ext-other", nil, external) {
+		t.Fatal("cross-region external outbound should not be connected")
+	}
+}
+
 func TestResolveEgressPolicyUsesLabelAndNameSelectors(t *testing.T) {
 	policy := &v1alpha1.EgressPolicy{Spec: v1alpha1.EgressPolicySpec{
 		Action: v1alpha1.EgressPolicyActionRoute,
