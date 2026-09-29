@@ -9,7 +9,6 @@ data:
       "dns": {
         "final": "proxy-dns",
         "client_subnet": "117.64.0.0/13",
-        "independent_cache": true,
         "rules": [
           {
             "domain": [
@@ -77,18 +76,22 @@ data:
         "default_mark": 255,
         "rule_set": [
           {
-            "download_detour": "direct",
             "format": "binary",
             "tag": "geosite-cn",
             "type": "remote",
-            "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs"
+            "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs",
+            "http_client": {
+              "detour": "direct"
+            }
           },
           {
-            "download_detour": "direct",
             "format": "binary",
             "tag": "category-ads-all",
             "type": "remote",
-            "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-category-ads-all.srs"
+            "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-category-ads-all.srs",
+            "http_client": {
+              "detour": "direct"
+            }
           },
           {
             "tag": "apple",

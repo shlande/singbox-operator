@@ -5,6 +5,29 @@ import (
 	"testing"
 )
 
+func TestMergeClientConfig_NormalizesDeprecatedTemplateFields(t *testing.T) {
+	template := []byte(`{"dns":{"independent_cache":true},"route":{"rules":[],"rule_set":[{"type":"remote","tag":"set","download_detour":"direct"}]}}`)
+	result, err := MergeClientConfig(template, []any{map[string]any{"type": "direct", "tag": "direct"}}, ClientConfigInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err := json.Unmarshal(result, &config); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := config["dns"].(map[string]any)["independent_cache"]; ok {
+		t.Fatal("independent_cache should be removed")
+	}
+	set := config["route"].(map[string]any)["rule_set"].([]any)[0].(map[string]any)
+	if _, ok := set["download_detour"]; ok {
+		t.Fatal("download_detour should be removed")
+	}
+	client, ok := set["http_client"].(map[string]any)
+	if !ok || client["detour"] != "direct" {
+		t.Fatalf("http_client = %#v, want direct detour", set["http_client"])
+	}
+}
+
 func TestMergeClientConfig_NoHKUsesJPForFinalAndAuto(t *testing.T) {
 	generated := []any{
 		map[string]any{"type": "selector", "tag": "jp", "outbounds": []string{"jp-node"}},

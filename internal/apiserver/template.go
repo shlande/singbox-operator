@@ -19,8 +19,7 @@ var DefaultTemplate = []byte(`{
       {"rule_set": "geosite-cn", "server": "local"}
     ],
     "final": "proxy-dns",
-    "strategy": "ipv4_only",
-    "independent_cache": true
+    "strategy": "ipv4_only"
   },
   "inbounds": [
     {
@@ -56,14 +55,14 @@ var DefaultTemplate = []byte(`{
         "type": "remote",
         "format": "binary",
         "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs",
-        "download_detour": "direct"
+        "http_client": {"detour": "direct"}
       },
       {
         "tag": "category-ads-all",
         "type": "remote",
         "format": "binary",
         "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-category-ads-all.srs",
-        "download_detour": "direct"
+        "http_client": {"detour": "direct"}
       }
     ],
     "final": "direct",
@@ -80,8 +79,41 @@ func MergeOutbounds(templateJSON []byte, generatedOutbounds []any) ([]byte, erro
 	if err := json.Unmarshal(templateJSON, &m); err != nil {
 		return nil, err
 	}
+	normalizeDeprecatedClientConfig(&m)
 	m["outbounds"] = generatedOutbounds
 	return json.Marshal(m)
+}
+
+// normalizeDeprecatedClientConfig migrates template fields removed in sing-box
+// 1.16. Inline HTTP clients preserve each rule-set's old download detour
+// without requiring a new top-level client registry.
+func normalizeDeprecatedClientConfig(config *map[string]any) {
+	m := *config
+	if dns, ok := m["dns"].(map[string]any); ok {
+		delete(dns, "independent_cache")
+	}
+	route, ok := m["route"].(map[string]any)
+	if !ok {
+		return
+	}
+	sets, ok := route["rule_set"].([]any)
+	if !ok {
+		return
+	}
+	for _, raw := range sets {
+		set, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		detour, ok := set["download_detour"].(string)
+		if !ok {
+			continue
+		}
+		if _, hasHTTPClient := set["http_client"]; !hasHTTPClient {
+			set["http_client"] = map[string]any{"detour": detour}
+		}
+		delete(set, "download_detour")
+	}
 }
 
 func isDomesticDirectRule(rule map[string]any) bool {
@@ -114,6 +146,7 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 	if err := json.Unmarshal(templateJSON, &m); err != nil {
 		return nil, err
 	}
+	normalizeDeprecatedClientConfig(&m)
 	route, ok := m["route"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("template route must be an object")
