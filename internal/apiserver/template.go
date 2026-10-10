@@ -3,6 +3,8 @@ package apiserver
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/shlande/singbox-operator/api/v1alpha1"
 )
 
 // DefaultTemplate is the built-in client config template used when no admin template is provided.
@@ -153,7 +155,7 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 	}
 	original, ok := route["rules"].([]any)
 	if !ok {
-		if len(input.EgressPolicies) == 0 {
+		if len(policyRules) == 0 {
 			return MergeOutbounds(templateJSON, generatedOutbounds)
 		}
 		return nil, fmt.Errorf("template route.rules must be an array")
@@ -169,6 +171,11 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 		}
 	}
 	for _, p := range input.EgressPolicies {
+		if p.Spec.Action == v1alpha1.EgressPolicyActionRoute {
+			if _, count := resolveClientPolicyEgress(input, p); count == 0 {
+				continue
+			}
+		}
 		for _, ref := range p.Spec.Match.RuleSet {
 			if !defined[ref] {
 				return nil, fmt.Errorf("policy %s: rule_set %q is not defined in template route.rule_set", p.Name, ref)

@@ -66,6 +66,29 @@ func TestComputeEgressPoliciesSortAndRender(t *testing.T) {
 	}
 }
 
+func TestComputeEgressPolicyMissingTargetSkipsRouteAndFallback(t *testing.T) {
+	for _, resolved := range []string{"", "out"} {
+		t.Run("resolved="+resolved, func(t *testing.T) {
+			p := policy("missing", 1, v1alpha1.EgressPolicyActionRoute, v1alpha1.EgressPolicyMatch{Domain: []string{"example.com"}})
+			p.Status.ResolvedEgress = resolved
+			p.Spec.FallbackAction = v1alpha1.EgressPolicyActionReject
+			input := Input{Node: policyTestNode("in", "us", v1alpha1.ProxyRoleInbound)}
+			baseline, err := Compute(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			input.EgressPolicies = []*v1alpha1.EgressPolicy{p}
+			result, err := Compute(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(result.Config) != string(baseline.Config) {
+				t.Fatalf("inactive policy changed node config: got %s, want %s", result.Config, baseline.Config)
+			}
+		})
+	}
+}
+
 func TestComputeEgressPoliciesTieBreaksByName(t *testing.T) {
 	in := policyTestNode("in", "us-west", v1alpha1.ProxyRoleInbound)
 	policies := []*v1alpha1.EgressPolicy{

@@ -137,7 +137,9 @@ type EgressPolicySpec struct {
 	// IngressSelector selects inbound SingBoxNodes that receive this policy.
 	IngressSelector EgressPolicySelector `json:"ingressSelector"`
 	// EgressSelector selects exactly one outbound SingBoxNode or ExternalOutbound
-	// for a route action. It is ignored for reject actions.
+	// for a route action. If no target matches, the policy is inactive and emits
+	// no routing or fallback rules. Multiple matches are invalid.
+	// It is ignored for reject actions.
 	// +optional
 	EgressSelector EgressPolicySelector `json:"egressSelector,omitempty"`
 	// Match contains destination matching criteria.

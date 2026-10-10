@@ -348,7 +348,8 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 		if !hasRole(node, proxyv1alpha1.ProxyRoleInbound) || !policy.Spec.IngressSelector.Matches(node) {
 			continue
 		}
-		if _, _, message := resolveEgressPolicy(policy, allNodes.Items, allExtOutbounds.Items); message != "" {
+		_, egressName, message := resolveEgressPolicy(policy, allNodes.Items, allExtOutbounds.Items)
+		if message != "" {
 			logger.Info("Skipping invalid EgressPolicy", "policy", policy.Name, "message", message)
 			continue
 		}
@@ -356,10 +357,7 @@ func (r *SingBoxNodeReconciler) collectInput(ctx context.Context, node *proxyv1a
 			input.EgressPolicies = append(input.EgressPolicies, policy)
 			continue
 		}
-		egressName := policy.Status.ResolvedEgress
-		if egressName == "" || (findOutboundNode(allNodes.Items, egressName) == nil && findExternalOutbound(allExtOutbounds.Items, egressName) == nil) {
-			_, egressName, _ = resolveEgressPolicy(policy, allNodes.Items, allExtOutbounds.Items)
-		}
+		// Resolve against current resources, not potentially stale policy status.
 		if egressName == "" {
 			continue
 		}

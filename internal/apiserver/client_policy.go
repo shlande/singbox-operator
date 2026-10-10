@@ -9,7 +9,8 @@ import (
 )
 
 // buildClientPolicies returns policy-only connection paths and native sing-box rules.
-// All route policies share the single ai selector; unavailable paths reject traffic.
+// All active route policies share the single ai selector; unavailable paths reject traffic.
+// Route policies with no matching egress target are inactive and emit no rules.
 func buildClientPolicies(input ClientConfigInput) ([]any, []any, map[string]bool, error) {
 	policies := slices.Clone(input.EgressPolicies)
 	sort.Slice(policies, func(i, j int) bool {
@@ -46,16 +47,9 @@ func buildClientPolicies(input ClientConfigInput) ([]any, []any, map[string]bool
 			rules = append(rules, rule)
 			continue
 		}
-		name, count := "", 0
-		for _, n := range input.OutboundsByName {
-			if spec.EgressSelector.Matches(n) {
-				name, count = n.Name, count+1
-			}
-		}
-		for _, e := range input.ExternalOutboundsByName {
-			if spec.EgressSelector.Matches(e) {
-				name, count = e.Name, count+1
-			}
+		name, count := resolveClientPolicyEgress(input, policy)
+		if count == 0 {
+			continue
 		}
 		if count != 1 {
 			return nil, nil, nil, fmt.Errorf("policy %s: egressSelector matched %d targets, expected exactly one", policy.Name, count)
@@ -69,6 +63,22 @@ func buildClientPolicies(input ClientConfigInput) ([]any, []any, map[string]bool
 		rules = append(rules, rule)
 	}
 	return nil, rules, targets, nil
+}
+
+// resolveClientPolicyEgress counts candidates across both egress resource kinds.
+func resolveClientPolicyEgress(input ClientConfigInput, policy *v1alpha1.EgressPolicy) (string, int) {
+	name, count := "", 0
+	for _, n := range input.OutboundsByName {
+		if policy.Spec.EgressSelector.Matches(n) {
+			name, count = n.Name, count+1
+		}
+	}
+	for _, e := range input.ExternalOutboundsByName {
+		if policy.Spec.EgressSelector.Matches(e) {
+			name, count = e.Name, count+1
+		}
+	}
+	return name, count
 }
 
 func policyMatchRule(match v1alpha1.EgressPolicyMatch) map[string]any {

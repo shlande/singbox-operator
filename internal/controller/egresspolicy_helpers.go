@@ -10,7 +10,8 @@ import (
 // resolveEgressPolicy returns the matching egress candidates, the unique
 // target name (when one exists), and a validation message. It deliberately
 // considers SingBoxNodes and ExternalOutbounds together: an ambiguous selector
-// must never result in an arbitrary generated route.
+// must never result in an arbitrary generated route. No matches means the
+// policy is inactive, not invalid.
 func resolveEgressPolicy(policy *proxyv1alpha1.EgressPolicy, nodes []proxyv1alpha1.SingBoxNode, outbounds []proxyv1alpha1.ExternalOutbound) ([]string, string, string) {
 	if err := policy.Spec.Match.Valid(policy.Spec.FallbackAction != ""); err != nil {
 		return nil, "", err.Error()
@@ -33,6 +34,9 @@ func resolveEgressPolicy(policy *proxyv1alpha1.EgressPolicy, nodes []proxyv1alph
 		if policy.Spec.EgressSelector.Matches(&outbounds[i]) {
 			names = append(names, outbounds[i].Name)
 		}
+	}
+	if len(names) == 0 {
+		return names, "", ""
 	}
 	if len(names) != 1 {
 		return names, "", fmt.Sprintf("egressSelector matched %d egress targets, expected exactly one", len(names))

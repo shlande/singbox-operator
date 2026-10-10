@@ -141,6 +141,9 @@ func validatePolicyResolution(policy *proxyv1alpha1.EgressPolicy, ingressNames, 
 	if policy.Spec.FallbackAction != "" && policy.Spec.FallbackAction != proxyv1alpha1.EgressPolicyActionReject {
 		return "InvalidFallbackAction", fmt.Sprintf("unsupported fallbackAction %q", policy.Spec.FallbackAction)
 	}
+	if policy.Spec.Action == proxyv1alpha1.EgressPolicyActionRoute && len(egressNames) == 0 {
+		return "EgressNotFound", "egressSelector matched no egress targets; policy is inactive"
+	}
 	if policy.Spec.Action == proxyv1alpha1.EgressPolicyActionRoute && len(egressNames) != 1 {
 		return "EgressNotUnique", fmt.Sprintf("egressSelector matched %d egress targets, expected exactly one", len(egressNames))
 	}
@@ -160,9 +163,14 @@ func (r *EgressPolicyReconciler) updateStatus(ctx context.Context, policy *proxy
 	}
 	latest.Status.ObservedGeneration = latest.Generation
 	if reason != "" {
+		degradedStatus := metav1.ConditionTrue
+		if reason == "EgressNotFound" {
+			// An unmatched selector is an inactive policy, not a configuration error.
+			degradedStatus = metav1.ConditionFalse
+		}
 		apimeta.SetStatusCondition(&latest.Status.Conditions, metav1.Condition{
 			Type:               proxyv1alpha1.EgressPolicyDegradedConditionType,
-			Status:             metav1.ConditionTrue,
+			Status:             degradedStatus,
 			Reason:             reason,
 			Message:            message,
 			ObservedGeneration: latest.Generation,
