@@ -216,6 +216,21 @@ is manually re-applied afterwards.
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
+### Client DNS routing
+
+The built-in template and `config/samples/client-template-configmap.yaml` use Cloudflare DoH (`https://1.1.1.1/dns-query`) for domains not explicitly matched by a local DNS rule, including `google.com`. Only `geosite-cn` (and explicit private-domain rules in the sample) uses local DNS. There is no automatic local-DNS fallback on DoH failure.
+
+The `proxy-dns` tag opts a template into managed DNS wiring:
+
+- The operator sets its `detour` to the first available regional selector (`hk`, then `jp`, then `us`). Unlike legacy DNS servers, [modern HTTPS DNS servers](https://sing-box.sagernet.org/configuration/dns/server/https/) dial directly without an explicit detour; `route.final` does not control their exit.
+- Both `dns.final` and `route.default_domain_resolver` use `proxy-dns`. This also prevents direct outbound domain lookups from silently using the local resolver. DNS stays on the selected default regional group even when Clash mode changes; it does not follow the mode.
+- Generated proxy endpoint **hostnames** receive `domain_resolver: local` unless an explicit resolver already exists, avoiding a proxy/DNS bootstrap cycle. IP endpoints require no bootstrap DNS. Prefer IP endpoints if bootstrap hostname pollution is a concern. These [dial-field resolvers](https://sing-box.sagernet.org/configuration/shared/dial/#domain_resolver) resolve the proxy server address, not the destination website.
+- When no regional group exists, DoH connects **directly over TLS** as an availability fallback. It never switches to the system resolver, but the local network can still block that DoH connection. A configured but unreachable proxy does not trigger this fallback.
+
+Existing ConfigMap templates with `proxy-dns` receive the same wiring when subscriptions are regenerated. Custom DNS rules are preserved and may deliberately override the default; audit any broad rules pointing to `local`. Templates without `proxy-dns` are left unchanged. The sample no longer sends a hard-coded Chinese EDNS client subnet to every resolver.
+
+After upgrading the operator, refresh the client subscription, reload sing-box, and clear OS/browser DNS caches. Only DNS handled by sing-box is covered: applications using their own DoH or DNS traffic bypassing TUN/TProxy need separate configuration. These settings do not change server-side DNS resolution.
+
 ### Client policy routing
 
 Client configurations normalize ordinary targets into `hk`, `jp`, and `us` selectors and aggregate routed `EgressPolicy` paths in the `ai` selector. There is no `proxy` or per-policy selector. Clash API exposes exactly `Auto`, `HK`, `JP`, and `US`; `AI` is an outbound selector, never a Clash mode. `Auto` defaults to `hk` when no future automatic region rule matches. Policy targets are excluded from regional groups; unavailable paths reject matching traffic rather than falling back. AI rules are emitted before domestic direct rules and Clash Mode rules, after the template's leading sniff/DNS preprocessing; existing custom rule order is otherwise preserved. A policy `ruleSet` is accepted only when the referenced tag is already defined by the template's `route.rule_set`.

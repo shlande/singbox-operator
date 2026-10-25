@@ -3,8 +3,15 @@ package apiserver
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"net/netip"
 
 	"github.com/shlande/singbox-operator/api/v1alpha1"
+)
+
+const (
+	proxyDNSTag = "proxy-dns"
+	localDNSTag = "local"
 )
 
 // DefaultTemplate is the built-in client config template used when no admin template is provided.
@@ -69,7 +76,7 @@ var DefaultTemplate = []byte(`{
     ],
     "final": "direct",
     "auto_detect_interface": true,
-    "default_domain_resolver": "local"
+    "default_domain_resolver": "proxy-dns"
   },
   "experimental": {"clash_api": {"default_mode": "Auto"}}
 }`)
@@ -155,10 +162,10 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 	}
 	original, ok := route["rules"].([]any)
 	if !ok {
-		if len(policyRules) == 0 {
-			return MergeOutbounds(templateJSON, generatedOutbounds)
+		if len(policyRules) != 0 {
+			return nil, fmt.Errorf("template route.rules must be an array")
 		}
-		return nil, fmt.Errorf("template route.rules must be an array")
+		original = nil
 	}
 	defined := make(map[string]bool)
 	if sets, ok := route["rule_set"].([]any); ok {
@@ -265,17 +272,67 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 		route["final"] = proxySelector
 	}
 
-	if dns, ok := m["dns"].(map[string]any); ok {
-		if servers, ok := dns["servers"].([]any); ok {
-			for _, server := range servers {
-				entry, ok := server.(map[string]any)
-				if ok && entry["tag"] == "proxy-dns" {
-					dns["final"] = "proxy-dns"
-					break
-				}
-			}
+	m["outbounds"] = configureClientDNS(m, route, generatedOutbounds, proxySelector)
+	return json.Marshal(m)
+}
+
+// configureClientDNS treats proxy-dns as the managed resolver. Modern DNS
+// transports dial directly unless detour is explicit; route.final is not enough.
+// Templates without this tag retain complete control of their DNS configuration.
+func configureClientDNS(config, route map[string]any, outbounds []any, proxySelector string) []any {
+	dns, _ := config["dns"].(map[string]any)
+	servers, _ := dns["servers"].([]any)
+	var proxyDNS map[string]any
+	hasLocal := false
+	for _, raw := range servers {
+		server, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if server["tag"] == proxyDNSTag {
+			proxyDNS = server
+		}
+		if server["tag"] == localDNSTag {
+			hasLocal = true
 		}
 	}
-	m["outbounds"] = generatedOutbounds
-	return json.Marshal(m)
+	if proxyDNS == nil {
+		return outbounds
+	}
+	if proxySelector != "" {
+		proxyDNS["detour"] = proxySelector
+	} else {
+		// No regional proxy is available: keep encrypted DNS directly reachable,
+		// rather than retaining a dangling detour or falling back to local DNS.
+		delete(proxyDNS, "detour")
+	}
+	dns["final"] = proxyDNSTag
+	route["default_domain_resolver"] = proxyDNSTag
+
+	// Only proxy endpoint hostnames need local bootstrap resolution. Otherwise
+	// resolving the proxy itself through proxy-dns would depend on that proxy.
+	// Do not mutate the caller's generated outbounds or override explicit resolvers.
+	result := append([]any(nil), outbounds...)
+	for i, raw := range result {
+		outbound, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		server, _ := outbound["server"].(string)
+		if server == "" || outbound["domain_resolver"] != nil {
+			continue
+		}
+		if _, err := netip.ParseAddr(server); err == nil {
+			continue
+		}
+		if !hasLocal {
+			servers = append(servers, map[string]any{"type": "local", "tag": localDNSTag})
+			dns["servers"] = servers
+			hasLocal = true
+		}
+		outbound = maps.Clone(outbound)
+		outbound["domain_resolver"] = localDNSTag
+		result[i] = outbound
+	}
+	return result
 }

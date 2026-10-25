@@ -4,11 +4,13 @@ metadata:
   name: client-template
   namespace: sing-box-operator
 data:
+  # The operator binds proxy-dns.detour to the first available HK/JP/US group.
+  # Without a regional group it uses direct DoH, never a local DNS fallback.
+  # Only proxy endpoint hostnames receive an explicit local bootstrap resolver.
   config.json: |
     {
       "dns": {
         "final": "proxy-dns",
-        "client_subnet": "117.64.0.0/13",
         "rules": [
           {
             "domain": [
@@ -71,8 +73,8 @@ data:
       "outbounds": [],
       "route": {
         "auto_detect_interface": true,
-        "default_domain_resolver": "local",
-        "final": "proxy",
+        "default_domain_resolver": "proxy-dns",
+        "final": "direct",
         "default_mark": 255,
         "rule_set": [
           {
