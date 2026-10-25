@@ -10,9 +10,16 @@ import (
 )
 
 const (
-	proxyDNSTag = "proxy-dns"
-	localDNSTag = "local"
+	proxyDNSTag    = "proxy-dns"
+	localDNSTag    = "local"
+	clientModeAuto = "Auto"
 )
+
+// Keep DNS and business routing modes on the same ordered regional fallback.
+var clientRegionModes = [...]struct {
+	name string
+	tag  string
+}{{"HK", "hk"}, {"JP", "jp"}, {"US", "us"}}
 
 // DefaultTemplate is the built-in client config template used when no admin template is provided.
 // It provides local socks5/http inbounds and basic CN split routing.
@@ -209,26 +216,28 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 	rules := append([]any(nil), original[:insert]...)
 	// Explicit AI policy traffic must precede domestic and user mode rules.
 	rules = append(rules, policyRules...)
+	if clientDNSServer(m, proxyDNSTag) != nil {
+		// Without a server override, resolve uses DNS rules (including Clash mode)
+		// rather than the fixed dial-field default_domain_resolver. Resolve normal
+		// destinations before direct routing; proxy endpoint bootstrap is separate.
+		rules = append(rules, map[string]any{"action": "resolve"})
+	}
 	for _, item := range original[insert:] {
 		if rule, ok := item.(map[string]any); ok && isDomesticDirectRule(rule) {
 			rules = append(rules, rule)
 		}
 	}
 	proxySelector := ""
-	for _, tag := range []string{"hk", "jp", "us"} {
-		if has[tag] {
-			proxySelector = tag
+	for _, mode := range clientRegionModes {
+		if has[mode.tag] {
+			proxySelector = mode.tag
 			break
 		}
 	}
-	modeTags := []struct {
-		name string
-		tag  string
-	}{{"HK", "hk"}, {"JP", "jp"}, {"US", "us"}}
 	if proxySelector != "" {
-		rules = append(rules, map[string]any{"clash_mode": "Auto", "outbound": proxySelector})
+		rules = append(rules, map[string]any{"clash_mode": clientModeAuto, "outbound": proxySelector})
 	}
-	for _, mode := range modeTags {
+	for _, mode := range clientRegionModes {
 		if has[mode.tag] {
 			rules = append(rules, map[string]any{"clash_mode": mode.name, "outbound": mode.tag})
 		}
@@ -267,37 +276,43 @@ func MergeClientConfig(templateJSON []byte, generatedOutbounds []any, input Clie
 	}
 	// Auto and route.final must use the same available regional selector. HK is
 	// preferred, but clusters without HK should still route through JP or US.
-	clash["default_mode"] = "Auto"
+	clash["default_mode"] = clientModeAuto
 	if proxySelector != "" {
 		route["final"] = proxySelector
 	}
 
-	m["outbounds"] = configureClientDNS(m, route, generatedOutbounds, proxySelector)
+	m["outbounds"], err = configureClientDNS(m, route, generatedOutbounds, proxySelector, has)
+	if err != nil {
+		return nil, err
+	}
 	return json.Marshal(m)
+}
+
+func clientDNSServer(config map[string]any, tag string) map[string]any {
+	dns, _ := config["dns"].(map[string]any)
+	servers, _ := dns["servers"].([]any)
+	for _, raw := range servers {
+		if server, ok := raw.(map[string]any); ok && server["tag"] == tag {
+			return server
+		}
+	}
+	return nil
 }
 
 // configureClientDNS treats proxy-dns as the managed resolver. Modern DNS
 // transports dial directly unless detour is explicit; route.final is not enough.
 // Templates without this tag retain complete control of their DNS configuration.
-func configureClientDNS(config, route map[string]any, outbounds []any, proxySelector string) []any {
-	dns, _ := config["dns"].(map[string]any)
-	servers, _ := dns["servers"].([]any)
-	var proxyDNS map[string]any
-	hasLocal := false
-	for _, raw := range servers {
-		server, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		if server["tag"] == proxyDNSTag {
-			proxyDNS = server
-		}
-		if server["tag"] == localDNSTag {
-			hasLocal = true
-		}
-	}
+func configureClientDNS(config, route map[string]any, outbounds []any, proxySelector string, has map[string]bool) ([]any, error) {
+	proxyDNS := clientDNSServer(config, proxyDNSTag)
 	if proxyDNS == nil {
-		return outbounds
+		return outbounds, nil
+	}
+	dns := config["dns"].(map[string]any)
+	servers := dns["servers"].([]any)
+	hasLocal := clientDNSServer(config, localDNSTag) != nil
+	dnsRules, ok := dns["rules"].([]any)
+	if !ok && dns["rules"] != nil {
+		return nil, fmt.Errorf("template dns.rules must be an array")
 	}
 	if proxySelector != "" {
 		proxyDNS["detour"] = proxySelector
@@ -306,6 +321,24 @@ func configureClientDNS(config, route map[string]any, outbounds []any, proxySele
 		// rather than retaining a dangling detour or falling back to local DNS.
 		delete(proxyDNS, "detour")
 	}
+	// Preserve explicit template rules (especially domestic/private exceptions)
+	// ahead of the mode defaults. Each region gets its own transport/cache.
+	for _, mode := range clientRegionModes {
+		if !has[mode.tag] {
+			continue
+		}
+		tag := proxyDNSTag + "-" + mode.tag
+		if clientDNSServer(config, tag) != nil {
+			return nil, fmt.Errorf("template DNS server tag %q is reserved for generated Clash mode DNS", tag)
+		}
+		server := maps.Clone(proxyDNS)
+		server["tag"] = tag
+		server["detour"] = mode.tag
+		servers = append(servers, server)
+		dnsRules = append(dnsRules, map[string]any{"clash_mode": mode.name, "server": tag})
+	}
+	dns["servers"] = servers
+	dns["rules"] = append(dnsRules, map[string]any{"clash_mode": clientModeAuto, "server": proxyDNSTag})
 	dns["final"] = proxyDNSTag
 	route["default_domain_resolver"] = proxyDNSTag
 
@@ -334,5 +367,5 @@ func configureClientDNS(config, route map[string]any, outbounds []any, proxySele
 		outbound["domain_resolver"] = localDNSTag
 		result[i] = outbound
 	}
-	return result
+	return result, nil
 }

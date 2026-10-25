@@ -222,12 +222,20 @@ The built-in template and `config/samples/client-template-configmap.yaml` use Cl
 
 The `proxy-dns` tag opts a template into managed DNS wiring:
 
-- The operator sets its `detour` to the first available regional selector (`hk`, then `jp`, then `us`). Unlike legacy DNS servers, [modern HTTPS DNS servers](https://sing-box.sagernet.org/configuration/dns/server/https/) dial directly without an explicit detour; `route.final` does not control their exit.
-- Both `dns.final` and `route.default_domain_resolver` use `proxy-dns`. This also prevents direct outbound domain lookups from silently using the local resolver. DNS stays on the selected default regional group even when Clash mode changes; it does not follow the mode.
+- `proxy-dns` is the **Auto/fallback** resolver; its `detour` uses the first available regional selector (`hk`, then `jp`, then `us`). For each available region, the operator also creates `proxy-dns-hk`, `proxy-dns-jp`, or `proxy-dns-us` with that selector as its detour. [DNS `clash_mode` rules](https://sing-box.sagernet.org/configuration/dns/rule/) select the matching resolver in `HK`/`JP`/`US` mode. Thus `proxy-dns.detour: hk` alone no longer means all DNS is pinned to HK. Selecting a node within a regional selector also controls that region's DNS connections. Unavailable regional modes are not generated.
+- Explicit template DNS rules run **before** mode defaults, so domestic/private exceptions remain local in every mode. The `proxy-dns-{hk,jp,us}` DNS tags are reserved; a conflicting template tag causes a clear generation error rather than a duplicate tag.
+- Normal domain destinations are resolved through DNS routing (`action: resolve`, without a `server` override) after leading sniff/DNS interception and explicit AI policy rules, but before ordinary business routing. This makes HTTP/SOCKS domain requests and direct destinations obey the DNS mode too, instead of bypassing it through a fixed dial-field resolver. IP destinations are not re-resolved. Explicit AI policy routes retain their existing resolution behavior.
+- `dns.final` and the infrastructure dial-field `route.default_domain_resolver` remain `proxy-dns` as the Auto fallback. Normal destination lookups use the mode-aware resolve step above; internal lookups such as direct rule-set downloads may still use the default region. Unlike legacy DNS servers, [modern HTTPS DNS servers](https://sing-box.sagernet.org/configuration/dns/server/https/) dial directly without an explicit detour; `route.final` does not control their exit.
 - Generated proxy endpoint **hostnames** receive `domain_resolver: local` unless an explicit resolver already exists, avoiding a proxy/DNS bootstrap cycle. IP endpoints require no bootstrap DNS. Prefer IP endpoints if bootstrap hostname pollution is a concern. These [dial-field resolvers](https://sing-box.sagernet.org/configuration/shared/dial/#domain_resolver) resolve the proxy server address, not the destination website.
 - When no regional group exists, DoH connects **directly over TLS** as an availability fallback. It never switches to the system resolver, but the local network can still block that DoH connection. A configured but unreachable proxy does not trigger this fallback.
 
 Existing ConfigMap templates with `proxy-dns` receive the same wiring when subscriptions are regenerated. Custom DNS rules are preserved and may deliberately override the default; audit any broad rules pointing to `local`. Templates without `proxy-dns` are left unchanged. The sample no longer sends a hard-coded Chinese EDNS client subnet to every resolver.
+
+Regional DNS transports have separate caches in sing-box 1.14+. Mode switching has been integration-tested with sing-box 1.14.4 against local DoH/proxy fixtures, including repeated queries for the same domain and direct HTTP destination resolution. OS/browser caches and existing application connections can still outlive a switch; switching nodes within one region can also reuse that region's DNS cache. To run the opt-in integration test:
+
+```sh
+SING_BOX_BINARY=/path/to/sing-box go test ./internal/apiserver -run TestClientDNSRuntime -v
+```
 
 After upgrading the operator, refresh the client subscription, reload sing-box, and clear OS/browser DNS caches. Only DNS handled by sing-box is covered: applications using their own DoH or DNS traffic bypassing TUN/TProxy need separate configuration. These settings do not change server-side DNS resolution.
 

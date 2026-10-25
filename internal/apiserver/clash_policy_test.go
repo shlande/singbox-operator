@@ -32,7 +32,7 @@ func TestAIPolicyIsIndependentOfClashModes(t *testing.T) {
 	if err := json.Unmarshal(merged, &config); err != nil {
 		t.Fatal(err)
 	}
-	var aiIndex, firstModeIndex = -1, -1
+	var aiIndex, resolveIndex, firstModeIndex = -1, -1, -1
 	for i, raw := range config["route"].(map[string]any)["rules"].([]any) {
 		rule := raw.(map[string]any)
 		if rule["outbound"] == "ai" {
@@ -40,6 +40,9 @@ func TestAIPolicyIsIndependentOfClashModes(t *testing.T) {
 			if _, ok := rule["clash_mode"]; ok {
 				t.Fatal("AI policy rule must not have clash_mode")
 			}
+		}
+		if rule["action"] == "resolve" {
+			resolveIndex = i
 		}
 		if _, ok := rule["clash_mode"]; ok && firstModeIndex < 0 {
 			firstModeIndex = i
@@ -50,5 +53,8 @@ func TestAIPolicyIsIndependentOfClashModes(t *testing.T) {
 	}
 	if firstModeIndex < 0 || aiIndex >= firstModeIndex {
 		t.Fatalf("AI rule index %d must precede mode index %d", aiIndex, firstModeIndex)
+	}
+	if resolveIndex <= aiIndex || resolveIndex >= firstModeIndex {
+		t.Fatalf("normal DNS resolution index %d must follow AI policy %d and precede mode %d", resolveIndex, aiIndex, firstModeIndex)
 	}
 }

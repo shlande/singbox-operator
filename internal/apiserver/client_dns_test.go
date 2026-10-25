@@ -98,14 +98,45 @@ func TestClientDNSExit(t *testing.T) {
 				if route["default_domain_resolver"] != proxyDNSTag {
 					t.Errorf("default_domain_resolver = %v, want proxy-dns", route["default_domain_resolver"])
 				}
-				// Preserve only the template's explicit local-domain exceptions;
-				// never add local fallback or mode-wide local DNS rules.
+				// Keep explicit template rules ahead of generated mode defaults;
+				// never add a mode-wide local resolver or a local fallback.
 				var original map[string]any
 				if err := json.Unmarshal(template, &original); err != nil {
 					t.Fatal(err)
 				}
-				if !reflect.DeepEqual(dns["rules"], original["dns"].(map[string]any)["rules"]) {
-					t.Fatalf("DNS rules changed: %v", dns["rules"])
+				originalRules, _ := original["dns"].(map[string]any)["rules"].([]any)
+				rules := dns["rules"].([]any)
+				for i, rule := range originalRules {
+					if !reflect.DeepEqual(rules[i], rule) {
+						t.Fatalf("template DNS rule %d changed: %v", i, rules[i])
+					}
+				}
+				wantModes := map[string]string{clientModeAuto: proxyDNSTag}
+				for _, group := range tc.groups {
+					for _, mode := range clientRegionModes {
+						if group == mode.tag {
+							tag := proxyDNSTag + "-" + group
+							wantModes[mode.name] = tag
+							regional := dnsServerByTag(t, dns, tag)
+							if regional["detour"] != group || regional["type"] != "https" || regional["server"] != "1.1.1.1" {
+								t.Fatalf("wrong regional DoH server: %v", regional)
+							}
+						}
+					}
+				}
+				if len(rules) != len(originalRules)+len(wantModes) {
+					t.Fatalf("unexpected DNS rules: %v", rules)
+				}
+				for _, raw := range rules[len(originalRules):] {
+					rule := raw.(map[string]any)
+					mode, _ := rule["clash_mode"].(string)
+					if wantModes[mode] == "" || rule["server"] != wantModes[mode] {
+						t.Fatalf("unexpected mode DNS rule: %v", rule)
+					}
+					delete(wantModes, mode)
+				}
+				if len(wantModes) != 0 {
+					t.Fatalf("missing DNS modes: %v", wantModes)
 				}
 			})
 		}

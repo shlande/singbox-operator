@@ -4,7 +4,8 @@ metadata:
   name: client-template
   namespace: sing-box-operator
 data:
-  # The operator binds proxy-dns.detour to the first available HK/JP/US group.
+  # The operator generates regional DoH servers/rules following HK/JP/US mode.
+  # proxy-dns is the Auto fallback; explicit local-domain DNS rules stay first.
   # Without a regional group it uses direct DoH, never a local DNS fallback.
   # Only proxy endpoint hostnames receive an explicit local bootstrap resolver.
   config.json: |
