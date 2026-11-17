@@ -85,6 +85,11 @@ type Hysteria2Options struct {
 type ExternalOutboundSpec struct {
 	// Protocol is the outbound protocol the external server speaks.
 	Protocol ExternalOutboundProtocol `json:"protocol"`
+	// Network restricts the enabled traffic network to tcp or udp. Only allowed
+	// for shadowsocks; when omitted, both TCP and UDP are enabled.
+	// +kubebuilder:validation:Enum=tcp;udp
+	// +optional
+	Network string `json:"network,omitempty"`
 	// Server is the IP or hostname of the external proxy server.
 	// +kubebuilder:validation:MinLength=1
 	Server string `json:"server"`

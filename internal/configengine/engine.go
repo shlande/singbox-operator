@@ -888,6 +888,9 @@ func buildExternalOutboundEntry(eob *v1alpha1.ExternalOutbound, creds ExternalCr
 		entry["type"] = "shadowsocks"
 		entry["method"] = creds[v1alpha1.CredKeyMethod]
 		entry["password"] = creds[v1alpha1.CredKeyPassword]
+		if spec.Network != "" {
+			entry["network"] = spec.Network
+		}
 	case v1alpha1.ExternalProtocolTrojan:
 		entry["type"] = "trojan"
 		entry["password"] = creds[v1alpha1.CredKeyPassword]

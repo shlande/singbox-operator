@@ -70,7 +70,7 @@ func (v *ExternalOutboundValidator) ValidateDelete(_ context.Context, obj *singb
 }
 
 // validateExternalOutbound runs the stateless spec coherence checks: TLS rules
-// per protocol, hysteria2 options placement and credentialsSecretRef presence.
+// per protocol, network and hysteria2 options placement, and credentialsSecretRef presence.
 // Cluster-state checks (secret existence, name conflicts) are left to the
 // ExternalOutbound controller.
 func validateExternalOutbound(eob *singboxoperatorv1alpha1.ExternalOutbound) error {
@@ -98,6 +98,18 @@ func validateExternalOutbound(eob *singboxoperatorv1alpha1.ExternalOutbound) err
 			allErrs = append(allErrs, field.Forbidden(
 				specPath.Child("tls"),
 				fmt.Sprintf("tls is not allowed for protocol %q", protocol)))
+		}
+	}
+
+	if eob.Spec.Network != "" {
+		if protocol != singboxoperatorv1alpha1.ExternalProtocolShadowsocks {
+			allErrs = append(allErrs, field.Forbidden(
+				specPath.Child("network"),
+				"network is only allowed when protocol is shadowsocks"))
+		}
+		if eob.Spec.Network != "tcp" && eob.Spec.Network != "udp" {
+			allErrs = append(allErrs, field.NotSupported(
+				specPath.Child("network"), eob.Spec.Network, []string{"tcp", "udp"}))
 		}
 	}
 

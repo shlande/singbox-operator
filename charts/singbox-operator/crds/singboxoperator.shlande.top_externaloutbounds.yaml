@@ -122,6 +122,14 @@ spec:
                     minimum: 0
                     type: integer
                 type: object
+              network:
+                description: |-
+                  Network restricts the enabled traffic network to tcp or udp. Only allowed
+                  for shadowsocks; when omitted, both TCP and UDP are enabled.
+                enum:
+                - tcp
+                - udp
+                type: string
               port:
                 description: Port is the listening port of the external proxy server.
                 format: int32

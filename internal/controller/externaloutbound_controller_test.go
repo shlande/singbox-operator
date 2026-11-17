@@ -121,6 +121,65 @@ var _ = Describe("ExternalOutbound Controller", func() {
 		return cond
 	}
 
+	DescribeTable("shadowsocks network restrictions",
+		func(network string, valid bool) {
+			eob := newExternalOutbound("eob-ss-network", func(eob *singboxoperatorv1alpha1.ExternalOutbound) {
+				eob.Spec.Protocol = singboxoperatorv1alpha1.ExternalProtocolShadowsocks
+				eob.Spec.Network = network
+				eob.Spec.CredentialsSecretRef = secretRef("ss-network-creds")
+			})
+			violation := specViolation(eob)
+			if !valid {
+				Expect(violation).NotTo(BeNil())
+				Expect(violation.reason).To(Equal("InvalidSpec"))
+				Expect(violation.message).To(ContainSubstring("spec.network"))
+				err := k8sClient.Create(ctx, eob)
+				Expect(errors.IsInvalid(err)).To(BeTrue(), "CRD enum must reject invalid network: %v", err)
+				return
+			}
+			Expect(violation).To(BeNil())
+			Expect(k8sClient.Create(ctx, newCredentialSecret("ss-network-creds", map[string][]byte{
+				"method": []byte("aes-256-gcm"), "password": []byte("s3cret"),
+			}))).To(Succeed())
+			Expect(k8sClient.Create(ctx, eob)).To(Succeed())
+			cond := reconcileCondition(eob)
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal("Valid"))
+		},
+		Entry("accepts omitted network", "", true),
+		Entry("accepts TCP-only", "tcp", true),
+		Entry("accepts UDP-only", "udp", true),
+		Entry("rejects both as an explicit value", "both", false),
+		Entry("rejects uppercase TCP", "TCP", false),
+	)
+
+	DescribeTable("rejects network on unsupported protocols",
+		func(protocol singboxoperatorv1alpha1.ExternalOutboundProtocol) {
+			for _, network := range []string{"tcp", "udp"} {
+				eob := newExternalOutbound("eob-unsupported-network", func(eob *singboxoperatorv1alpha1.ExternalOutbound) {
+					eob.Spec.Protocol = protocol
+					eob.Spec.Network = network
+					eob.Spec.CredentialsSecretRef = secretRef("unused-creds")
+					if protocol != singboxoperatorv1alpha1.ExternalProtocolSocks5 && protocol != singboxoperatorv1alpha1.ExternalProtocolHTTP {
+						eob.Spec.TLS = &singboxoperatorv1alpha1.ExternalOutboundTLS{Insecure: true}
+					}
+				})
+				Expect(k8sClient.Create(ctx, eob)).To(Succeed())
+				cond := reconcileCondition(eob)
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				Expect(cond.Reason).To(Equal("InvalidSpec"))
+				Expect(cond.Message).To(ContainSubstring("spec.network"))
+				Expect(k8sClient.Delete(ctx, eob)).To(Succeed())
+			}
+		},
+		Entry("socks5", singboxoperatorv1alpha1.ExternalOutboundProtocol("socks5")),
+		Entry("http", singboxoperatorv1alpha1.ExternalOutboundProtocol("http")),
+		Entry("trojan", singboxoperatorv1alpha1.ExternalOutboundProtocol("trojan")),
+		Entry("hysteria2", singboxoperatorv1alpha1.ExternalOutboundProtocol("hysteria2")),
+		Entry("tuic", singboxoperatorv1alpha1.ExternalOutboundProtocol("tuic")),
+		Entry("anytls", singboxoperatorv1alpha1.ExternalOutboundProtocol("anytls")),
+	)
+
 	DescribeTable("spec coherence checks",
 		func(name string, mutate func(*singboxoperatorv1alpha1.ExternalOutbound), expectedStatus metav1.ConditionStatus, expectedReason string) {
 			eob := newExternalOutbound(name, mutate)

@@ -44,6 +44,30 @@ spec:
 
 In this example, only `us-west-inbound-a` and `us-west-inbound-b` may use this node as their outbound. All other inbound nodes — even in the same region — are blocked.
 
+### ExternalOutbound network restriction
+
+For a TCP-only external Shadowsocks server (for example, KDDI), set `spec.network: tcp`
+on its `ExternalOutbound`. Use `udp` for UDP-only traffic, or omit `network` to keep
+sing-box's default of enabling both TCP and UDP. This field is only supported for
+`spec.protocol: shadowsocks`; other protocols reject a non-empty `network`.
+It does not change the client's inbound transport (such as Hysteria2 over UDP).
+
+```yaml
+apiVersion: singboxoperator.shlande.top/v1alpha1
+kind: ExternalOutbound
+metadata:
+  name: kddi-shadowsocks
+spec:
+  protocol: shadowsocks
+  network: tcp
+  server: ss.example.com
+  port: 8388
+  credentialsSecretRef:
+    name: kddi-shadowsocks-cred # Secret with method and password keys
+```
+
+See the [sing-box Shadowsocks outbound documentation](https://sing-box.sagernet.org/configuration/outbound/shadowsocks/).
+
 ### EgressPolicy
 
 `EgressPolicy` applies ordered sing-box route rules to all inbound nodes selected by `spec.ingressSelector`. Selectors use Kubernetes label-selector semantics and support `matchNames` as an additional exact-name constraint. A `route` action must select exactly one outbound `SingBoxNode` or `ExternalOutbound`; zero or multiple matches set the policy `Degraded` and do not generate a route. `reject` does not need an egress selector.

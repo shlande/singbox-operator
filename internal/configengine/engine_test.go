@@ -2583,6 +2583,57 @@ func outboundByTag(t *testing.T, cfg map[string]any, tag string) map[string]any 
 	return nil
 }
 
+func TestConfigEngine_ExternalOutboundShadowsocksNetwork(t *testing.T) {
+	for _, path := range []string{"auto-discovery", "custom-route", "policy-only"} {
+		for _, network := range []string{"", "tcp", "udp"} {
+			t.Run(path+"/network="+network, func(t *testing.T) {
+				eob := makeExternalOutbound("ext-ss", v1alpha1.ExternalProtocolShadowsocks, "10.1.1.3", 8388)
+				eob.Spec.Network = network
+				input := configengine.Input{
+					Node: makeNode("node-a", "1.2.3.4", "us-west",
+						[]v1alpha1.ProxyRole{v1alpha1.ProxyRoleInbound},
+						[]v1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}}, 10808),
+					ExternalOutboundsByName: map[string]*v1alpha1.ExternalOutbound{eob.Name: eob},
+					ExternalCreds: map[string]configengine.ExternalCredential{
+						eob.Name: {"method": "aes-256-gcm", "password": "s3cret"},
+					},
+				}
+				switch path {
+				case "auto-discovery":
+					input.ExternalOutbounds = []*v1alpha1.ExternalOutbound{eob}
+				case "custom-route":
+					route := makeRoute("ss-route", input.Node.Name, eob.Name)
+					route.Spec.OutboundKind = v1alpha1.OutboundKindExternalOutbound
+					input.Routes = []*v1alpha1.CustomRoute{route}
+				case "policy-only":
+					input.EgressPolicies = []*v1alpha1.EgressPolicy{{
+						Spec: v1alpha1.EgressPolicySpec{
+							Action:         v1alpha1.EgressPolicyActionRoute,
+							EgressSelector: v1alpha1.EgressPolicySelector{MatchNames: []string{eob.Name}},
+							Match:          v1alpha1.EgressPolicyMatch{Domain: []string{"example.com"}},
+						},
+					}}
+				}
+				out, err := configengine.Compute(input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ob := outboundByTag(t, parseConfig(t, out), "outbound-"+eob.Name)
+				if ob == nil || ob["type"] != "shadowsocks" {
+					t.Fatalf("missing shadowsocks outbound: %v", ob)
+				}
+				if network == "" {
+					if _, present := ob["network"]; present {
+						t.Errorf("omitted network must preserve sing-box default, got %v", ob["network"])
+					}
+				} else if ob["network"] != network {
+					t.Errorf("network = %v, want %q", ob["network"], network)
+				}
+			})
+		}
+	}
+}
+
 func TestConfigEngine_ExternalOutboundProtocols(t *testing.T) {
 	cases := []struct {
 		name   string

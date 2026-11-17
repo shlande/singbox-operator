@@ -128,8 +128,8 @@ type externalOutboundViolation struct {
 }
 
 // specViolation runs the stateless spec coherence checks shared with the
-// validating webhook: TLS rules per protocol, hysteria2 options placement and
-// credentialsSecretRef presence.
+// validating webhook: TLS rules per protocol, network and hysteria2 options
+// placement, and credentialsSecretRef presence.
 func specViolation(eob *proxyv1alpha1.ExternalOutbound) *externalOutboundViolation {
 	protocol := string(eob.Spec.Protocol)
 
@@ -148,6 +148,15 @@ func specViolation(eob *proxyv1alpha1.ExternalOutbound) *externalOutboundViolati
 		proxyv1alpha1.ExternalProtocolShadowsocks:
 		if eob.Spec.TLS != nil {
 			return &externalOutboundViolation{"InvalidSpec", fmt.Sprintf("spec.tls is not allowed for protocol %q", protocol)}
+		}
+	}
+
+	if eob.Spec.Network != "" {
+		if protocol != proxyv1alpha1.ExternalProtocolShadowsocks {
+			return &externalOutboundViolation{"InvalidSpec", "spec.network is only allowed when spec.protocol is shadowsocks"}
+		}
+		if eob.Spec.Network != "tcp" && eob.Spec.Network != "udp" {
+			return &externalOutboundViolation{"InvalidSpec", "spec.network must be tcp or udp"}
 		}
 	}
 

@@ -56,6 +56,42 @@ var _ = Describe("ExternalOutbound Webhook", func() {
 	})
 
 	Context("When creating or updating ExternalOutbound under Validating Webhook", func() {
+		DescribeTable("network restrictions on create and update",
+			func(protocol singboxoperatorv1alpha1.ExternalOutboundProtocol) {
+				for _, network := range []string{"", "tcp", "udp", "both", "TCP"} {
+					obj = newExternalOutbound(func(eob *singboxoperatorv1alpha1.ExternalOutbound) {
+						eob.Spec.Protocol = protocol
+						eob.Spec.Network = network
+						eob.Spec.CredentialsSecretRef = &corev1.LocalObjectReference{Name: "creds"}
+						if protocol != singboxoperatorv1alpha1.ExternalProtocolSocks5 &&
+							protocol != singboxoperatorv1alpha1.ExternalProtocolHTTP &&
+							protocol != singboxoperatorv1alpha1.ExternalProtocolShadowsocks {
+							eob.Spec.TLS = &singboxoperatorv1alpha1.ExternalOutboundTLS{Insecure: true}
+						}
+					})
+					valid := network == "" || (protocol == singboxoperatorv1alpha1.ExternalProtocolShadowsocks &&
+						(network == "tcp" || network == "udp"))
+					_, createErr := validator.ValidateCreate(ctx, obj)
+					_, updateErr := validator.ValidateUpdate(ctx, oldObj, obj)
+					for _, err := range []error{createErr, updateErr} {
+						if valid {
+							Expect(err).NotTo(HaveOccurred(), "protocol=%s network=%q", protocol, network)
+						} else {
+							Expect(err).To(HaveOccurred(), "protocol=%s network=%q", protocol, network)
+							Expect(err.Error()).To(ContainSubstring("spec.network"))
+						}
+					}
+				}
+			},
+			Entry("shadowsocks", singboxoperatorv1alpha1.ExternalOutboundProtocol("shadowsocks")),
+			Entry("socks5", singboxoperatorv1alpha1.ExternalOutboundProtocol("socks5")),
+			Entry("http", singboxoperatorv1alpha1.ExternalOutboundProtocol("http")),
+			Entry("trojan", singboxoperatorv1alpha1.ExternalOutboundProtocol("trojan")),
+			Entry("hysteria2", singboxoperatorv1alpha1.ExternalOutboundProtocol("hysteria2")),
+			Entry("tuic", singboxoperatorv1alpha1.ExternalOutboundProtocol("tuic")),
+			Entry("anytls", singboxoperatorv1alpha1.ExternalOutboundProtocol("anytls")),
+		)
+
 		DescribeTable("stateless spec validation",
 			func(mutate func(*singboxoperatorv1alpha1.ExternalOutbound), expectValid bool) {
 				obj = newExternalOutbound(mutate)
