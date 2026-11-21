@@ -64,15 +64,12 @@ func findExternalOutbound(outbounds []proxyv1alpha1.ExternalOutbound, name strin
 
 // egressConnectedToInbound reports whether an egress target can actually be
 // reached from the current inbound. EgressPolicy selectors may match targets
-// in any region, but a policy must not add a cross-region outbound to a node's
-// config when the normal region/allowlist connection rules exclude it.
+// in any region, while still respecting AllowedInbounds / AllowedOutbounds
+// allowlist bindings.
 func egressConnectedToInbound(inbound *proxyv1alpha1.SingBoxNode, name string, nodes []proxyv1alpha1.SingBoxNode, outbounds []proxyv1alpha1.ExternalOutbound) bool {
 	if target := findOutboundNode(nodes, name); target != nil {
 		if target.Name == inbound.Name {
 			return hasRole(inbound, proxyv1alpha1.ProxyRoleOutbound)
-		}
-		if target.Spec.Region != inbound.Spec.Region {
-			return false
 		}
 		if len(target.Spec.AllowedInbounds) > 0 && !slices.Contains(target.Spec.AllowedInbounds, inbound.Name) {
 			return false
@@ -83,9 +80,6 @@ func egressConnectedToInbound(inbound *proxyv1alpha1.SingBoxNode, name string, n
 		return true
 	}
 	if target := findExternalOutbound(outbounds, name); target != nil {
-		if target.Spec.Region == "" || target.Spec.Region != inbound.Spec.Region {
-			return false
-		}
 		if len(target.Spec.AllowedInbounds) > 0 && !slices.Contains(target.Spec.AllowedInbounds, inbound.Name) {
 			return false
 		}

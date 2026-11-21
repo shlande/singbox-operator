@@ -7,6 +7,91 @@ import (
 	"testing"
 )
 
+func TestBuildClientConfig_EgressPolicyCrossRegionExternalUsesInboundEndpoint(t *testing.T) {
+	inbound := makeInboundNode("gcp-hk", "hk", "192.0.2.10", []proxyv1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}})
+	inbound.Status.EntryEndpoints = []string{"vless:192.0.2.10:10443"}
+	egress := makeExternalOutbound("kddi", "jp")
+	egress.Spec.ClientGroups = []string{"ai"}
+	policy := &proxyv1alpha1.EgressPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "route-kddi", Namespace: "default"},
+		Spec: proxyv1alpha1.EgressPolicySpec{
+			IngressSelector: proxyv1alpha1.EgressPolicySelector{MatchNames: []string{"gcp-hk"}},
+			EgressSelector:  proxyv1alpha1.EgressPolicySelector{MatchNames: []string{"kddi"}},
+			Match:           proxyv1alpha1.EgressPolicyMatch{DomainSuffix: []string{"example.com"}},
+			Action:          proxyv1alpha1.EgressPolicyActionRoute,
+		},
+	}
+
+	result, err := BuildClientConfig(ClientConfigInput{
+		User:                    makeUser("u", "s"),
+		UserCred:                credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		InboundNodes:            []*proxyv1alpha1.SingBoxNode{inbound},
+		ExternalOutboundsByName: map[string]*proxyv1alpha1.ExternalOutbound{"kddi": egress},
+		EgressPolicies:          []*proxyv1alpha1.EgressPolicy{policy},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !collectTags(result)["kddi#gcp-hk"] {
+		t.Fatalf("missing cross-region policy path, tags: %v", collectTags(result))
+	}
+	if got := selectorGroupOutbounds(result, "ai"); len(got) != 1 || got[0] != "kddi#gcp-hk" {
+		t.Fatalf("ai selector = %v, want [kddi#gcp-hk]", got)
+	}
+	for _, raw := range result {
+		ob, ok := raw.(map[string]any)
+		if !ok || ob["tag"] != "kddi#gcp-hk" {
+			continue
+		}
+		if ob["server"] != "192.0.2.10" || ob["server_port"] != 10443 {
+			t.Fatalf("policy path must use inbound endpoint, got server=%v port=%v", ob["server"], ob["server_port"])
+		}
+		if ob["server"] == egress.Spec.Server || ob["server_port"] == egress.Spec.Port {
+			t.Fatalf("external server endpoint leaked into client path: %v", ob)
+		}
+	}
+}
+
+func TestBuildClientConfig_EgressPolicyIngressSelectorScopesPath(t *testing.T) {
+	matching := makeInboundNode("gcp-hk", "hk", "192.0.2.10", []proxyv1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}})
+	matching.Status.EntryEndpoints = []string{"vless:192.0.2.10:10443"}
+	nonMatching := makeInboundNode("gcp-us", "us", "192.0.2.11", []proxyv1alpha1.ProtocolConfig{{Protocol: "vless", Port: 10443}})
+	nonMatching.Status.EntryEndpoints = []string{"vless:192.0.2.11:10443"}
+	egress := makeExternalOutbound("kddi", "jp")
+	egress.Spec.ClientGroups = []string{"ai"}
+	policy := &proxyv1alpha1.EgressPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "route-kddi", Namespace: "default"},
+		Spec: proxyv1alpha1.EgressPolicySpec{
+			IngressSelector: proxyv1alpha1.EgressPolicySelector{MatchNames: []string{"gcp-hk"}},
+			EgressSelector:  proxyv1alpha1.EgressPolicySelector{MatchNames: []string{"kddi"}},
+			Match:           proxyv1alpha1.EgressPolicyMatch{DomainSuffix: []string{"example.com"}},
+			Action:          proxyv1alpha1.EgressPolicyActionRoute,
+		},
+	}
+
+	result, err := BuildClientConfig(ClientConfigInput{
+		User:                    makeUser("u", "s"),
+		UserCred:                credmanager.UserCredential{UUID: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		InboundNodes:            []*proxyv1alpha1.SingBoxNode{matching, nonMatching},
+		ExternalOutboundsByName: map[string]*proxyv1alpha1.ExternalOutbound{"kddi": egress},
+		EgressPolicies:          []*proxyv1alpha1.EgressPolicy{policy},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tags := collectTags(result)
+	if !tags["kddi#gcp-hk"] {
+		t.Fatal("matching ingress must receive the policy path")
+	}
+	if tags["kddi#gcp-us"] {
+		t.Fatal("non-matching ingress must not receive the policy path")
+	}
+	if got := selectorGroupOutbounds(result, "ai"); len(got) != 1 || got[0] != "kddi#gcp-hk" {
+		t.Fatalf("ai selector = %v, want only matching ingress path", got)
+	}
+}
+
 func TestBuildClientConfigPolicyIsolationAndNativeMatch(t *testing.T) {
 	in := makeInboundNode("in", "us", "1.2.3.4", []proxyv1alpha1.ProtocolConfig{{Protocol: "vless", Port: 443}})
 	in.Status.EntryEndpoints = []string{"vless:1.2.3.4:443"}

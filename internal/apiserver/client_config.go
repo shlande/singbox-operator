@@ -203,6 +203,8 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 	seen := make(map[string]bool)
 	var refs []outboundRef
 
+	policyTargets := egressPolicyTargets(input, inboundNode)
+
 	if inboundNode != nil {
 		for _, n := range input.OutboundsByName {
 			// Peers without a relay port produce no outbound entry in node
@@ -231,6 +233,35 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 		// an outbound SingBoxNode always wins over an ExternalOutbound.
 		for _, eob := range input.ExternalOutboundsByName {
 			if eob.Spec.Region != "" && eob.Spec.Region == inboundNode.Spec.Region && !seen[eob.Name] && (!input.PolicyOnlyEgressNames[eob.Name] || targetHasClientGroup(input, eob.Name, "ai")) &&
+				input.OutboundsByName[eob.Name] == nil &&
+				configengine.IsNodeAllowed(eob.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
+				(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
+				(len(inboundNode.Spec.AllowedOutbounds) == 0 || slices.Contains(inboundNode.Spec.AllowedOutbounds, eob.Name)) {
+				seen[eob.Name] = true
+				refs = append(refs, outboundRef{Name: eob.Name, AllowedInbounds: eob.Spec.AllowedInbounds, ClientGroups: eob.Spec.ClientGroups})
+			}
+		}
+
+		// A route EgressPolicy is an explicit path for its selected ingress,
+		// including when the target is in another region. The client still
+		// connects to this inbound endpoint; the policy target only supplies
+		// the path name and credentials.
+		for targetName := range policyTargets {
+			if !targetHasClientGroup(input, targetName, "ai") || seen[targetName] {
+				continue
+			}
+			if n, ok := input.OutboundsByName[targetName]; ok {
+				if n.Spec.RelayPort == 0 || input.OfflineNodeNames[n.Name] ||
+					!configengine.IsNodeAllowed(n.Name, input.AllowedNodeNames, input.DeniedNodeNames) ||
+					(len(n.Spec.AllowedInbounds) > 0 && !slices.Contains(n.Spec.AllowedInbounds, inboundName)) ||
+					(len(inboundNode.Spec.AllowedOutbounds) > 0 && !slices.Contains(inboundNode.Spec.AllowedOutbounds, n.Name)) {
+					continue
+				}
+				seen[n.Name] = true
+				refs = append(refs, outboundRef{Name: n.Name, AllowedInbounds: n.Spec.AllowedInbounds, ClientGroups: n.Spec.ClientGroups})
+				continue
+			}
+			if eob, ok := input.ExternalOutboundsByName[targetName]; ok &&
 				input.OutboundsByName[eob.Name] == nil &&
 				configengine.IsNodeAllowed(eob.Name, input.AllowedNodeNames, input.DeniedNodeNames) &&
 				(len(eob.Spec.AllowedInbounds) == 0 || slices.Contains(eob.Spec.AllowedInbounds, inboundName)) &&
@@ -268,6 +299,26 @@ func resolveOutboundNodes(input ClientConfigInput, inboundName string) []outboun
 		return refs[i].Name < refs[j].Name
 	})
 	return refs
+}
+
+// egressPolicyTargets returns uniquely resolved route-policy targets. When
+// inbound is non-nil, only policies whose ingress selector matches that
+// inbound are included.
+func egressPolicyTargets(input ClientConfigInput, inbound *v1alpha1.SingBoxNode) map[string]bool {
+	targets := make(map[string]bool)
+	for _, policy := range input.EgressPolicies {
+		if policy == nil || policy.Spec.Action != v1alpha1.EgressPolicyActionRoute {
+			continue
+		}
+		if inbound != nil && !policy.Spec.IngressSelector.Matches(inbound) {
+			continue
+		}
+		name, count := resolveClientPolicyEgress(input, policy)
+		if count == 1 {
+			targets[name] = true
+		}
+	}
+	return targets
 }
 
 func hasOutboundRole(node *v1alpha1.SingBoxNode) bool {
