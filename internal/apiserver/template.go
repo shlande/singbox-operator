@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	proxyDNSTag    = "proxy-dns"
-	localDNSTag    = "local"
-	clientModeAuto = "Auto"
+	proxyDNSTag             = "proxy-dns"
+	localDNSTag             = "local"
+	clientModeAuto          = "Auto"
+	defaultDirectHTTPClient = "direct-http"
 )
 
 // Keep DNS and business routing modes on the same ordered regional fallback.
@@ -56,6 +57,9 @@ var DefaultTemplate = []byte(`{
     {"type": "socks", "tag": "socks-in", "listen": "127.0.0.1", "listen_port": 7890},
     {"type": "http", "tag": "http-in", "listen": "127.0.0.1", "listen_port": 7891}
   ],
+  "http_clients": [
+    {"tag": "direct-http"}
+  ],
   "outbounds": [],
   "route": {
     "rules": [
@@ -71,14 +75,14 @@ var DefaultTemplate = []byte(`{
         "type": "remote",
         "format": "binary",
         "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs",
-        "http_client": {"detour": "direct"}
+        "http_client": "direct-http"
       },
       {
         "tag": "category-ads-all",
         "type": "remote",
         "format": "binary",
         "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-category-ads-all.srs",
-        "http_client": {"detour": "direct"}
+        "http_client": "direct-http"
       }
     ],
     "final": "direct",
@@ -100,13 +104,21 @@ func MergeOutbounds(templateJSON []byte, generatedOutbounds []any) ([]byte, erro
 	return json.Marshal(m)
 }
 
-// normalizeDeprecatedClientConfig migrates template fields removed in sing-box
-// 1.16. Inline HTTP clients preserve each rule-set's old download detour
-// without requiring a new top-level client registry.
+// normalizeDeprecatedClientConfig migrates template fields deprecated or removed
+// in sing-box 1.14+ and ensures direct rule-set HTTP clients dial directly via
+// a tag in top-level http_clients instead of detouring to an empty direct
+// outbound (which sing-box rejects as "detour to an empty direct outbound makes no sense").
 func normalizeDeprecatedClientConfig(config *map[string]any) {
 	m := *config
 	if dns, ok := m["dns"].(map[string]any); ok {
 		delete(dns, "independent_cache")
+	}
+	if clients, ok := m["http_clients"].([]any); ok {
+		for _, raw := range clients {
+			if client, ok := raw.(map[string]any); ok && client["detour"] == "direct" {
+				delete(client, "detour")
+			}
+		}
 	}
 	route, ok := m["route"].(map[string]any)
 	if !ok {
@@ -121,14 +133,59 @@ func normalizeDeprecatedClientConfig(config *map[string]any) {
 		if !ok {
 			continue
 		}
-		detour, ok := set["download_detour"].(string)
+		if detour, ok := set["download_detour"].(string); ok {
+			if _, hasHTTPClient := set["http_client"]; !hasHTTPClient && detour != "" {
+				if detour == "direct" {
+					set["http_client"] = ensureDirectHTTPClientTag(m)
+				} else {
+					set["http_client"] = map[string]any{"detour": detour}
+				}
+			}
+			delete(set, "download_detour")
+		}
+		if client, ok := set["http_client"].(map[string]any); ok && client["detour"] == "direct" {
+			delete(client, "detour")
+			if len(client) == 0 {
+				set["http_client"] = ensureDirectHTTPClientTag(m)
+			}
+		}
+	}
+}
+
+func ensureDirectHTTPClientTag(config map[string]any) string {
+	clients, _ := config["http_clients"].([]any)
+	used := make(map[string]bool, len(clients))
+	reusable := ""
+	for _, raw := range clients {
+		client, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
-		if _, hasHTTPClient := set["http_client"]; !hasHTTPClient {
-			set["http_client"] = map[string]any{"detour": detour}
+		tag, _ := client["tag"].(string)
+		if tag == "" {
+			continue
 		}
-		delete(set, "download_detour")
+		used[tag] = true
+		if len(client) == 1 && (reusable == "" || tag == defaultDirectHTTPClient) {
+			reusable = tag
+		}
+	}
+	if reusable == defaultDirectHTTPClient {
+		return defaultDirectHTTPClient
+	}
+	if !used[defaultDirectHTTPClient] {
+		config["http_clients"] = append(clients, map[string]any{"tag": defaultDirectHTTPClient})
+		return defaultDirectHTTPClient
+	}
+	if reusable != "" {
+		return reusable
+	}
+	for i := 1; ; i++ {
+		candidate := fmt.Sprintf("%s-%d", defaultDirectHTTPClient, i)
+		if !used[candidate] {
+			config["http_clients"] = append(clients, map[string]any{"tag": candidate})
+			return candidate
+		}
 	}
 }
 

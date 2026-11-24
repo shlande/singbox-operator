@@ -71,6 +71,11 @@ data:
       "log": {
         "level": "info"
       },
+      "http_clients": [
+        {
+          "tag": "direct-http"
+        }
+      ],
       "outbounds": [],
       "route": {
         "auto_detect_interface": true,
@@ -83,25 +88,21 @@ data:
             "tag": "geosite-cn",
             "type": "remote",
             "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs",
-            "http_client": {
-              "detour": "direct"
-            }
+            "http_client": "direct-http"
           },
           {
             "format": "binary",
             "tag": "category-ads-all",
             "type": "remote",
             "url": "https://fastly.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-category-ads-all.srs",
-            "http_client": {
-              "detour": "direct"
-            }
+            "http_client": "direct-http"
           },
           {
             "tag": "apple",
             "type": "inline",
             "rules": [
               {
-                "domain:": [
+                "domain": [
                   "apple.comscoreresearch.com"
                 ],
                 "domain_suffix": [
@@ -124,7 +125,7 @@ data:
                   "me.com",
                   "mzstatic.com"
                 ],
-                "ip_cider": [
+                "ip_cidr": [
                   "17.0.0.0/8",
                   "63.92.224.0/19",
                   "65.199.22.0/23",
