@@ -45,7 +45,6 @@ var DefaultTemplate = []byte(`{
       "address": "172.19.0.1/30",
       "auto_route": true,
       "strict_route": true,
-      "stack": "gvisor",
       "platform": {
         "http_proxy": {
           "enabled": true,
@@ -112,6 +111,13 @@ func normalizeDeprecatedClientConfig(config *map[string]any) {
 	m := *config
 	if dns, ok := m["dns"].(map[string]any); ok {
 		delete(dns, "independent_cache")
+	}
+	if inbounds, ok := m["inbounds"].([]any); ok {
+		for _, raw := range inbounds {
+			if inbound, ok := raw.(map[string]any); ok && inbound["type"] == "tun" {
+				delete(inbound, "stack")
+			}
+		}
 	}
 	if clients, ok := m["http_clients"].([]any); ok {
 		for _, raw := range clients {

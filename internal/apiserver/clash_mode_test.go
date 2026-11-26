@@ -6,7 +6,7 @@ import (
 )
 
 func TestMergeClientConfig_NormalizesDeprecatedTemplateFields(t *testing.T) {
-	template := []byte(`{"dns":{"independent_cache":true},"route":{"rules":[],"rule_set":[{"type":"remote","tag":"set","download_detour":"direct"},{"type":"remote","tag":"inline-direct","http_client":{"detour":"direct"}},{"type":"remote","tag":"proxy-set","download_detour":"hk"}]}}`)
+	template := []byte(`{"dns":{"independent_cache":true},"inbounds":[{"type":"tun","tag":"tun-in","stack":"gvisor"}],"route":{"rules":[],"rule_set":[{"type":"remote","tag":"set","download_detour":"direct"},{"type":"remote","tag":"inline-direct","http_client":{"detour":"direct"}},{"type":"remote","tag":"proxy-set","download_detour":"hk"}]}}`)
 	result, err := MergeClientConfig(template, []any{map[string]any{"type": "direct", "tag": "direct"}}, ClientConfigInput{})
 	if err != nil {
 		t.Fatal(err)
@@ -17,6 +17,10 @@ func TestMergeClientConfig_NormalizesDeprecatedTemplateFields(t *testing.T) {
 	}
 	if _, ok := config["dns"].(map[string]any)["independent_cache"]; ok {
 		t.Fatal("independent_cache should be removed")
+	}
+	tunInbound := config["inbounds"].([]any)[0].(map[string]any)
+	if _, ok := tunInbound["stack"]; ok {
+		t.Fatalf("tun stack should be removed for sing-box 1.15+, got %#v", tunInbound)
 	}
 	clients, ok := config["http_clients"].([]any)
 	if !ok || len(clients) != 1 {
@@ -131,6 +135,14 @@ func TestMergeClientConfig_NormalizesDirectHTTPClientEdgeCases(t *testing.T) {
 				tag, ok := set["http_client"].(string)
 				if !ok || !defined[tag] {
 					t.Fatalf("%s: remote rule_set %v http_client = %#v, want defined tag in %v", name, set["tag"], set["http_client"], defined)
+				}
+			}
+			for _, raw := range config["inbounds"].([]any) {
+				inbound := raw.(map[string]any)
+				if inbound["type"] == "tun" {
+					if _, hasStack := inbound["stack"]; hasStack {
+						t.Fatalf("%s: tun inbound must not specify deprecated stack: %#v", name, inbound)
+					}
 				}
 			}
 		}
